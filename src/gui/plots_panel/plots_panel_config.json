@@ -1,0 +1,112 @@
+{
+    "n_rows": 8,
+    "n_cols": 8,
+    "plots": [
+        {
+            "uid": 0,
+            "coordinates": [
+                0,
+                0
+            ],
+            "span": [
+                3,
+                8
+            ],
+            "configured": true
+        }
+    ],
+    "plots_settings": {
+        "0": {
+            "plot_uid": "TimePlotMultichannel",
+            "preprocessing_settings": {
+                "frequency-filter": {
+                    "apply": true,
+                    "type": "highpass",
+                    "cutoff-freq": [
+                        1
+                    ],
+                    "order": 5
+                },
+                "notch-filter": {
+                    "apply": true,
+                    "freq": 50,
+                    "bandwidth": [
+                        -0.5,
+                        0.5
+                    ],
+                    "order": 5
+                }
+            },
+            "visualization_settings": {
+                "seconds_displayed": 5,
+                "subsample_factor": 2,
+                "scaling": {
+                    "apply_autoscale": true,
+                    "n_std_tolerance_autoscale": 1.25,
+                    "std_factor_separation_autoscale": 5,
+                    "initial_channel_separation": 150
+                },
+                "title": "<b>TimePlotMultichannel</b>",
+                "x_axis_label": [
+                    "<b>Time</b>",
+                    "s"
+                ],
+                "y_axis_label": [
+                    "<b>Signal</b>",
+                    "V"
+                ]
+            },
+            "lsl_stream_info": {
+                "lsl_name": "Signal_generator",
+                "lsl_type": "EEG",
+                "lsl_n_cha": 4,
+                "lsl_cha_format": 1,
+                "lsl_uid": "f44974f6-4e90-463c-a23c-bfbe74488e7b",
+                "lsl_source_id": "Signal_generator_EEG_4_250.0_float32",
+                "fs": 250.0,
+                "hostname": "SMEAGOL",
+                "lsl_stream_info_xml": "<?xml version=\"1.0\"?>\n<info>\n\t<name>Signal_generator</name>\n\t<type>EEG</type>\n\t<channel_count>4</channel_count>\n\t<channel_format>float32</channel_format>\n\t<source_id>Signal_generator_EEG_4_250.0_float32</source_id>\n\t<nominal_srate>250.0000000000000</nominal_srate>\n\t<version>1.100000000000000</version>\n\t<created_at>64508.96065810000</created_at>\n\t<uid>f44974f6-4e90-463c-a23c-bfbe74488e7b</uid>\n\t<session_id>default</session_id>\n\t<hostname>SMEAGOL</hostname>\n\t<v4address />\n\t<v4data_port>16572</v4data_port>\n\t<v4service_port>16572</v4service_port>\n\t<v6address />\n\t<v6data_port>16572</v6data_port>\n\t<v6service_port>16572</v6service_port>\n\t<desc>\n\t\t<channels>\n\t\t\t<channel>\n\t\t\t\t<label>FZ</label>\n\t\t\t\t<units>uV</units>\n\t\t\t\t<type>EEG</type>\n\t\t\t</channel>\n\t\t\t<channel>\n\t\t\t\t<label>CZ</label>\n\t\t\t\t<units>uV</units>\n\t\t\t\t<type>EEG</type>\n\t\t\t</channel>\n\t\t\t<channel>\n\t\t\t\t<label>PZ</label>\n\t\t\t\t<units>uV</units>\n\t\t\t\t<type>EEG</type>\n\t\t\t</channel>\n\t\t\t<channel>\n\t\t\t\t<label>OZ</label>\n\t\t\t\t<units>uV</units>\n\t\t\t\t<type>EEG</type>\n\t\t\t</channel>\n\t\t</channels>\n\t</desc>\n</info>\n",
+                "medusa_params_initialized": true,
+                "medusa_uid": "Signal_generator",
+                "medusa_type": "EEG",
+                "desc_channels_field": "channels",
+                "channel_label_field": "label",
+                "selected_channels_idx": [
+                    0,
+                    1,
+                    2,
+                    3
+                ],
+                "n_cha": 4,
+                "info_cha": [
+                    {
+                        "label": "FZ",
+                        "units": "uV",
+                        "type": "EEG"
+                    },
+                    {
+                        "label": "CZ",
+                        "units": "uV",
+                        "type": "EEG"
+                    },
+                    {
+                        "label": "PZ",
+                        "units": "uV",
+                        "type": "EEG"
+                    },
+                    {
+                        "label": "OZ",
+                        "units": "uV",
+                        "type": "EEG"
+                    }
+                ],
+                "l_cha": [
+                    "FZ",
+                    "CZ",
+                    "PZ",
+                    "OZ"
+                ]
+            }
+        }
+    }
+}

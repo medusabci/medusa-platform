@@ -1,0 +1,153 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>MainWindow</class>
+ <widget class="QMainWindow" name="MainWindow">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>1037</width>
+    <height>728</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>MainWindow</string>
+  </property>
+  <widget class="QWidget" name="centralwidget">
+   <layout class="QVBoxLayout" name="verticalLayout_3">
+    <item>
+     <widget class="QSplitter" name="splitter">
+      <property name="orientation">
+       <enum>Qt::Horizontal</enum>
+      </property>
+      <widget class="QWidget" name="widget_left_side" native="true">
+       <layout class="QVBoxLayout" name="verticalLayout">
+        <item>
+         <widget class="QSplitter" name="splitter_2">
+          <property name="orientation">
+           <enum>Qt::Vertical</enum>
+          </property>
+          <widget class="QGroupBox" name="box_apps_panel">
+           <property name="title">
+            <string>APPLICATIONS</string>
+           </property>
+           <layout class="QVBoxLayout" name="verticalLayout_2"/>
+          </widget>
+          <widget class="QGroupBox" name="box_log_panel">
+           <property name="title">
+            <string>LOG </string>
+           </property>
+           <layout class="QVBoxLayout" name="verticalLayout_8"/>
+          </widget>
+         </widget>
+        </item>
+       </layout>
+      </widget>
+      <widget class="QWidget" name="widget_right_side" native="true">
+       <layout class="QVBoxLayout" name="verticalLayout_5">
+        <item>
+         <widget class="QGroupBox" name="box_plots_panel">
+          <property name="title">
+           <string>REAL TIME PLOTS</string>
+          </property>
+          <layout class="QVBoxLayout" name="verticalLayout_9"/>
+         </widget>
+        </item>
+       </layout>
+      </widget>
+     </widget>
+    </item>
+   </layout>
+  </widget>
+  <widget class="QStatusBar" name="statusbar"/>
+  <widget class="QToolBar" name="toolBar">
+   <property name="windowTitle">
+    <string>toolBar</string>
+   </property>
+   <property name="floatable">
+    <bool>true</bool>
+   </property>
+   <attribute name="toolBarArea">
+    <enum>TopToolBarArea</enum>
+   </attribute>
+   <attribute name="toolBarBreak">
+    <bool>false</bool>
+   </attribute>
+  </widget>
+  <widget class="QMenuBar" name="menuBar">
+   <property name="geometry">
+    <rect>
+     <x>0</x>
+     <y>0</y>
+     <width>1037</width>
+     <height>21</height>
+    </rect>
+   </property>
+   <widget class="QMenu" name="menuInfo_2">
+    <property name="title">
+     <string>Info</string>
+    </property>
+   </widget>
+   <widget class="QMenu" name="menuPreferences">
+    <property name="title">
+     <string>Preferences</string>
+    </property>
+    <addaction name="actionView"/>
+   </widget>
+   <addaction name="menuPreferences"/>
+   <addaction name="menuInfo_2"/>
+  </widget>
+  <action name="actionReal_time_VEP">
+   <property name="text">
+    <string>Real-time VEP</string>
+   </property>
+  </action>
+  <action name="actionERP_Visualizer">
+   <property name="text">
+    <string>ERP Visualizer</string>
+   </property>
+  </action>
+  <action name="actionFile_Converter">
+   <property name="text">
+    <string>File Converter</string>
+   </property>
+  </action>
+  <action name="actionReal_time_P300">
+   <property name="text">
+    <string>Real-time P300</string>
+   </property>
+  </action>
+  <action name="action_erp_model_trainer">
+   <property name="text">
+    <string>ERP Model Trainer</string>
+   </property>
+  </action>
+  <action name="action_mi_model_trainer">
+   <property name="text">
+    <string>MI Model Trainer</string>
+   </property>
+  </action>
+  <action name="actionMI_Visualizer">
+   <property name="text">
+    <string>MI Visualizer</string>
+   </property>
+  </action>
+  <action name="actionBasal_Recording">
+   <property name="text">
+    <string>Basal Recording</string>
+   </property>
+  </action>
+  <action name="actionFile_Visualizer">
+   <property name="text">
+    <string>File visualizer</string>
+   </property>
+  </action>
+  <action name="actionView">
+   <property name="text">
+    <string>View</string>
+   </property>
+  </action>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>

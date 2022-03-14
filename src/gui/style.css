@@ -1,0 +1,675 @@
+/* =============================================================================
+This css sheet contains the style of Medusa Qt elements. Index:
+    1.  GENERAL STYLE
+         1.1 General
+         1.2 QComboBox
+         1.3 QSpinBox
+         1.4 QPushButton
+         1.5 QToolBox
+         1.6 QMenuBar
+         1.7 QScrollBar
+         1.8 QTabWidget
+         1.9 QListWidget
+         1.10 QToolButton
+         1.11 QToolAction
+    2.  APPLICATIONS WIDGET
+    3.  LOG WIDGET
+    4.  PLOTS WIDGET
+    5.  MODEL TRAINERS
+    6.  SAVE RECORDING DIALOG
+    7.  LSL CONFIG WINDOW
+    8.  NOTIFICATIONS
+    9.  DASHBOARD DESIGN
+    10. APPS PANEL
+    11. USER PROFILE
+============================================================================= */
+
+
+/* =============================================================================
+1. GENERAL STYLE
+
+General style of medusa to apply by default in all the GUIs. Use @ to apply the
+color theme.
+============================================================================= */
+
+/* 1.1 General elements ----------------------------------------------------- */
+
+QMainWindow {
+    background-color: @THEME_BG_LIGHT;
+}
+QWidget{
+    background-color: @THEME_BG_LIGHT;
+}
+QMessageBox {
+    background-color: @THEME_BG_DARK;
+    color: @THEME_TEXT_LIGHT;
+}
+QCheckBox{
+    color: @THEME_TEXT_LIGHT;
+}
+QTextBrowser {
+    background-color: @THEME_BG_DARK;
+    color: @THEME_TEXT_LIGHT;
+    border: none;
+}
+QTextEdit {
+    color: @THEME_TEXT_LIGHT;
+    font-size: 10pt;
+    font-family: Lucida Console, monospace;
+}
+QGroupBox{
+    color: @THEME_TEXT_LIGHT;
+    font-weight: bold;
+    background: @THEME_BG_MID;
+    border: 1px solid @THEME_TEXT_DARK;
+    border-radius: 3px;
+    margin-top:20;
+}
+QGroupBox::title {
+    subcontrol-origin: margin;
+    bottom: -2;
+}
+QStatusBar{
+    color: @THEME_TEXT_LIGHT;
+}
+QGraphicsView{
+    border: none;
+    background: transparent;    /* CUIDAO */
+}
+QListView{
+    background: transparent;
+    border: none;
+}
+QListWidget::indicator:checked {
+    background: @THEME_TEXT_ACCENT;
+    font-weight: bold;
+}
+QSplitter::handle {
+    background: @THEME_TEXT_DARK;
+    margin-right: 5;
+    margin-left: 5;
+}
+QToolBar{
+    border-top: 1 solid @THEME_TEXT_DARK;
+    border-bottom: 1 solid @THEME_TEXT_DARK;
+    min-height:20px;
+}
+QLabel{
+    background: transparent;
+    color: @THEME_TEXT_LIGHT;
+}
+QLabel#face_image{
+    border: none;
+    border-radius: none;
+}
+
+QRadioButton{
+    color: @THEME_TEXT_LIGHT;
+}
+
+QLineEdit{
+    background-color: @THEME_TEXT_LIGHT;
+    color: black;
+    border: none;
+    font-family: Lucida Console, monospace;
+}
+QLineEdit:disabled{
+    background-color: @THEME_TEXT_DARK;
+    color: @THEME_TEXT_LIGHT;
+    border: none;
+}
+QPlainTextEdit{
+    background-color: @THEME_TEXT_LIGHT;
+    color: black;
+    border: none;
+    font-family: Lucida Console, monospace;
+}
+QPlainTextEdit:disabled{
+    background-color: @THEME_TEXT_DARK;
+    color: @THEME_TEXT_LIGHT;
+    border: none;
+}
+/* 1.2 QTComboBox ----------------------------------------------------------- */
+
+QComboBox {
+	border: 0px @THEME_TEXT_LIGHT;
+	background: @THEME_TEXT_LIGHT;
+	color: @THEME_BG_MID;
+	min-width: 6em;
+	min-height: 1.5em;
+}
+QComboBox::drop-down {
+	subcontrol-origin: padding;
+	subcontrol-position: top right;
+	width: 20px;
+	border-top-right-radius: 0px;
+	border-bottom-right-radius: 0px;
+	min-height: 1.5em;
+}
+QComboBox::down-arrow {
+    image: url(images/icons/down_arrow_bg_mid_shift.png);
+}
+QComboBox::down-arrow:on { /* shift the arrow when popup is open */
+    image: url(images/icons/down_arrow_bg_mid.png);
+}
+QComboBox#function_list::down-arrow,
+#comboBox_p_spatial_method::down-arrow,
+#comboBox_p_freq_method::down-arrow,
+#comboBox_p_freq_type::down-arrow,
+#comboBox_p_notch_method::down-arrow,
+#comboBox_f_method::down-arrow,
+#comboBox_s_method::down-arrow,#comboBox_c_method::down-arrow,
+#comboBox_c_rlda_solver::down-arrow{
+    image: url(../../gui/images/icons/down_arrow_bg_mid_shift.png);
+}
+QComboBox#function_list::down-arrow:on,
+#comboBox_p_spatial_method::down-arrow:on,
+#comboBox_p_freq_method::down-arrow:on,
+#comboBox_p_freq_type::down-arrow:on,
+#comboBox_p_notch_method::down-arrow:on,
+#comboBox_f_method::down-arrow:on,
+#comboBox_s_method::down-arrow:on,
+#comboBox_c_method::down-arrow:on,
+#comboBox_c_rlda_solver::down-arrow:on{
+    image: url(../../gui/images/icons/down_arrow_bg_mid.png);
+}
+QComboBox QAbstractItemView{
+	background-color: @THEME_BG_MID;
+	color: @THEME_TEXT_LIGHT;
+	selection-background-color: @THEME_BG_MID;
+	selection-color: @THEME_TEXT_ACCENT;
+	selection-border: 0px solid white;
+    min-height: 1.5em;
+}
+
+/* 1.3 QTSpinBox ------------------------------------------------------------ */
+
+QSpinBox, QDoubleSpinBox{
+    background: @THEME_TEXT_LIGHT;
+	color: @THEME_BG_MID;
+}
+QSpinBox::up-arrow:on, QDoubleSpinBox::up-arrow:on{
+    image: url(../../gui/images/icons/small_arrow_up.png);
+}
+QSpinBox::down-arrow:on, QDoubleSpinBox::down-arrow:on{
+    image: url(../../gui/images/icons/small_arrow_down.png);
+}
+QDoubleSpinBox::up-button, QDoubleSpinBox::up-button:pressed,
+QDoubleSpinBox::down-button, QDoubleSpinBox::down-button:pressed{
+    background-color: @THEME_TEXT_LIGHT;
+}
+QSpinBox {
+    padding-right: 15px; /* make room for the arrows */
+    background: @THEME_TEXT_LIGHT;
+	color: @THEME_BG_MID;
+}
+
+QSpinBox::up-button {
+    subcontrol-origin: border;
+    subcontrol-position: top right; /* position at the top right corner */
+
+    width: 16px; /* 16 + 2*1px border-width = 15px padding + 3px parent border */
+    border-width: 1px;
+}
+
+QSpinBox::up-arrow {
+    image: url(images/icons/up_arrow_bg_mid.png);
+    width: 7px;
+    height: 7px;
+}
+
+QSpinBox::down-button {
+    subcontrol-origin: border;
+    subcontrol-position: bottom right; /* position at bottom right corner */
+
+    width: 16px;
+    border-width: 1px;
+    border-top-width: 0;
+}
+
+QSpinBox::down-arrow {
+    image: url(images/icons/down_arrow_bg_mid.png);
+    width: 7px;
+    height: 7px;
+}
+
+QSpinBox::down-arrow:disabled,
+QSpinBox::down-arrow:off { /* off state when value in min */
+   image: url(images/icons/down_arrow_disabled.png);
+}
+
+/* 1.4 QPushButton ---------------------------------------------------------- */
+
+QPushButton {
+    color: @THEME_TEXT_LIGHT;
+    border: 1px solid @THEME_TEXT_DARK;
+    border-radius: 2px;
+    font-weight: bold;
+    padding: 5px;
+    background-color: qlineargradient(
+                        x1: 0, y1: 0, x2: 0, y2: 1,
+                        stop: 0 @THEME_BG_EXTRALIGHT,
+                        stop: 1 @THEME_BG_LIGHT);
+    min-width: 80px;
+}
+QPushButton#btn_done, QPushButton#pushButton_train{
+    background-color: qlineargradient(
+        x1: 0, y1: 0, x2: 0, y2: 1,
+        stop: 0 @THEME_MAIN_BUTTON_LIGHT,
+        stop: 1 @THEME_MAIN_BUTTON_MID);
+}
+QPushButton#btn_done:pressed, QPushButton#pushButton_train:pressed{
+    background-color: qlineargradient(
+        x1: 0, y1: 0, x2: 0, y2: 1,
+        stop: 0 @THEME_MAIN_BUTTON_MID,
+        stop: 1 @THEME_MAIN_BUTTON_DARK);
+}
+QPushButton:hover{
+    border: 2px solid @THEME_TEXT_ACCENT;
+}
+QPushButton:pressed {
+    background-color: qlineargradient(
+       x1: 0, y1: 0, x2: 0, y2: 1,
+       stop: 0 @THEME_BG_LIGHT, stop: 1 @THEME_BG_MID);
+}
+QPushButton:disabled{
+    color: @THEME_TEXT_DARK;
+}
+
+/* 1.5 QToolBox ------------------------------------------------------------- */
+
+QToolBox::tab{
+    color: @THEME_TEXT_LIGHT;
+    background: @THEME_BG_MID;
+    border: 1 solid @THEME_BG_LIGHT;
+    border-top-left-radius: 3px;
+    border-top-right-radius: 3px;
+}
+QToolBox::tab::selected{
+    background: @THEME_BG_SELECTED;
+    border-bottom: 3 solid @THEME_BG_LIGHT;
+    border-bottom-color: @THEME_TEXT_ACCENT;
+    font-weight: bold;
+}
+QToolBox{
+    background: transparent;
+}
+QToolBox::frame{
+    background: transparent;
+}
+QToolBox > QScrollArea > QWidget > QWidget{
+    background: @THEME_BG_MID;
+}
+
+
+/* 1.6 QMenuBar ------------------------------------------------------------- */
+
+QMenuBar {
+    background: transparent;
+    color: @THEME_TEXT_LIGHT;
+    border-bottom: 1 solid @THEME_BG_DARK;
+}
+QMenuBar::item {
+    spacing: 8px; /* spacing between menu bar items */
+    padding: 3 8 3 8;
+    background: transparent;
+}
+QMenuBar::item:selected { /* when selected using mouse or keyboard */
+    background: transparent;
+}
+QMenuBar::item:pressed {
+    background: @THEME_MENU_SELECTED;
+}
+
+QMenu {
+    color: @THEME_TEXT_LIGHT;
+    background-color: @THEME_BG_LIGHT; /* sets background of the menu */
+    border: 1 solid @THEME_BG_EXTRALIGHT;
+}
+
+QMenu::item {
+    /* sets background of menu item. set this to something non-transparent
+        if you want menu color and menu item color to be different */
+    background-color: transparent;
+}
+
+QMenu::item:selected { /* when user selects item using mouse or keyboard */
+    background-color: @THEME_MENU_SELECTED;
+}
+
+/* 1.7 QScrollBar ----------------------------------------------------------- */
+
+QScrollBar:vertical {
+    background: none;
+    border: none;
+    background-color: @THEME_BG_DARK;
+    width: 10;
+}
+QScrollBar::handle:vertical {
+    background: @THEME_TEXT_DARK;
+    min-height: 10px;
+}
+QScrollBar::add-line:vertical {
+     background: none;
+     width: 0px;
+     height: 0 px;
+}
+QScrollBar::sub-line:vertical {
+     background: none;
+     width: 0px;
+     height: 0 px;
+}
+QScrollBar::add-page:vertical{
+    background-color: transparent;
+}
+QScrollBar::sub-page:vertical{
+    background-color: transparent;
+}
+
+QScrollBar:horizontal {
+    background: none;
+    border: none;
+    background-color: @THEME_BG_DARK;
+    height: 10;
+}
+QScrollBar::handle:horizontal {
+    background: @THEME_TEXT_DARK;
+    min-width: 10px;
+}
+QScrollBar::add-line:horizontal {
+     background: none;
+     height: 0px;
+     width: 0 px;
+}
+QScrollBar::sub-line:horizontal {
+     background: none;
+     width: 0px;
+     height: 0 px;
+}
+QScrollBar::add-page:horizontal{
+    background-color: transparent;
+}
+QScrollBar::sub-page:horizontal{
+    background-color: transparent;
+}
+
+/* 1.8 QTabWidget ----------------------------------------------------------- */
+
+QTabWidget::pane { /* The tab widget frame */
+    background-color: green;
+}
+QTabBar::tab {
+    background: @THEME_BG_LIGHT;
+    color: @THEME_TEXT_LIGHT;
+    min-width: 8ex;
+    padding: 3 10 3 10;
+    border-bottom: 3 solid @THEME_BG_LIGHT;
+}
+QTabBar::tab:selected {
+    background: @THEME_BG_SELECTED;
+    border-color: @THEME_TEXT_ACCENT;
+}
+QTabBar::tab:!selected { /* If not selected*/ }
+
+
+/* 1.9 QListWidget ---------------------------------------------------------- */
+
+QListWidget{
+    margin: 0px;
+    border: none;
+    show-decoration-selected: 0;
+    outline: 0;
+}
+QListWidget::item {
+    color: @THEME_TEXT_LIGHT;
+    padding-left: 5px;
+    padding-right: 5px;
+    border: none;
+    show-decoration-selected: 0;
+}
+QListWidget::item:selected {
+    background-color: @THEME_MENU_SELECTED;
+    show-decoration-selected: 0;
+    border: none;
+}
+
+/* 1.10 QToolBox ------------------------------------------------------------ */
+
+QToolButton{
+    background-color: transparent;
+    color: @THEME_TEXT_LIGHT;
+    font-weight: bold;
+}
+
+QToolButton:hover{
+    border: 2px solid @THEME_TEXT_ACCENT;
+}
+
+.main-toolbar-button{
+    height: 15px;
+}
+
+/* =============================================================================
+2. APPLICATIONS WIDGET
+
+Style of apps widget.
+============================================================================= */
+QToolButton#toolButton_app_search{
+    background-color: @THEME_BG_MID;
+    margin: 0;
+    border: 0;
+}
+
+QLineEdit#lineEdit_app_search{
+    background-color: @THEME_BG_SELECTED;
+    border: 0;
+    border-radius: 5px;
+    border-bottom-right-radius: 0;
+    border-top-right-radius: 0;
+    color: @THEME_TEXT_LIGHT;
+    margin: 0;
+    padding: 2px;
+}
+
+QListWidget#listWidget_app{
+    background-color: @THEME_BG_DARK;
+    padding: 5px;
+}
+
+/* =============================================================================
+3. LOG WIDGET
+
+Style of plots widget.
+============================================================================= */
+
+QTextBrowser#textBrowser_log {
+    background-color: @THEME_TEXT_LIGHT;
+    color: @THEME_BG_DARK;
+    font-family: Lucida Console, monospace;
+}
+
+/* =============================================================================
+4. PLOTS WIDGET
+
+Style of plots widget.
+============================================================================= */
+
+/*QGroupBox#box_plot{*/
+/*    background-color: @THEME_BG_MID;*/
+/*}*/
+
+#gridLayout_plots{
+    background-color: @THEME_BG_DARK;
+}
+
+#label_empty_dashboard{
+    background-color: @THEME_BG_DARK;
+}
+/* =============================================================================
+5. MODEL TRAINERS
+
+Style of model trainers.
+============================================================================= */
+QListWidget#listWidget_files{
+    margin: 0px;
+    border: none;
+    show-decoration-selected: 0;
+    outline: 0;
+}
+
+QListWidget#listWidget_files::item {
+    color: @THEME_BG_DARK;
+    padding-left: 5px;
+    padding-right: 5px;
+    border: none;
+    show-decoration-selected: 0;
+}
+QListWidget#listWidget_files::item:selected {
+    color: @THEME_TEXT_LIGHT;
+    background-color: @THEME_MENU_SELECTED;
+    show-decoration-selected: 0;
+    border: none;
+}
+QListView#listWidget_files{
+    background-color: @THEME_TEXT_LIGHT;
+    color: @THEME_BG_DARK;
+    font-weight: normal;
+}
+
+/* ============================================================================
+6. SAVE RECORDING DIALOG
+
+Style of the save recording dialog.
+============================================================================= */
+
+QLineEdit[class='file_dialog'] {
+    color: @THEME_TEXT_LIGHT;
+    background-color: @THEME_BG_DARK;
+    font-size: 12px;
+}
+
+QTextEdit[class='file_dialog'] {
+    color: @THEME_TEXT_LIGHT;
+    background-color: @THEME_BG_DARK;
+    border: 0;
+    font-size: 12px;
+}
+
+QToolButton[class='file_dialog']{
+    color: @THEME_TEXT_LIGHT;
+    background-color: @THEME_BG_DARK;
+    border: 0;
+    font-size: 12px;
+}
+
+/* ============================================================================
+7. LSL CONFIG WINDOW
+
+Style of the lsl config window.
+============================================================================= */
+
+QListWidget#listWidget_available_streams{
+    background-color: @THEME_BG_DARK;
+    padding: 5px;
+}
+
+QListWidget#listWidget_working_streams{
+    background-color: @THEME_BG_DARK;
+    padding: 5px;
+}
+
+QListWidget#listWidget_available_streams::item{
+    font-size: 50pt;
+}
+
+/* ============================================================================
+8. NOTIFICATIONS
+
+Style of notifications.
+============================================================================= */
+QLabel#notification{
+    color: @THEME_TEXT_LIGHT;
+    background-color: @THEME_BG_MID;
+    border: 1px solid @THEME_BG_MID;
+    margin-right: 10px;
+    margin-left: 10px;
+    margin-bottom: 5px;
+    padding-right: 20px;
+    padding-left: 20px;
+    border-radius: 15px;
+}
+
+/* ============================================================================
+9. DASHBOARD DESIGN WINDOW
+
+Style of dashboard design window.
+============================================================================= */
+.grid-cell {
+    background-color: @THEME_BG_DARK;
+    margin: 0px;
+}
+
+.plot-frame{
+    background-color: @THEME_BG_SELECTED;
+    margin: 0px;
+}
+
+
+/* ============================================================================
+10. APPS PANEL
+
+Style of the apps panel
+============================================================================= */
+
+#apps-panel-widget{
+    background-color: @THEME_BG_DARK;
+    margin: 0px;
+    padding:0px;
+}
+
+.app-widget{
+    background-color: @THEME_BG_DARK;
+    margin: 0px;
+
+}
+
+.app-widget:hover
+{
+    background-color: @THEME_BG_MID;
+}
+
+.app-widget:focus
+{
+    background-color: @THEME_MENU_SELECTED;
+}
+
+/* ----------------------------- TABLES ------------------------------------- */
+QTableView {
+    color: @THEME_TEXT_LIGHT;
+    selection-background-color: @THEME_MENU_SELECTED;
+}
+QHeaderView::section {
+    color: @THEME_TEXT_EXTRA_DARK;
+    background-color: @THEME_TEXT_LIGHT;
+    border: 0px solid #6c6c6c;
+}
+
+/* ============================================================================
+11. USER PROFILE
+
+Style of the apps panel
+============================================================================= */
+
+#login-label-title{
+    font-size: 22px;
+    font-weight: bold;
+}
+
+.login-entry{
+    min-height: 35px;
+}
+
+#login-forgot-password{
+    color: @THEME_TEXT_ACCENT;
+    text-align: right;
+}
