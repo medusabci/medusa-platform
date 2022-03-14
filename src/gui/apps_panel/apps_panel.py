@@ -5,6 +5,7 @@ import importlib
 import glob
 import time
 import warnings
+import os
 # EXTERNAL MODULES
 from PyQt5 import uic
 from PyQt5.QtWidgets import *
@@ -37,8 +38,7 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
         self.current_app_key = None
         # Get installed apps
         self.apps_dict = None
-        with open(constants.APPS_FILE, 'r') as f:
-            self.apps_dict = json.load(f)
+        self.get_apps_dict()
         # Set scroll area
         self.apps_panel_grid_widget = AppsPanelGridWidget(
             min_app_widget_width=110, theme_colors=theme_colors)
@@ -62,6 +62,13 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
                 origin='apps_panel/apps_panel/handle_exception')
         # Notify exception to gui main
         self.medusa_interface.error(ex)
+
+    def get_apps_dict(self):
+        if os.path.isfile(constants.APPS_FILE):
+            with open(constants.APPS_FILE, 'r') as f:
+                self.apps_dict = json.load(f)
+        else:
+            self.apps_dict = {}
 
     def wait_until_app_closed(self, interval=0.1, timeout=1):
         success = True
@@ -115,6 +122,7 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
                               constants.IMG_FOLDER)
             config_icon = QIcon("%s/icons/gear.png" % constants.IMG_FOLDER)
             search_icon = QIcon("%s/icons/search.png" % constants.IMG_FOLDER)
+            install_icon = QIcon("%s/icons/plus.png" % constants.IMG_FOLDER)
 
             # Set icons in buttons
             self.toolButton_app_power.setIcon(power_icon)
@@ -122,6 +130,11 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
             self.toolButton_app_stop.setIcon(stop_icon)
             self.toolButton_app_config.setIcon(config_icon)
             self.toolButton_app_search.setIcon(search_icon)
+            self.toolButton_app_install.setIcon(install_icon)
+
+            self.toolButton_app_power.setToolTip('Start app run')
+            self.toolButton_app_config.setToolTip('Config app run')
+            self.toolButton_app_install.setToolTip('Install new app')
 
             # Set button states
             self.toolButton_app_power.setDisabled(False)
@@ -142,6 +155,7 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
             self.toolButton_app_stop.clicked.connect(self.app_stop)
             self.toolButton_app_config.clicked.connect(self.app_config)
             self.lineEdit_app_search.textChanged.connect(self.app_search)
+            self.toolButton_app_install.clicked.connect(self.install_new_app)
         except Exception as e:
             self.handle_exception(e)
 
@@ -293,10 +307,12 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
     def app_search(self):
         try:
             curr_text = self.lineEdit_app_search.text()
-            print(curr_text)
             self.apps_panel_grid_widget.find_app(curr_text)
         except Exception as e:
             self.handle_exception(e)
+
+    def install_new_app(self):
+        print('Hola')
 
 
 class AppsPanelGridWidget(QWidget):
@@ -448,12 +464,22 @@ class AppWidget(QFrame):
         # gui_utils.modify_property(self, "background-color", '#00a05f')
         self.setLayout(self.main_layout)
 
+    class AppMenu(QMenu):
+
+        def __init__(self, event_pos):
+            super().__init__()
+            self.addAction('Open app web')
+            self.addAction('Uninstall')
+            self.exec_(event_pos)
+
     def get_icon_path(self):
         return 'apps/%s/icon.png' % self.app_key
 
     def mousePressEvent(self, event):
         if event.button() == Qt.LeftButton:
             self.select()
+        elif event.button() == Qt.RightButton:
+            menu = self.AppMenu(event.globalPos())
 
     def select(self):
         self.app_widget_selected.emit(self.app_key)

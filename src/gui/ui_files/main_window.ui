@@ -80,12 +80,12 @@
      <x>0</x>
      <y>0</y>
      <width>1037</width>
-     <height>21</height>
+     <height>22</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuInfo_2">
     <property name="title">
-     <string>Info</string>
+     <string>About</string>
     </property>
    </widget>
    <widget class="QMenu" name="menuPreferences">
