@@ -1110,7 +1110,7 @@ class PlotsPanelConfigDialog(QDialog, ui_plots_panel_config):
         try:
             if not self.config.are_all_plots_configured():
                 raise ValueError('All plots must be configured!')
-            self.config.save(constants.PLOTS_PANEL_CONFIG_FILE)
+            self.config.save(constants.PLOTS_CONFIG_FILE)
             super().accept()
         except Exception as e:
             self.exception_handler(e)

@@ -37,7 +37,7 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
         self.current_app_key = None
         # Get installed apps
         self.apps_dict = None
-        with open(constants.APPS_FILE, 'r') as f:
+        with open(constants.APPS_CONFIG_FILE, 'r') as f:
             self.apps_dict = json.load(f)
         # Set scroll area
         self.apps_panel_grid_widget = AppsPanelGridWidget(
@@ -187,7 +187,7 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
                 ser_lsl_streams = [lsl_str.to_serializable_obj() for
                                    lsl_str in self.working_lsl_streams]
                 # Get app extension
-                with open('apps.json', 'r') as f:
+                with open(constants.APPS_CONFIG_FILE, 'r') as f:
                     apps_dict = json.load(f)
                 ext = apps_dict[current_app_key]['extension']
                 # Get app manager

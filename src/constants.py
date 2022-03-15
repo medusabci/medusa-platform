@@ -8,7 +8,7 @@ MEDUSA_VERSION: str
 
 LSL_CONFIG_FILE: str
     Default path for the LSL config file to use on Medusa start
-PLOTS_PANEL_CONFIG_FILE
+PLOTS_CONFIG_FILE
     Default path for the plots dashboard config file to use on Medusa start
 
 PLOT_STATE_OFF: int
@@ -45,9 +45,10 @@ MEDUSA_VERSION = '2.0.0'
 
 # =============================== DEFAULT PATHS ============================== #
 # Config files
-LSL_CONFIG_FILE = 'gui/lsl_config/lsl_config.json'
-PLOTS_PANEL_CONFIG_FILE = 'gui/plots_panel/plots_panel_config.json'
-APPS_FILE = 'apps.json'
+LSL_CONFIG_FILE = 'lsl_config.json'
+PLOTS_CONFIG_FILE = 'plots_config.json'
+LOG_CONFIG_FILE = 'log_config.json'
+APPS_CONFIG_FILE = 'apps_config.json'
 # Images folder
 IMG_FOLDER = 'gui/images'
 STYLE_FILE = 'gui/style.css'

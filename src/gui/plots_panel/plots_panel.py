@@ -34,9 +34,9 @@ class PlotsPanelWidget(QWidget, ui_plots_panel_widget):
         self.set_up_tool_bar_plot()
         # Initial configuration
         self.plots_panel_config = None
-        if os.path.isfile(constants.PLOTS_PANEL_CONFIG_FILE):
+        if os.path.isfile(constants.PLOTS_CONFIG_FILE):
             try:
-                with open(constants.PLOTS_PANEL_CONFIG_FILE, 'r') as f:
+                with open(constants.PLOTS_CONFIG_FILE, 'r') as f:
                     self.plots_panel_config = json.load(f)
                 self.update_plots_panel()
             except json.decoder.JSONDecodeError as e:
