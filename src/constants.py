@@ -41,7 +41,7 @@ RUN_STATE_FINISHED: int
 
 """
 # ============================== MEDUSA VERSION ============================== #
-MEDUSA_VERSION = '2.0.0'
+MEDUSA_VERSION = 'v2022.0'
 
 # =============================== DEFAULT PATHS ============================== #
 # Config files

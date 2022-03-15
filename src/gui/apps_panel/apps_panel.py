@@ -6,6 +6,10 @@ import glob
 import time
 import warnings
 import os
+import zipfile
+import tempfile
+import shutil
+from datetime import datetime
 # EXTERNAL MODULES
 from PyQt5 import uic
 from PyQt5.QtWidgets import *
@@ -13,6 +17,7 @@ from PyQt5.QtCore import *
 from PyQt5.QtGui import *
 # MEDUSA MODULES
 from gui import gui_utils
+from gui.qt_widgets import dialogs
 import constants, exceptions
 
 
@@ -21,6 +26,8 @@ ui_plots_panel_widget = \
 
 
 class AppsPanelWidget(QWidget, ui_plots_panel_widget):
+
+    error_signal = pyqtSignal(Exception)
 
     def __init__(self, working_lsl_streams, app_state, run_state,
                  medusa_interface, theme_colors):
@@ -63,6 +70,13 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
         # Notify exception to gui main
         self.medusa_interface.error(ex)
 
+    def get_apps_dict(self):
+        if os.path.isfile(constants.APPS_CONFIG_FILE):
+            with open(constants.APPS_CONFIG_FILE, 'r') as f:
+                self.apps_dict = json.load(f)
+        else:
+            self.apps_dict = {}
+
     def wait_until_app_closed(self, interval=0.1, timeout=1):
         success = True
         start = time.time()
@@ -93,8 +107,14 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
 
     def fill_apps_panel(self):
         # Create and fill apps panel
+        self.apps_panel_grid_widget.reset()
         for app_key, app_params in self.apps_dict.items():
-            self.apps_panel_grid_widget.add_app_widget(app_key, app_params)
+            widget = self.apps_panel_grid_widget.add_app_widget(
+                app_key, app_params)
+            widget.app_about.connect(self.about_app)
+            widget.app_doc.connect(self.documentation_app)
+            widget.app_update.connect(self.update_app)
+            widget.app_uninstall.connect(self.uninstall_app)
 
     def update_working_lsl_streams(self, working_lsl_streams):
         self.working_lsl_streams = working_lsl_streams
@@ -115,6 +135,7 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
                               constants.IMG_FOLDER)
             config_icon = QIcon("%s/icons/gear.png" % constants.IMG_FOLDER)
             search_icon = QIcon("%s/icons/search.png" % constants.IMG_FOLDER)
+            install_icon = QIcon("%s/icons/plus.png" % constants.IMG_FOLDER)
 
             # Set icons in buttons
             self.toolButton_app_power.setIcon(power_icon)
@@ -122,6 +143,11 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
             self.toolButton_app_stop.setIcon(stop_icon)
             self.toolButton_app_config.setIcon(config_icon)
             self.toolButton_app_search.setIcon(search_icon)
+            self.toolButton_app_install.setIcon(install_icon)
+
+            self.toolButton_app_power.setToolTip('Start app run')
+            self.toolButton_app_config.setToolTip('Config app run')
+            self.toolButton_app_install.setToolTip('Install new app')
 
             # Set button states
             self.toolButton_app_power.setDisabled(False)
@@ -142,6 +168,7 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
             self.toolButton_app_stop.clicked.connect(self.app_stop)
             self.toolButton_app_config.clicked.connect(self.app_config)
             self.lineEdit_app_search.textChanged.connect(self.app_search)
+            self.toolButton_app_install.clicked.connect(self.install_app)
         except Exception as e:
             self.handle_exception(e)
 
@@ -187,7 +214,7 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
                 ser_lsl_streams = [lsl_str.to_serializable_obj() for
                                    lsl_str in self.working_lsl_streams]
                 # Get app extension
-                with open(constants.APPS_CONFIG_FILE, 'r') as f:
+                with open('apps.json', 'r') as f:
                     apps_dict = json.load(f)
                 ext = apps_dict[current_app_key]['extension']
                 # Get app manager
@@ -293,10 +320,74 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
     def app_search(self):
         try:
             curr_text = self.lineEdit_app_search.text()
-            print(curr_text)
             self.apps_panel_grid_widget.find_app(curr_text)
         except Exception as e:
             self.handle_exception(e)
+
+    def install_app(self):
+        # Get app file
+        filt = "MEDUSA app (*.app)"
+        directory = "../../"
+        if not os.path.exists(directory):
+            os.makedirs(directory)
+        app_file = QFileDialog.getOpenFileName(caption="MEDUSA app",
+                                               directory=directory,
+                                               filter=filt)[0]
+        # Install app (extract zip)
+        with zipfile.ZipFile(app_file) as bundle:
+            with tempfile.TemporaryDirectory() as temp_dir:
+                # Extract app
+                bundle.extractall(temp_dir)
+                with open('%s/info' % temp_dir, 'r') as f:
+                    info = json.load(f)
+                if info['key'] in self.apps_dict:
+                    raise Exception('App %s is already installed' % info['key'])
+                dest_dir = 'apps/%s' % info['key']
+                shutil.move(temp_dir, dest_dir)
+            # Update installed apps file
+            info['installation-date'] =\
+                datetime.today().strftime('%Y-%m-%d %H:%M:%S')
+            self.apps_dict[info['key']] = info
+            with open(constants.APPS_CONFIG_FILE, 'w') as f:
+                json.dump(self.apps_dict, f, indent=4)
+            # Update apps panel
+            self.fill_apps_panel()
+            self.apps_panel_grid_widget.arrange_panel(
+                self.apps_panel_grid_widget.width())
+
+    def about_app(self, app_key):
+        dialogs.info_dialog(
+            '%s' % json.dumps(self.apps_dict[app_key], indent=4),
+            'About %s' % self.apps_dict[app_key]['name'], self.theme_colors)
+
+    def documentation_app(self, app_key):
+        dialogs.warning_dialog(
+            'No available documentation for %s' % self.apps_dict[app_key]['name'],
+            'Documentation', self.theme_colors)
+
+    def update_app(self, app_key):
+        dialogs.warning_dialog(
+            'No available updates for %s' % self.apps_dict[app_key]['name'],
+            'Update', self.theme_colors)
+
+    def uninstall_app(self, app_key):
+        # Confirm dialog
+        if not dialogs.confirmation_dialog(
+                'Are you sure you want to uninstall %s? ' %
+                self.apps_dict[app_key]['name'],
+                'Uninstall', self.theme_colors):
+            return
+        # Remove directory
+        shutil.rmtree('apps/%s' % app_key)
+        # Update installed apps file
+        self.apps_dict.pop(app_key)
+        with open(constants.APPS_CONFIG_FILE, 'w') as f:
+            json.dump(self.apps_dict, f, indent=4)
+        # Update apps panel
+        self.fill_apps_panel()
+        self.apps_panel_grid_widget.arrange_panel(
+            self.apps_panel_grid_widget.width())
+
 
 
 class AppsPanelGridWidget(QWidget):
@@ -339,11 +430,12 @@ class AppsPanelGridWidget(QWidget):
     def add_app_widget(self, app_key, app_params):
         widget = AppWidget(self.min_app_widget_width, app_key, app_params,
                            self.theme_colors)
-        widget.app_widget_selected.connect(self.on_app_widget_selected)
+        widget.app_selected.connect(self.on_app_selected)
         self.items.append(widget)
         self.n_items = len(self.items)
+        return widget
 
-    def on_app_widget_selected(self, app_key):
+    def on_app_selected(self, app_key):
         for item in self.items:
             if item.app_key == app_key:
                 gui_utils.modify_property(
@@ -409,7 +501,11 @@ class AppsPanelGridWidget(QWidget):
 
 class AppWidget(QFrame):
 
-    app_widget_selected = pyqtSignal(str)
+    app_selected = pyqtSignal(str)
+    app_about = pyqtSignal(str)
+    app_doc = pyqtSignal(str)
+    app_update = pyqtSignal(str)
+    app_uninstall = pyqtSignal(str)
 
     def __init__(self, min_widget_width, app_key, app_params,
                  theme_colors):
@@ -448,15 +544,49 @@ class AppWidget(QFrame):
         # gui_utils.modify_property(self, "background-color", '#00a05f')
         self.setLayout(self.main_layout)
 
+    class AppMenu(QMenu):
+
+        def __init__(self):
+            super().__init__()
+            # Create actions
+            self.about_action = QAction('About')
+            self.doc_action = QAction('Documentation')
+            self.update_action = QAction('Update')
+            self.uninstall_action = QAction('Uninstall')
+            # Add actions
+            self.addAction(self.about_action)
+            self.addAction(self.doc_action)
+            self.addAction(self.update_action)
+            self.addAction(self.uninstall_action)
+
     def get_icon_path(self):
         return 'apps/%s/icon.png' % self.app_key
 
     def mousePressEvent(self, event):
         if event.button() == Qt.LeftButton:
             self.select()
+        elif event.button() == Qt.RightButton:
+            menu = self.AppMenu()
+            menu.about_action.triggered.connect(self.about)
+            menu.doc_action.triggered.connect(self.documentation)
+            menu.update_action.triggered.connect(self.update)
+            menu.uninstall_action.triggered.connect(self.uninstall)
+            menu.exec_(event.globalPos())
 
     def select(self):
-        self.app_widget_selected.emit(self.app_key)
+        self.app_selected.emit(self.app_key)
+
+    def about(self):
+        self.app_about.emit(self.app_key)
+
+    def documentation(self):
+        self.app_doc.emit(self.app_key)
+
+    def update(self):
+        self.app_update.emit(self.app_key)
+
+    def uninstall(self):
+        self.app_uninstall.emit(self.app_key)
 
 
 class MainWindow(QMainWindow):
