@@ -18,6 +18,12 @@
     <layout class="QHBoxLayout" name="horizontalLayout">
      <item>
       <widget class="QToolButton" name="toolButton_app_power">
+       <property name="toolTip">
+        <string/>
+       </property>
+       <property name="whatsThis">
+        <string/>
+       </property>
        <property name="text">
         <string>...</string>
        </property>
@@ -49,6 +55,13 @@
      </item>
      <item>
       <widget class="QToolButton" name="toolButton_app_search">
+       <property name="text">
+        <string>...</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QToolButton" name="toolButton_app_install">
        <property name="text">
         <string>...</string>
        </property>

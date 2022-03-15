@@ -5,6 +5,7 @@ import importlib
 import glob
 import time
 import warnings
+import os
 # EXTERNAL MODULES
 from PyQt5 import uic
 from PyQt5.QtWidgets import *
@@ -37,8 +38,7 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
         self.current_app_key = None
         # Get installed apps
         self.apps_dict = None
-        with open(constants.APPS_CONFIG_FILE, 'r') as f:
-            self.apps_dict = json.load(f)
+        self.get_apps_dict()
         # Set scroll area
         self.apps_panel_grid_widget = AppsPanelGridWidget(
             min_app_widget_width=110, theme_colors=theme_colors)
