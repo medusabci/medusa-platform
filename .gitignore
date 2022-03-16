@@ -139,9 +139,5 @@ data/*
 config/*
 art
 art/*
-env
-env/*
-venv
-venv/*
 
 

@@ -214,7 +214,7 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
                 ser_lsl_streams = [lsl_str.to_serializable_obj() for
                                    lsl_str in self.working_lsl_streams]
                 # Get app extension
-                with open('apps.json', 'r') as f:
+                with open(constants.APPS_CONFIG_FILE, 'r') as f:
                     apps_dict = json.load(f)
                 ext = apps_dict[current_app_key]['extension']
                 # Get app manager
