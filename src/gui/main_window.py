@@ -49,7 +49,8 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         self.setFocusPolicy(Qt.StrongFocus)
         # self.setWindowFlags(Qt.FramelessWindowHint)
 
-        # Toolbar action initializing
+        # Menu and toolbar action initializing
+        self.set_up_menu_bar_main()
         self.set_up_tool_bar_main()
 
         # State constants shared across medusa. See constants.py for more info
@@ -248,6 +249,23 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
                 self.undock_plots_panel)
         except Exception as e:
             self.handle_exception(e)
+
+    # =============================== MENU BAR =============================== #
+    def set_up_menu_bar_main(self):
+        # Preferences
+        # TODO: menuAction_view_intergated, menuAction_view_split,
+        #  menuAction_color_dark, menuAction_color_light
+        # Lab streaming layer
+        # TODO: menuAction_lsl_doc, menuAction_lsl_repo, menuAction_lsl_about
+        self.menuAction_lsl_settings.triggered.connect(
+            self.open_lsl_config_window)
+        # Developer tools
+        # TODO: menuAction_dev_tutorial, menuAction_dev_new_empty_app,
+        #   menuAction_dev_new_qt_app, menuAction_dev_new_unity_app,
+        #   menuAction_dev_new_app_from
+        # Developer tools
+        # TODO: menuAction_help_support, menuAction_help_bug,
+        #  menuAction_help_update, menuAction_help_about
 
     # =============================== TOOL BAR =============================== #
     def reset_tool_bar_main(self):

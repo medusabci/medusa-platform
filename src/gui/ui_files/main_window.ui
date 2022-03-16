@@ -80,22 +80,65 @@
      <x>0</x>
      <y>0</y>
      <width>1037</width>
-     <height>22</height>
+     <height>21</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuInfo_2">
     <property name="title">
-     <string>About</string>
+     <string>Developer tools</string>
     </property>
+    <addaction name="menuAction_dev_tutorial"/>
+    <addaction name="separator"/>
+    <addaction name="menuAction_dev_new_empty_app"/>
+    <addaction name="menuAction_dev_new_qt_app"/>
+    <addaction name="menuAction_dev_new_unity_app"/>
+    <addaction name="menuAction_dev_new_app_from"/>
    </widget>
    <widget class="QMenu" name="menuPreferences">
     <property name="title">
      <string>Preferences</string>
     </property>
-    <addaction name="actionView"/>
+    <widget class="QMenu" name="menu_view">
+     <property name="title">
+      <string>View</string>
+     </property>
+     <addaction name="menuAction_view_intergated"/>
+     <addaction name="menuAction_view_split"/>
+    </widget>
+    <widget class="QMenu" name="menu_color_theme">
+     <property name="title">
+      <string>Color theme</string>
+     </property>
+     <addaction name="menuAction_color_dark"/>
+     <addaction name="menuAction_color_light"/>
+    </widget>
+    <addaction name="menu_view"/>
+    <addaction name="menu_color_theme"/>
+   </widget>
+   <widget class="QMenu" name="menuAbout">
+    <property name="title">
+     <string>Help</string>
+    </property>
+    <addaction name="menuAction_help_support"/>
+    <addaction name="menuAction_help_bug"/>
+    <addaction name="separator"/>
+    <addaction name="menuAction_help_update"/>
+    <addaction name="menuAction_help_about"/>
+   </widget>
+   <widget class="QMenu" name="menuLab_Streaming_Layer">
+    <property name="title">
+     <string>Lab Streaming Layer (LSL)</string>
+    </property>
+    <addaction name="menuAction_lsl_doc"/>
+    <addaction name="menuAction_lsl_repo"/>
+    <addaction name="menuAction_lsl_about"/>
+    <addaction name="separator"/>
+    <addaction name="menuAction_lsl_settings"/>
    </widget>
    <addaction name="menuPreferences"/>
+   <addaction name="menuLab_Streaming_Layer"/>
    <addaction name="menuInfo_2"/>
+   <addaction name="menuAbout"/>
   </widget>
   <action name="actionReal_time_VEP">
    <property name="text">
@@ -142,9 +185,89 @@
     <string>File visualizer</string>
    </property>
   </action>
-  <action name="actionView">
+  <action name="menuAction_dev_tutorial">
    <property name="text">
-    <string>View</string>
+    <string>Tutorials</string>
+   </property>
+  </action>
+  <action name="menuAction_dev_new_qt_app">
+   <property name="text">
+    <string>New Qt app</string>
+   </property>
+  </action>
+  <action name="menuAction_dev_new_unity_app">
+   <property name="text">
+    <string>New Unity app</string>
+   </property>
+  </action>
+  <action name="menuAction_dev_new_app_from">
+   <property name="text">
+    <string>New app from ...</string>
+   </property>
+  </action>
+  <action name="menuAction_help_support">
+   <property name="text">
+    <string>Contact support</string>
+   </property>
+  </action>
+  <action name="menuAction_help_bug">
+   <property name="text">
+    <string>Submit bug report</string>
+   </property>
+  </action>
+  <action name="menuAction_help_update">
+   <property name="text">
+    <string>Check for updates</string>
+   </property>
+  </action>
+  <action name="menuAction_help_about">
+   <property name="text">
+    <string>About</string>
+   </property>
+  </action>
+  <action name="menuAction_lsl_doc">
+   <property name="text">
+    <string>Documentation</string>
+   </property>
+  </action>
+  <action name="menuAction_lsl_repo">
+   <property name="text">
+    <string>Repository</string>
+   </property>
+  </action>
+  <action name="menuAction_lsl_about">
+   <property name="text">
+    <string>About</string>
+   </property>
+  </action>
+  <action name="menuAction_lsl_settings">
+   <property name="text">
+    <string>Settings</string>
+   </property>
+  </action>
+  <action name="menuAction_view_intergated">
+   <property name="text">
+    <string>Intergated</string>
+   </property>
+  </action>
+  <action name="menuAction_view_split">
+   <property name="text">
+    <string>Split</string>
+   </property>
+  </action>
+  <action name="menuAction_color_dark">
+   <property name="text">
+    <string>Dark</string>
+   </property>
+  </action>
+  <action name="menuAction_color_light">
+   <property name="text">
+    <string>Light</string>
+   </property>
+  </action>
+  <action name="menuAction_dev_new_empty_app">
+   <property name="text">
+    <string>New app</string>
    </property>
   </action>
  </widget>
