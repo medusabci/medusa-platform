@@ -340,14 +340,14 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
                 bundle.extractall(temp_dir)
                 with open('%s/info' % temp_dir, 'r') as f:
                     info = json.load(f)
-                if info['key'] in self.apps_dict:
+                if info['id'] in self.apps_dict:
                     raise Exception('App %s is already installed' % info['key'])
-                dest_dir = 'apps/%s' % info['key']
+                dest_dir = 'apps/%s' % info['id']
                 shutil.move(temp_dir, dest_dir)
             # Update installed apps file
             info['installation-date'] =\
                 datetime.today().strftime('%Y-%m-%d %H:%M:%S')
-            self.apps_dict[info['key']] = info
+            self.apps_dict[info['id']] = info
             with open(constants.APPS_CONFIG_FILE, 'w') as f:
                 json.dump(self.apps_dict, f, indent=4)
             # Update apps panel
@@ -387,7 +387,6 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
         self.fill_apps_panel()
         self.apps_panel_grid_widget.arrange_panel(
             self.apps_panel_grid_widget.width())
-
 
 
 class AppsPanelGridWidget(QWidget):

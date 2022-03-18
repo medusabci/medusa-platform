@@ -267,7 +267,7 @@
   </action>
   <action name="menuAction_dev_new_empty_app">
    <property name="text">
-    <string>New app</string>
+    <string>New empty app</string>
    </property>
   </action>
  </widget>
