@@ -291,7 +291,7 @@ class LSLConfig(QtWidgets.QDialog, ui_main_dialog):
 
     def handle_exception(self, ex):
         traceback.print_exc()
-        self.notifications.new_notification('[ERROR] %s' % str(ex))
+        dialogs.error_dialog(str(ex), 'Error', self.theme_colors)
 
 
 class EditStreamDialog(QtWidgets.QDialog, ui_stream_config_dialog):
@@ -317,7 +317,7 @@ class EditStreamDialog(QtWidgets.QDialog, ui_stream_config_dialog):
             # Init widgets
             self.init_widgets()
         except Exception as e:
-            self.exception_handler(e)
+            self.handle_exception(e)
 
     def init_widgets(self):
         # Medusa uid edit line
@@ -370,13 +370,13 @@ class EditStreamDialog(QtWidgets.QDialog, ui_stream_config_dialog):
         try:
             pass
         except Exception as e:
-            self.exception_handler(e)
+            self.handle_exception(e)
 
     def on_medusa_stream_type_changed(self):
         try:
             pass
         except Exception as e:
-            self.exception_handler(e)
+            self.handle_exception(e)
 
     def update_desc_fields(self):
         """Updates the values of the combobox to select the channels description
@@ -476,7 +476,7 @@ class EditStreamDialog(QtWidgets.QDialog, ui_stream_config_dialog):
         try:
             return self.lsl_stream_info
         except Exception as e:
-            self.exception_handler(e)
+            self.handle_exception(e)
 
     def accept(self):
         medusa_uid = self.lineEdit_medusa_uid.text()
@@ -492,9 +492,9 @@ class EditStreamDialog(QtWidgets.QDialog, ui_stream_config_dialog):
     def reject(self):
         super().reject()
 
-    def exception_handler(self, ex):
+    def handle_exception(self, ex):
         traceback.print_exc()
-        self.notifications.new_notification('[ERROR] %s' % str(ex))
+        dialogs.error_dialog(str(ex), 'Error', self.theme_colors)
 
 
 if __name__ == '__main__':

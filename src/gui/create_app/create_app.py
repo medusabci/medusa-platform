@@ -32,8 +32,6 @@ class CreateAppDialog(QtWidgets.QDialog, create_app_dialog):
         try:
             super().__init__()
             self.setupUi(self)
-            self.notifications = NotificationStack(parent=self)
-            # self.resize(600, 400)
             # Initialize the gui application
             self.dir = os.path.dirname(__file__)
             self.theme_colors = gui_utils.get_theme_colors('dark') if \
@@ -53,7 +51,7 @@ class CreateAppDialog(QtWidgets.QDialog, create_app_dialog):
 
     def handle_exception(self, ex):
         traceback.print_exc()
-        self.notifications.new_notification('[ERROR] %s' % str(ex))
+        dialogs.error_dialog(str(ex), 'Error', self.theme_colors)
 
     def accept(self):
         """ This function updates the lsl_streams.xml file and saves it
