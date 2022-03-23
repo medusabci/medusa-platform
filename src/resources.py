@@ -261,13 +261,14 @@ class AppSkeleton(mp.Process, ABC):
 
 
 class LSLStreamAppWorker(th.Thread):
-    """Thread that receives samples and saves them. To read and process the
-    data in a thread-safe way, use function get_data.
+    """Thread that receives samples from a LSL stream and saves them.
+
+    To read and process the data in a thread-safe way, use function get_data.
     """
 
     def __init__(self, receiver, app_state, run_state,
-                 medusa_interface, preprocessor=None, scope='app'):
-        """Class constructor for
+                 medusa_interface, preprocessor=None):
+        """Class constructor for LSLStreamAppWorker
 
         Parameters
         ----------
@@ -489,77 +490,6 @@ class MedusaInterface:
             {'info_type': self.INFO_RUN_STATE_CHANGED, 'info': value})
 
 
-class MedusaInterfaceListener(QThread):
-    """Class to receive messages from MedusaInterface
-
-    This class that inherits from QThread listens for new messages received from
-    the manager_process and emits a signal so the message will be displayed
-    in the log of the main GUI
-
-    Attributes
-    ----------
-    queue : multiprocessing queue
-    stop : boolean
-           Parameter to stop the listener thread.
-    """
-
-    # Basic info types
-    msg_signal = pyqtSignal(str, object)
-    exception_signal = pyqtSignal(exceptions.MedusaException)
-    # Plot info types
-    plot_state_changed_signal = pyqtSignal(int)
-    undocked_plots_closed = pyqtSignal()
-    # Apps info types
-    app_state_changed_signal = pyqtSignal(int)
-    run_state_changed_signal = pyqtSignal(int)
-
-    def __init__(self, queue):
-        """Class constructor
-
-        Parameters
-        ----------
-        queue : multiprocessing queue
-                Queue where the manager process puts the messages
-        """
-        QThread.__init__(self)
-        self.queue = queue
-        self.stop = False
-
-    def run(self):
-        """Main loop
-        """
-        while not self.stop:
-            try:
-                info = self.queue.get()
-                if info is not None:
-                    if info['info_type'] == MedusaInterface.INFO_LOG:
-                        self.msg_signal.emit(info['info'], info['style'])
-                    elif info['info_type'] == MedusaInterface.INFO_EXCEPTION:
-                        self.exception_signal.emit(info['info'])
-                    elif info['info_type'] == \
-                            MedusaInterface.INFO_APP_STATE_CHANGED:
-                        self.app_state_changed_signal.emit(info['info'])
-                    elif info['info_type'] == \
-                            MedusaInterface.INFO_RUN_STATE_CHANGED:
-                        self.run_state_changed_signal.emit(info['info'])
-                    elif info['info_type'] == \
-                            MedusaInterface.INFO_UNDOCKED_PLOTS_CLOSED:
-                        self.undocked_plots_closed.emit()
-                    else:
-                        raise ValueError('Incorrect msg received in '
-                                         'MedusaInterfaceListener')
-            except Exception as e:
-                ex = exceptions.MedusaException(
-                    e, importance=exceptions.EXCEPTION_HANDLED,
-                    scope='general', origin='MedusaInterfaceListener/run')
-                self.exception_signal.emit(ex)
-
-    def terminate(self):
-        self.stop = True
-        self.queue.put(None)
-        self.wait()
-
-
 class SaveFileDialog(dialogs.MedusaDialog):
     """Default dialog to save files in apps. Implement your own class to create
     a custom dialog.
@@ -717,7 +647,7 @@ class BasicConfigWindow(QMainWindow):
         # Initialize the gui application
         self.theme_colors = gui_utils.get_theme_colors('dark') if \
             theme_colors is None else theme_colors
-        self.stl = gui_utils.set_css_and_theme(self, 'gui/style.css',
+        self.stl = gui_utils.set_css_and_theme(self, '../gui/style.css',
                                                self.theme_colors)
         self.setWindowIcon(QIcon('gui/images/medusa_favicon.png'))
         self.setWindowTitle('Default configuration window')
@@ -807,7 +737,7 @@ class BasicConfigWindow(QMainWindow):
         msg = QMessageBox()
         msg.setIcon(QMessageBox.Warning)
         msg.setWindowIcon(QIcon(os.path.join(
-            os.path.dirname(__file__), 'gui/images/medusa_favicon.png')))
+            os.path.dirname(__file__), '../gui/images/medusa_favicon.png')))
         msg.setText("Do you want to leave this window?")
         msg.setInformativeText("Non-saved changes will be discarded.")
         msg.setWindowTitle("Row-Col Paradigm")

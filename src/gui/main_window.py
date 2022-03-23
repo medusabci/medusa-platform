@@ -10,7 +10,7 @@ from PyQt5.QtCore import *
 from PyQt5.QtGui import *
 
 # MEDUSA general
-import constants, resources, exceptions
+import constants, resources, exceptions, app_manager
 from gui import gui_utils
 from acquisition import lsl_utils
 from gui.plots_panel import plots_panel
@@ -75,6 +75,7 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         self.set_up_lsl_config()
 
         # Apps panel
+        self.apps_manager = app_manager.AppManager()
         self.apps_panel_widget = None
         self.set_up_apps_panel()
 
@@ -172,7 +173,7 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
     # ================================ SET UP ================================ #
     def set_up_medusa_interface_listener(self, interface_queue):
         try:
-            self.medusa_interface_listener = resources.MedusaInterfaceListener(
+            self.medusa_interface_listener = self.MedusaInterfaceListener(
                 interface_queue)
             self.medusa_interface_listener.msg_signal.connect(self.print_log)
             self.medusa_interface_listener.exception_signal.connect(
@@ -223,6 +224,7 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
     def set_up_apps_panel(self):
         try:
             self.apps_panel_widget = apps_panel.AppsPanelWidget(
+                self.apps_manager,
                 self.working_lsl_streams,
                 self.app_state,
                 self.run_state,
@@ -330,18 +332,18 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
     # ======================== LAB-STREAMING LAYER =========================== #
     def open_lsl_config_window(self):
         try:
-            self.user_profile_window = \
+            self.lsl_config_window = \
                 lsl_config.LSLConfig(self.working_lsl_streams,
                                      theme_colors=self.theme_colors)
-            self.user_profile_window.accepted.connect(self.set_lsl_streams)
-            self.user_profile_window.rejected.connect(self.reset_lsl_streams)
+            self.lsl_config_window.accepted.connect(self.set_lsl_streams)
+            self.lsl_config_window.rejected.connect(self.reset_lsl_streams)
         except Exception as e:
             self.handle_exception(e)
 
     def set_lsl_streams(self):
         try:
             # Set working streams
-            self.working_lsl_streams = self.user_profile_window.working_streams
+            self.working_lsl_streams = self.lsl_config_window.working_streams
             # Update the working streams within the panels
             self.plots_panel_widget.update_working_lsl_streams(
                 self.working_lsl_streams)
@@ -360,10 +362,15 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         except Exception as e:
             self.handle_exception(e)
 
-    # ======================== LAB-STREAMING LAYER =========================== #
+    # ========================= DEVELOPER TOOLS ============================== #
     def create_app_config_window(self):
-        self.create_app_dialog = \
-            create_app.CreateAppDialog(theme_colors=self.theme_colors)
+        self.create_app_window = \
+            create_app.CreateAppDialog(self.apps_manager,
+                                       theme_colors=self.theme_colors)
+        self.create_app_window.accepted.connect(self.update_apps_panel)
+
+    def update_apps_panel(self):
+        self.apps_panel_widget.update_apps_panel()
 
     # ======================= PLOTS PANEL FUNCTIONS ========================== #
     def undock_plots_panel(self):
@@ -609,3 +616,76 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
                 event.accept()
         except Exception as e:
             self.handle_exception(e)
+
+    class MedusaInterfaceListener(QThread):
+        """Class to receive messages from MedusaInterface
+
+        This class that inherits from QThread listens for new messages received from
+        the manager_process and emits a signal so the message will be displayed
+        in the log of the main GUI
+
+        Attributes
+        ----------
+        queue : multiprocessing queue
+        stop : boolean
+               Parameter to stop the listener thread.
+        """
+
+        # Basic info types
+        msg_signal = pyqtSignal(str, object)
+        exception_signal = pyqtSignal(exceptions.MedusaException)
+        # Plot info types
+        plot_state_changed_signal = pyqtSignal(int)
+        undocked_plots_closed = pyqtSignal()
+        # Apps info types
+        app_state_changed_signal = pyqtSignal(int)
+        run_state_changed_signal = pyqtSignal(int)
+
+        def __init__(self, queue):
+            """Class constructor
+
+            Parameters
+            ----------
+            queue : multiprocessing queue
+                    Queue where the manager process puts the messages
+            """
+            QThread.__init__(self)
+            self.queue = queue
+            self.stop = False
+
+        def run(self):
+            """Main loop
+            """
+            while not self.stop:
+                try:
+                    info = self.queue.get()
+                    if info is not None:
+                        if info['info_type'] == \
+                                resources.MedusaInterface.INFO_LOG:
+                            self.msg_signal.emit(info['info'], info['style'])
+                        elif info[
+                            'info_type'] == \
+                                resources.MedusaInterface.INFO_EXCEPTION:
+                            self.exception_signal.emit(info['info'])
+                        elif info['info_type'] == \
+                                resources.MedusaInterface.INFO_APP_STATE_CHANGED:
+                            self.app_state_changed_signal.emit(info['info'])
+                        elif info['info_type'] == \
+                                resources.MedusaInterface.INFO_RUN_STATE_CHANGED:
+                            self.run_state_changed_signal.emit(info['info'])
+                        elif info['info_type'] == \
+                                resources.MedusaInterface.INFO_UNDOCKED_PLOTS_CLOSED:
+                            self.undocked_plots_closed.emit()
+                        else:
+                            raise ValueError('Incorrect msg received in '
+                                             'MedusaInterfaceListener')
+                except Exception as e:
+                    ex = exceptions.MedusaException(
+                        e, importance=exceptions.EXCEPTION_HANDLED,
+                        scope='general', origin='MedusaInterfaceListener/run')
+                    self.exception_signal.emit(ex)
+
+        def terminate(self):
+            self.stop = True
+            self.queue.put(None)
+            self.wait()

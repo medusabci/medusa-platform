@@ -1,5 +1,5 @@
 # Built-in imports
-import sys, os, json, traceback
+import sys, os, json, traceback, shutil
 # External imports
 from PyQt5 import QtCore, QtGui, QtWidgets, uic
 # Medusa imports
@@ -12,20 +12,20 @@ import constants
 from medusa.plots import optimal_subplots
 
 # Load the .ui files
-main_widget = \
-    uic.loadUiType('gui/ui_files/create_app_widget.ui')[0]
+create_app_dialog = \
+    uic.loadUiType('gui/ui_files/create_app_dialog.ui')[0]
 
 
-class CreateAppDialog(QtWidgets.QDialog, main_widget):
+class CreateAppDialog(QtWidgets.QDialog, create_app_dialog):
     """ Main dialog class of the LSL config panel
     """
-    def __init__(self, theme_colors=None):
+    def __init__(self, apps_manager, theme_colors=None):
         """ Class constructor
 
         Parameters
         ----------
-        working_streams: list of acquisition.lsl_utils.LSLStreamWrapper
-            List with the current working LSL streams
+        apps_manager: apps_manager.AppsManager
+            Apps manager of medusa
         theme_colors: dict
             Dict with the theme colors
         """
@@ -43,12 +43,8 @@ class CreateAppDialog(QtWidgets.QDialog, main_widget):
             self.setWindowIcon(QtGui.QIcon('%s/medusa_favicon.png' %
                                constants.IMG_FOLDER))
             self.setWindowTitle('Create app ')
-            # Set up tables
-
-            # ToolButtons
-
-            # First search
-
+            # Attributes
+            self.apps_manager = apps_manager
             # Show the buttons
             self.setModal(True)
             self.show()
@@ -58,3 +54,48 @@ class CreateAppDialog(QtWidgets.QDialog, main_widget):
     def handle_exception(self, ex):
         traceback.print_exc()
         self.notifications.new_notification('[ERROR] %s' % str(ex))
+
+    def accept(self):
+        """ This function updates the lsl_streams.xml file and saves it
+        """
+        try:
+            # Get id and check
+            app_id = self.lineEdit_app_id.text()
+            if len(app_id) == 0:
+                raise ValueError('Please introduce the app id')
+            if os.path.isdir('apps/%s' % app_id):
+                raise ValueError('That app identifier already taken!')
+            # Get app name
+            app_name = self.lineEdit_app_name.text()
+            if len(app_name) == 0:
+                raise ValueError('Please introduce the app name')
+            app_extension = self.lineEdit_app_extension.text()
+            if len(app_name) == 0:
+                raise ValueError('Please introduce the extension name')
+
+            # Get template type
+            app_template = self.listWidget_app_template.currentItem().text()
+            if app_template == 'Empty project':
+                app_template_path = 'templates/empty_template'
+            elif app_template == 'Qt project':
+                app_template_path = 'templates/qt_template'
+            elif app_template == 'Unity project':
+                app_template_path = 'templates/unity_template'
+            else:
+                raise ValueError('Unknown template!')
+
+            # Install
+            self.apps_manager.install_app_template(
+                app_id, app_name, app_extension, app_template_path)
+
+            # Accept event and close
+            super().accept()
+        except Exception as e:
+            self.handle_exception(e)
+
+    def reject(self):
+        """ This function cancels the creation of the app"""
+        try:
+            super().reject()
+        except Exception as e:
+            self.handle_exception(e)

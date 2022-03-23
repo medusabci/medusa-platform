@@ -30,12 +30,13 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
 
     error_signal = pyqtSignal(Exception)
 
-    def __init__(self, working_lsl_streams, app_state, run_state,
+    def __init__(self, apps_manager, working_lsl_streams, app_state, run_state,
                  medusa_interface, theme_colors):
         super().__init__()
         self.setupUi(self)
         self.set_up_tool_bar_app()
         # Attributes
+        self.apps_manager = apps_manager
         self.working_lsl_streams = working_lsl_streams
         self.app_state = app_state
         self.run_state = run_state
@@ -44,9 +45,6 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
         self.app_process = None
         self.app_settings = None
         self.current_app_key = None
-        # Get installed apps
-        self.apps_dict = None
-        self.get_apps_dict()
         # Set scroll area
         self.apps_panel_grid_widget = AppsPanelGridWidget(
             min_app_widget_width=110, theme_colors=theme_colors)
@@ -70,13 +68,6 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
                 origin='apps_panel/apps_panel/handle_exception')
         # Notify exception to gui main
         self.medusa_interface.error(ex)
-
-    def get_apps_dict(self):
-        if os.path.isfile(constants.APPS_CONFIG_FILE):
-            with open(constants.APPS_CONFIG_FILE, 'r') as f:
-                self.apps_dict = json.load(f)
-        else:
-            self.apps_dict = {}
 
     def wait_until_app_closed(self, interval=0.1, timeout=1):
         success = True
@@ -109,13 +100,18 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
     def fill_apps_panel(self):
         # Create and fill apps panel
         self.apps_panel_grid_widget.reset()
-        for app_key, app_params in self.apps_dict.items():
+        for app_key, app_params in self.apps_manager.apps_dict.items():
             widget = self.apps_panel_grid_widget.add_app_widget(
                 app_key, app_params)
             widget.app_about.connect(self.about_app)
             widget.app_doc.connect(self.documentation_app)
             widget.app_update.connect(self.update_app)
             widget.app_uninstall.connect(self.uninstall_app)
+
+    def update_apps_panel(self):
+        self.fill_apps_panel()
+        self.apps_panel_grid_widget.arrange_panel(
+            self.apps_panel_grid_widget.width())
 
     def update_working_lsl_streams(self, working_lsl_streams):
         self.working_lsl_streams = working_lsl_streams
@@ -215,9 +211,7 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
                 ser_lsl_streams = [lsl_str.to_serializable_obj() for
                                    lsl_str in self.working_lsl_streams]
                 # Get app extension
-                with open(constants.APPS_CONFIG_FILE, 'r') as f:
-                    apps_dict = json.load(f)
-                ext = apps_dict[current_app_key]['extension']
+                ext = self.apps_manager.apps_dict[current_app_key]['extension']
                 # Get app manager
                 self.app_process = app_process_mdl.App(
                     app_settings=self.app_settings,
@@ -338,60 +332,40 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
         app_file = QFileDialog.getOpenFileName(caption="MEDUSA app",
                                                directory=directory,
                                                filter=filt)[0]
-        # Install app (extract zip)
-        with zipfile.ZipFile(app_file) as bundle:
-            with tempfile.TemporaryDirectory() as temp_dir:
-                # Extract app
-                bundle.extractall(temp_dir)
-                with open('%s/info' % temp_dir, 'r') as f:
-                    info = json.load(f)
-                if info['id'] in self.apps_dict:
-                    raise Exception('App %s is already installed' % info['key'])
-                dest_dir = 'apps/%s' % info['id']
-                shutil.move(temp_dir, dest_dir)
-            # Update installed apps file
-            info['installation-date'] =\
-                datetime.today().strftime('%Y-%m-%d %H:%M:%S')
-            self.apps_dict[info['id']] = info
-            with open(constants.APPS_CONFIG_FILE, 'w') as f:
-                json.dump(self.apps_dict, f, indent=4)
-            # Update apps panel
-            self.fill_apps_panel()
-            self.apps_panel_grid_widget.arrange_panel(
-                self.apps_panel_grid_widget.width())
+        # Install app
+        self.apps_manager.install_app_bundle(app_file)
+        # Update apps panel
+        self.update_apps_panel()
 
     def about_app(self, app_key):
         dialogs.info_dialog(
-            '%s' % json.dumps(self.apps_dict[app_key], indent=4),
-            'About %s' % self.apps_dict[app_key]['name'], self.theme_colors)
+            '%s' % json.dumps(self.apps_manager.apps_dict[app_key], indent=4),
+            'About %s' % self.apps_manager.apps_dict[app_key]['name'],
+            self.theme_colors)
 
     def documentation_app(self, app_key):
         dialogs.warning_dialog(
-            'No available documentation for %s' % self.apps_dict[app_key]['name'],
+            'No available documentation for %s' %
+            self.apps_manager.apps_dict[app_key]['name'],
             'Documentation', self.theme_colors)
 
     def update_app(self, app_key):
         dialogs.warning_dialog(
-            'No available updates for %s' % self.apps_dict[app_key]['name'],
+            'No available updates for %s' %
+            self.apps_manager.apps_dict[app_key]['name'],
             'Update', self.theme_colors)
 
     def uninstall_app(self, app_key):
         # Confirm dialog
         if not dialogs.confirmation_dialog(
                 'Are you sure you want to uninstall %s? ' %
-                self.apps_dict[app_key]['name'],
+                self.apps_manager.apps_dict[app_key]['name'],
                 'Uninstall', self.theme_colors):
             return
-        # Remove directory
-        shutil.rmtree('apps/%s' % app_key)
-        # Update installed apps file
-        self.apps_dict.pop(app_key)
-        with open(constants.APPS_CONFIG_FILE, 'w') as f:
-            json.dump(self.apps_dict, f, indent=4)
+        # Uninstall directory
+        self.apps_manager.uninstall_app(app_key)
         # Update apps panel
-        self.fill_apps_panel()
-        self.apps_panel_grid_widget.arrange_panel(
-            self.apps_panel_grid_widget.width())
+        self.update_apps_panel()
 
 
 class AppsPanelGridWidget(QWidget):
