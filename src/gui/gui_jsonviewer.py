@@ -119,7 +119,6 @@ class JsonView(QtWidgets.QWidget):
 
         self.tree_widget.setCurrentItem(self.found_titem_list[self.found_idx])
 
-
     def recurse_jdata(self, jdata, tree_widget):
 
         if isinstance(jdata, dict):

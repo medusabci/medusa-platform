@@ -15,6 +15,7 @@ from gui import gui_utils
 from acquisition import lsl_utils
 from gui.plots_panel import plots_panel
 from gui.lsl_config import lsl_config
+from gui.create_app import create_app
 from gui.apps_panel import apps_panel
 from gui.log_panel import log_panel
 from gui.user_profile import user_profile
@@ -260,9 +261,9 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         self.menuAction_lsl_settings.triggered.connect(
             self.open_lsl_config_window)
         # Developer tools
-        # TODO: menuAction_dev_tutorial, menuAction_dev_new_empty_app,
-        #   menuAction_dev_new_qt_app, menuAction_dev_new_unity_app,
-        #   menuAction_dev_new_app_from
+        # TODO: menuAction_dev_tutorial, menuAction_dev_create_app,
+        self.menuAction_dev_create_app.triggered.connect(
+            self.create_app_config_window)
         # Developer tools
         # TODO: menuAction_help_support, menuAction_help_bug,
         #  menuAction_help_update, menuAction_help_about
@@ -358,6 +359,11 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
             pass
         except Exception as e:
             self.handle_exception(e)
+
+    # ======================== LAB-STREAMING LAYER =========================== #
+    def create_app_config_window(self):
+        self.create_app_dialog = \
+            create_app.CreateAppDialog(theme_colors=self.theme_colors)
 
     # ======================= PLOTS PANEL FUNCTIONS ========================== #
     def undock_plots_panel(self):

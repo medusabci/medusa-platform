@@ -16,6 +16,7 @@ from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
 from PyQt5.QtGui import *
 # MEDUSA MODULES
+import resources
 from gui import gui_utils
 from gui.qt_widgets import dialogs
 import constants, exceptions
@@ -292,12 +293,16 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
                 raise ValueError('Select an app to start!')
             app_settings_mdl = importlib.import_module('apps.%s.settings' %
                                                        current_app_key)
-            app_config_mdl = importlib.import_module('apps.%s.config' %
-                                                     current_app_key)
+            try:
+                app_config_mdl = importlib.import_module('apps.%s.config' %
+                                                         current_app_key)
+                conf_window = app_config_mdl.Config
+            except ModuleNotFoundError as e:
+                conf_window = resources.BasicConfigWindow
             if self.app_settings is None or not isinstance(
                     self.app_settings, app_settings_mdl.Settings):
                 self.app_settings = app_settings_mdl.Settings()
-            self.app_config_window = app_config_mdl.Config(
+            self.app_config_window = conf_window(
                 self.app_settings,
                 medusa_interface=self.medusa_interface,
                 working_lsl_streams_info=self.working_lsl_streams

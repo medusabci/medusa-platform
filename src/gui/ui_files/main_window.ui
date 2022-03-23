@@ -88,11 +88,7 @@
      <string>Developer tools</string>
     </property>
     <addaction name="menuAction_dev_tutorial"/>
-    <addaction name="separator"/>
-    <addaction name="menuAction_dev_new_empty_app"/>
-    <addaction name="menuAction_dev_new_qt_app"/>
-    <addaction name="menuAction_dev_new_unity_app"/>
-    <addaction name="menuAction_dev_new_app_from"/>
+    <addaction name="menuAction_dev_create_app"/>
    </widget>
    <widget class="QMenu" name="menuPreferences">
     <property name="title">
@@ -265,9 +261,9 @@
     <string>Light</string>
    </property>
   </action>
-  <action name="menuAction_dev_new_empty_app">
+  <action name="menuAction_dev_create_app">
    <property name="text">
-    <string>New empty app</string>
+    <string>Create app</string>
    </property>
   </action>
  </widget>
