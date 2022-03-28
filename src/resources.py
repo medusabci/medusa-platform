@@ -17,25 +17,8 @@ from gui import gui_utils
 
 class MedusaThread(ABC, th.Thread):
 
-    def __init__(self, medusa_interface, **th_kwargs):
+    def __init__(self, medusa_interface=None, **th_kwargs):
         super().__init__(**th_kwargs)
-        self.exception_handler = exceptions.ExceptionHandler(medusa_interface)
-
-    @abstractmethod
-    def safe_run(self):
-        pass
-
-    def run(self):
-        try:
-            super().run()
-        except Exception as e:
-            self.exception_handler.safe_excepthook(self, e)
-
-
-class MedusaProcess(ABC, mp.Process):
-
-    def __init__(self, medusa_interface, **pr_kwargs):
-        super().__init__(**pr_kwargs)
         self.exception_handler = exceptions.ExceptionHandler(medusa_interface)
 
     @abstractmethod
@@ -47,6 +30,17 @@ class MedusaProcess(ABC, mp.Process):
             self.safe_run()
         except Exception as e:
             self.exception_handler.safe_excepthook(self, e)
+
+
+class MedusaProcess(ABC, mp.Process):
+
+    def __init__(self, medusa_interface=None, **pr_kwargs):
+        super().__init__(**pr_kwargs)
+        self.exception_handler = exceptions.ExceptionHandler(medusa_interface)
+
+    @abstractmethod
+    def safe_run(self):
+        pass
 
 
 class AppSkeleton(MedusaProcess):

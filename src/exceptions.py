@@ -1,4 +1,6 @@
 import traceback, sys, functools
+import threading, multiprocessing
+import warnings
 
 
 # EXCEPTIONS IMPORTANCE
@@ -8,24 +10,33 @@ EXCEPTION_HANDLED = 2       # CONTROLLED ERROR THAT HAS BEEN HANDLED.
 EXCEPTION_UNKNOWN = 3       # ERROR WITH UNKNOWN CONSEQUENCES.
 
 
-class ExceptionHandler:
-    """ Class to handle exceptions within medusa
+def error_handler(scope='app', medusa_interface=None,
+                  handle_exception=None):
     """
-    def __init__(self, medusa_interface):
-        self.medusa_interface = medusa_interface
-        self.scope = None
 
-    def set_scope(self, scope):
-        possible_scopes = ['app', 'plots', 'log', 'general']
-        if scope is not None and scope not in possible_scopes:
-            raise ValueError('Scope must be one of %s' % str(possible_scopes))
-        self.scope = scope
+    Parameters
+    ----------
+    scope: str
+        Indicates the scope of the decorated method as defined in class
+        MedusaException.
+    medusa_interface: resources.MedusaInterface
+        Current interface to medusa main gui
+    handle_exception: callable
+        Function that will be executed in case an exception is detected. It
+        must have 1 (and only 1) parameter to pass the exception.
 
-    def handle_exception(self, ex):
-        print('exceptions.ExceptionHandler:', file=sys.stderr)
-        traceback.print_exc()
+    Returns
+    -------
+    decorated_method: callable
+        It returns the decorated method wiht automatic error handling
+    """
+    def inner(func):
+        # if not isinstance(is_class_method, bool):
+        #     raise ValueError('Parameter is_class_method must be boolean')
+        if scope is not None and scope not in MedusaException.SCOPES:
+            raise ValueError('Scope must be one of %s' %
+                             str(MedusaException.SCOPES))
 
-    def method_excepthook(self, func):
         @functools.wraps(func)
         def wrapper_decorator(*args, **kwargs):
             # Do something before
@@ -33,19 +44,55 @@ class ExceptionHandler:
                 value = func(*args, **kwargs)
                 return value
             except Exception as ex:
-                if not isinstance(ex, MedusaException):
-                    ex = MedusaException(ex, importance=EXCEPTION_UNKNOWN,
-                                         scope=self.scope,
-                                         origin=func.__qualname__)
-                self.handle_exception(ex)
-        return wrapper_decorator
+                # Important variables
+                curr_th = threading.current_thread()
+                curr_pr = multiprocessing.current_process()
+                scope_ = scope
+                medusa_interface_ = medusa_interface
+                handle_exception_ = handle_exception
 
-    def safe_excepthook(self, thread, ex):
-        if not isinstance(ex, MedusaException):
-            ex = MedusaException(ex, importance=EXCEPTION_UNKNOWN,
-                                 scope=self.scope,
-                                 origin=thread.name)
-        self.medusa_interface.error(ex)
+                # Convert to MEDUSA exception
+                if not isinstance(ex, MedusaException):
+                    mds_ex = MedusaException(ex, importance=EXCEPTION_UNKNOWN,
+                                             scope=scope_,
+                                             origin=func.__qualname__)
+                else:
+                    mds_ex = ex
+
+                # Check if the method is a class method
+                if len(func.__qualname__.split('.')) > 1 and len(args) > 0:
+                    # Get class and check the attributes
+                    cls = args[0]
+                    if hasattr(cls, 'scope'):
+                        scope_ = cls.scope
+                    if hasattr(cls, 'medusa_interface'):
+                        medusa_interface_ = cls.medusa_interface
+                    if hasattr(cls, 'handle_exception'):
+                        handle_exception_ = cls.handle_exception
+
+                # Print exception
+                print('MEDUSA exceptions.error_handler report:',
+                      file=sys.stderr)
+                print('Exception in %s (process: %s) (thread: %s)' %
+                      (func.__name__, curr_pr.name, curr_th.name),
+                      file=sys.stderr)
+                traceback.print_exc()
+
+                # Operations
+                if handle_exception_ is not None:
+                    handle_exception_(mds_ex)
+                    mds_ex.set_handled(True)
+                if curr_th.name != 'MainThread' or \
+                        curr_pr.name != 'MainProcess':
+                    if medusa_interface_ is not None:
+                        medusa_interface_.error(mds_ex)
+                    else:
+                        warnings.warn('The exception occurred on a child '
+                                      'process and thread and medusa_interface '
+                                      'is None! This exception will not be '
+                                      'passed to the main gui.')
+        return wrapper_decorator
+    return inner
 
 
 class MedusaException(Exception):
@@ -55,6 +102,9 @@ class MedusaException(Exception):
     Qt throws errors asynchronously which are very difficult to locate
     afterwards.
     """
+
+    SCOPES = ['app', 'plots', 'log', 'general']
+
     def __init__(self, exception, importance=None, msg=None, scope=None,
                  origin=None):
         """Class constructor for
@@ -90,9 +140,8 @@ class MedusaException(Exception):
                              'Exception')
         if importance is None:
             importance = EXCEPTION_CRITICAL
-        possible_scopes = ['app', 'plots', 'log', 'general']
-        if scope is not None and scope not in possible_scopes:
-            raise ValueError('Scope must be one of %s' % str(possible_scopes))
+        if scope is not None and scope not in self.SCOPES:
+            raise ValueError('Scope must be one of %s' % str(self.SCOPES))
         # Set attributes
         self.exception = exception
         self.exception_type = type(exception)
@@ -102,6 +151,7 @@ class MedusaException(Exception):
         self.msg = msg
         self.scope = scope
         self.origin = origin
+        self.handled = False
 
     def get_msg(self, verbose=False):
         """Return the message of the exception. Some info can be added if
@@ -115,6 +165,8 @@ class MedusaException(Exception):
             msg += ' [Origin: %s]' % (str(self.origin))
         return msg
 
+    def set_handled(self, handled):
+        self.handled = handled
 
 class LSLStreamNotFound(Exception):
 

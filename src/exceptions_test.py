@@ -5,26 +5,60 @@ import sys
 import traceback
 import resources
 import time
-from abc import ABC, abstractmethod
+from abc import ABC
+
+
+class MedusaThread(threading.Thread):
+
+    def __init__(self, name, medusa_interface=None, **th_kwargs):
+        super().__init__(name=name, **th_kwargs)
+        self.name = name
+        self.medusa_interface = medusa_interface
+
+
+class MedusaProcess(multiprocessing.Process):
+
+    def __init__(self, name, medusa_interface=None, **pr_kwargs):
+        super().__init__(name=name, **pr_kwargs)
+        self.name = name
+        self.medusa_interface = medusa_interface
+
+
+def handle_exception(ex):
+    print('CUSTOM EXCEPTION HANDLING')
+
+
+@exceptions.error_handler()
+def random_method():
+    c = 0
+    while True:
+        if c > 2:
+            raise Exception('Hi from random_method!')
+        time.sleep(1)
+        print('RandomProcess running ...')
+        c += 1
 
 
 class SomeRandomClass:
 
-    exc_handler = exceptions.ExceptionHandler(None)
-
     def __init__(self):
-        self.exc_handler = exceptions.ExceptionHandler(None)
+        pass
 
-    @exc_handler.method_excepthook
+    @exceptions.error_handler()
     def random_method(self):
         raise Exception('Hi from random_method!')
 
 
-class SomeRandomClassThread(resources.MedusaThread):
-    def __init__(self, exc_handler):
-        super().__init__(exc_handler, name='RandomThread')
+class SomeRandomClassThread(MedusaThread):
 
-    def safe_run(self):
+    def __init__(self):
+        super().__init__(name='RandomThread')
+
+    def handle_exception(self, ex):
+        print('CUSTOM EXCEPTION HANDLING in SomeRandomClassThread')
+
+    @exceptions.error_handler()
+    def run(self):
         c = 0
         while True:
             if c > 2:
@@ -37,11 +71,11 @@ class SomeRandomClassThread(resources.MedusaThread):
         raise Exception('Hi from SomeRandomClassThread.random_method!')
 
 
-class SomeRandomClassProcess(resources.MedusaProcess):
-    def __init__(self, exc_handler):
-        super().__init__(exc_handler, name='RandomProcess')
+class SomeRandomClassProcess(MedusaProcess):
+    def __init__(self):
+        super().__init__(name='RandomProcess')
 
-    def safe_run(self):
+    def run(self):
         c = 0
         while True:
             if c > 2:
@@ -50,35 +84,51 @@ class SomeRandomClassProcess(resources.MedusaProcess):
             print('RandomProcess running ...')
             c += 1
 
+    @exceptions.error_handler()
     def random_method(self):
         raise Exception('Hi from SomeRandomClassProcess.random_method!')
 
 
 if __name__ == '__main__':
 
-    exc_handler = exceptions.ExceptionHandler(None)
-
-    cls = SomeRandomClass()
-    cls.random_method()
-
-    # Error in child thread
+    # # Error in method
+    # random_method()
+    # print('\n\n==============================================================')
+    # time.sleep(1)
+    #
+    # # Error in class
+    # cls = SomeRandomClass()
+    # cls.random_method()
+    # print('\n\n==============================================================')
+    # time.sleep(1)
+    #
+    # # Error in child thread
     # th = threading.Thread(target=random_method)
     # th.start()
-
-    # Error in child thread with inheritance
+    # th.join()
+    # print('\n\n==============================================================')
+    # time.sleep(1)
+    #
+    # # Error in child thread with inheritance
     # th = SomeRandomClassThread()
     # th.start()
     # th.join()
-
-    # Error in child process
+    # print('\n\n==============================================================')
+    # time.sleep(1)
+    #
+    # # Error in child process
     # pr = multiprocessing.Process(target=random_method)
     # pr.start()
     # pr.join()
+    # print('\n\n==============================================================')
+    # time.sleep(1)
 
     # Error in child process with inheritance
-    # pr = SomeRandomClassProcess(exc_handler)
-    # pr.start()
-    # pr.join()
+    pr = SomeRandomClassProcess()
+    pr.start()
+    pr.join()
+    print('\n\n==============================================================')
+    time.sleep(1)
 
 
 
