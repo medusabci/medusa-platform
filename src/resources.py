@@ -15,60 +15,32 @@ from gui.qt_widgets import dialogs
 from gui import gui_utils
 
 
-class MedusaThread(ABC, th.Thread):
-
-    def __init__(self, medusa_interface=None, **th_kwargs):
-        super().__init__(**th_kwargs)
-        self.exception_handler = exceptions.ExceptionHandler(medusa_interface)
-
-    @abstractmethod
-    def safe_run(self):
-        pass
-
-    def run(self):
-        try:
-            self.safe_run()
-        except Exception as e:
-            self.exception_handler.safe_excepthook(self, e)
-
-
-class MedusaProcess(ABC, mp.Process):
-
-    def __init__(self, medusa_interface=None, **pr_kwargs):
-        super().__init__(**pr_kwargs)
-        self.exception_handler = exceptions.ExceptionHandler(medusa_interface)
-
-    @abstractmethod
-    def safe_run(self):
-        pass
-
-
-class AppSkeleton(MedusaProcess):
+class AppSkeleton(mp.Process):
     """
     This class is the baseline for Medusa apps, providing an optimized
     structure for real-time biofeedback applications. Generally,
     it is composed by 3 different elements that run in parallel:
 
         1 - Manager thread. This thread receives events asynchronously,
-        providing a necessary connection between the app gui and the
-        biosignals. This thread should do the processing work.
+        providing the necessary connection between the app gui and the
+        biosignals. This thread should do the signal processing work.
         2 - LSL workers. Each worker is a thread that receives and stores new
         samples of each LSL stream configured in medusa. This recordings are
         accessible from the manager thread to provide biodfeedback in real-time.
         3 - Main process. Is the parent of the manager and lsl-workers,
-        and executes the app GUI.
+        and executes the app gui.
     """
 
-    def __init__(self, app_settings, app_extension, medusa_interface,
+    def __init__(self, app_info, app_settings, medusa_interface,
                  app_state, run_state, working_lsl_streams_info):
         """Class constructor
 
         Parameters
         ----------
+        app_info: dict
+            Dict with the app information available
         app_settings: Settings
             App configuration
-        app_extension: str
-            App extension (e.g., 'dev' to save files as 'file.dev')
        medusa_interface: resources.Medusa_interface
             Interface to the main gui of medusa
         app_state: mp.Value
@@ -79,18 +51,14 @@ class AppSkeleton(MedusaProcess):
             List of the lsl streams connected to medusa
         """
         # Calling superclass constructor
-        super().__init__(medusa_interface)
+        app_process_name = '%sProcess' % app_info['name']
+        super().__init__(name=app_process_name)
         # -------------------------- CHECK ERRORS ---------------------------- #
         # ---------------------------- SETTINGS ------------------------------ #
+        self.app_info = app_info
         self.app_settings = app_settings
-        self.app_extension = app_extension
         # --------------------- COMMUNICATION GUI-MANAGER -------------------- #
-        # Queue to send data to medusa (e.g., events, information)
-        # self.queue_to_medusa = queue_to_medusa
-        # # Queue to receive the data from medusa (e.g., file info)
-        # self.queue_from_medusa = queue_from_medusa
         # Interface
-        # self.medusa_interface = MedusaInterface(queue_to_medusa)
         self.medusa_interface = medusa_interface
         # -------------------------- MEDUSA STATES --------------------------- #
         # States are used in medusa to handle the work flow
@@ -107,8 +75,10 @@ class AppSkeleton(MedusaProcess):
         # Data receiver
         self.manager_thread = None
 
-    def safe_run(self):
-        """Setup the working threads and the app
+    @exceptions.error_handler(def_importance='critical', def_scope='app')
+    def run(self):
+        """Setup the working threads and the app. Any unhandled exception will
+        kill the process.
         """
         # Working threads
         self.setup_lsl_workers()
@@ -118,8 +88,6 @@ class AppSkeleton(MedusaProcess):
         # Join the working threads
         self.lsl_workers_join()
         self.manager_thread.join()
-        # Debug info
-        print('[APP] App GUI and workers terminated')
 
     def setup_lsl_workers(self):
         """Creates and starts the working threads that receive the LSL streams.
@@ -129,9 +97,7 @@ class AppSkeleton(MedusaProcess):
         that need to be updated when each sample is received). Override this
         method and use custom LSL workers in those cases.
         """
-        # try:
         # Data receiver
-        raise Exception
         self.lsl_streams_info = [
             lsl_utils.LSLStreamWrapper.from_serializable_obj(ser_lsl_str)
             for ser_lsl_str in self.lsl_streams_info
@@ -147,13 +113,6 @@ class AppSkeleton(MedusaProcess):
                                    self.medusa_interface,
                                    preprocessor=None)
             self.lsl_workers[info.medusa_uid].start()
-        # except Exception as e:
-        #     e = exceptions.MedusaException(
-        #         e, importance=exceptions.EXCEPTION_UNKNOWN,
-        #         msg=None, scope=None,
-        #         origin='App/setup_lsl_workers',
-        #     )
-        #     self.handle_exception(e)
 
     def lsl_workers_join(self):
         for worker in self.lsl_workers.values():
@@ -163,10 +122,21 @@ class AppSkeleton(MedusaProcess):
         for worker in self.lsl_workers.values():
             worker.stop = True
 
+    @exceptions.error_handler(
+        def_importance='critical', def_scope='app',
+        def_origin='AppSkeleton.manager_thread_worker')
+    def manager_thread_wrapper(self):
+        """This wrapper is just used to improve error handing"""
+        self.manager_thread_worker()
+
     def setup_manager_thread(self):
         """Creates and starts the manager thread
         """
-        self.manager_thread = th.Thread(target=self.manager_thread_worker)
+        # Move to thread
+        manager_th_name = '%sManagerThread' % self.app_info['name']
+        self.manager_thread = th.Thread(
+            target=self.manager_thread_wrapper,
+            name=manager_th_name)
         self.manager_thread.start()
 
     def stop_working_threads(self):
@@ -202,14 +172,19 @@ class AppSkeleton(MedusaProcess):
         or from medusa through app_state and run_state. App attribute stop must
         control when the thread must finish.
 
+        If this method raises an unhandled exception and is terminated,
+        the app cannot recover from the error. Thus the importance of unhandled
+        exceptions in this method is CRITICAL. For correct error handling,
+        decorate the method with:
+            @exceptions.error_handler(importance=exceptions.EXCEPTION_CRITICAL)
+
         Basic scheme:
 
-        try:
+        @exceptions.error_handler(importance=exceptions.EXCEPTION_CRITICAL)
+        def manager_thread_worker(self):
             while not self.stop:
                 # Do stuff here
                 pass
-        except Exception as e:
-            self.handle_exception(e)
         """
         raise NotImplemented
 
@@ -219,9 +194,13 @@ class AppSkeleton(MedusaProcess):
         app is closed and all the information is saved. A basic scheme is
         provided, but custom pipelines can be implemented.
 
+       Unhandled exceptions may not be critical in this method
+            @exceptions.error_handler(importance=exceptions.EXCEPTION_CRITICAL)
+
         Basic scheme:
 
-        try:
+        @exceptions.error_handler()
+        def manager_thread_worker(self):
             # 1 - Change app state to powering on
             self.medusa_interface.app_state_changed(
                 constants.APP_STATE_POWERING_ON)
@@ -237,8 +216,6 @@ class AppSkeleton(MedusaProcess):
             # 7 - Change app state to power off
             self.medusa_interface.app_state_changed(
                 constants.APP_STATE_OFF)
-        except Exception as e:
-            self.handle_exception(e)
         """
         raise NotImplemented
 
@@ -283,7 +260,7 @@ class AppSkeleton(MedusaProcess):
         raise NotImplemented
 
 
-class LSLStreamAppWorker(MedusaThread):
+class LSLStreamAppWorker(th.Thread):
     """Thread that receives samples from a LSL stream and saves them.
 
     To read and process the data in a thread-safe way, use function get_data.
@@ -312,7 +289,7 @@ class LSLStreamAppWorker(MedusaThread):
             applied in real time to the signal. For most applications set to
             None.
         """
-        super().__init__(medusa_interface)
+        super().__init__()
         # Check errors
         if receiver.lsl_stream_info.lsl_stream_inlet is None:
             raise ValueError('Call function init_lsl_inlet of class '
@@ -328,79 +305,51 @@ class LSLStreamAppWorker(MedusaThread):
         self.data = np.zeros((0, self.receiver.n_cha))
         self.timestamps = np.zeros((0,))
 
-    def safe_run(self):
-        try:
-            """Method executed by the thread. It contains an infinite loop that
-            receives and stores samples from a lsl receiver. The attribute
-            stop controls when the thread must finish.
-            """
-            error_counter = 0
-            while not self.stop:
-                # Get data
-                try:
-                    chunk_data, chunk_times = self.receiver.get_chunk()
-                except TimeoutError as e:
-                    error_counter += 1
-                    if error_counter > 5:
-                        raise  e
-                    else:
-                        continue
+    def handle_exception(self, ex):
+        pass
 
-                # If the app is ON and the run is running, stack data
-                if self.app_state.value == constants.APP_STATE_ON:
-                    if self.run_state.value == constants.RUN_STATE_RUNNING:
-                        with self.lock:
-                            if self.preprocessor is not None:
-                                chunk_data = \
-                                    self.preprocessor.transform(chunk_data)
-                            self.data = np.vstack((self.data, chunk_data))
-                            self.timestamps = np.append(self.timestamps,
-                                                        chunk_times)
-            print('[LslStreamWorker] Terminated')
-        except Exception as ex:
-            ex = exceptions.MedusaException(
-                ex, importance=exceptions.EXCEPTION_UNKNOWN,
-                msg=None, scope=None,
-                origin='rcp/App/LSLStreamAppWorker/run',
-            )
-            self.handle_exception(ex)
+    @exceptions.error_handler(def_importance='important', def_scope='app')
+    def run(self):
+        """Method executed by the thread. It contains an infinite loop that
+        receives and stores samples from a lsl receiver. The attribute
+        stop controls when the thread must finish.
+        """
+        error_counter = 0
+        while not self.stop:
+            # Get data
+            try:
+                chunk_data, chunk_times = self.receiver.get_chunk()
+            except exceptions.LSLStreamTimeout as e:
+                error_counter += 1
+                if error_counter > 5:
+                    raise exceptions.MedusaException(
+                        e, importance=exceptions.get_imp_code('important'),
+                        msg='LSLStreamAppWorker cannot receive signal from %s. '
+                            'Is the device connected?' % self.receiver.name,
+                        scope='app', origin='LSLStreamAppWorker.run')
+                else:
+                    continue
+            # If the app is ON and the run is running, stack data
+            if self.app_state.value == constants.APP_STATE_ON:
+                if self.run_state.value == constants.RUN_STATE_RUNNING:
+                    with self.lock:
+                        if self.preprocessor is not None:
+                            chunk_data = \
+                                self.preprocessor.transform(chunk_data)
+                        self.data = np.vstack((self.data, chunk_data))
+                        self.timestamps = np.append(self.timestamps,
+                                                    chunk_times)
 
     def get_data(self):
-        try:
-            with self.lock:
-                timestamps = self.timestamps.copy()
-                data = self.data.copy()
-            return timestamps, data
-        except Exception as ex:
-            ex = exceptions.MedusaException(
-                ex, importance=exceptions.EXCEPTION_UNKNOWN,
-                msg=None, scope=None,
-                origin='rcp/App/LSLStreamAppWorker/get_data',
-            )
-            self.handle_exception(ex)
+        with self.lock:
+            timestamps = self.timestamps.copy()
+            data = self.data.copy()
+        return timestamps, data
 
     def reset_data(self):
-        try:
-            with self.lock:
-                self.data = np.zeros((0, self.receiver.n_cha))
-                self.timestamps = np.zeros((0,))
-        except Exception as ex:
-            ex = exceptions.MedusaException(
-                ex, importance=exceptions.EXCEPTION_UNKNOWN,
-                msg=None, scope=None,
-                origin='rcp/App/LSLStreamAppWorker/get_data',
-            )
-            self.handle_exception(ex)
-
-    def handle_exception(self, ex):
-        # Treat exception
-        if not isinstance(ex, exceptions.MedusaException):
-            ex = exceptions.MedusaException(
-                ex, importance=exceptions.EXCEPTION_UNKNOWN,
-                scope='app',
-                origin='rcp/App/LSLStreamAppWorker/handle_exception')
-        # Notify exception to gui main
-        self.medusa_interface.error(ex)
+        with self.lock:
+            self.data = np.zeros((0, self.receiver.n_cha))
+            self.timestamps = np.zeros((0,))
 
 
 class MedusaInterface:
@@ -528,122 +477,107 @@ class SaveFileDialog(dialogs.MedusaDialog):
         theme_colors: dict or None
             Theme colors
         """
-        try:
-            super().__init__(window_title='Save recording file',
-                             theme_colors=theme_colors, pos_x=300, pos_y=300,
-                             width=400, heigh=200)
-            # Paths
-            folder = os.path.abspath(
-                os.path.abspath(os.curdir) + '../../data/')
-            name = '%s.%s.bson' % \
-                   (time.strftime("%d-%m-%Y_%H%M%S", time.localtime()), app_ext)
-            default_path = os.path.join(folder, name)
+        super().__init__(window_title='Save recording file',
+                         theme_colors=theme_colors, pos_x=300, pos_y=300,
+                         width=400, heigh=200)
+        # Paths
+        folder = os.path.abspath(
+            os.path.abspath(os.curdir) + '../../data/')
+        name = '%s.%s.bson' % \
+               (time.strftime("%d-%m-%Y_%H%M%S", time.localtime()), app_ext)
+        default_path = os.path.join(folder, name)
 
-            # Default path
-            self.folder = folder
-            self.name = name
-            self.app_ext = app_ext
-            self.path = default_path
+        # Default path
+        self.folder = folder
+        self.name = name
+        self.app_ext = app_ext
+        self.path = default_path
 
-            # Default file name
-            self.file_path_lineEdit.setText(name)
+        # Default file name
+        self.file_path_lineEdit.setText(name)
 
-            # Show
-            self.setWindowFlags(self.windowFlags() | Qt.WindowStaysOnTopHint)
-            self.show()
-        except Exception as ex:
-            raise ex
+        # Show
+        self.setWindowFlags(self.windowFlags() | Qt.WindowStaysOnTopHint)
+        self.show()
 
     def create_layout(self):
-        try:
-            # Fields
-            self.subj_id_lineEdit = QLineEdit()
-            self.subj_id_lineEdit.setProperty('class', 'file_dialog')
-            self.subj_id_lineEdit.setPlaceholderText('Subject identifier')
-            self.file_id_lineEdit = QLineEdit()
-            self.file_id_lineEdit.setProperty('class', 'file_dialog')
-            self.file_id_lineEdit.setPlaceholderText('Recording identifier')
-            self.file_description_textEdit = QTextEdit()
-            self.file_description_textEdit.setProperty(
-                'class', 'file_dialog')
-            self.file_description_textEdit.setPlaceholderText(
-                'Recording description')
+        # Fields
+        self.subj_id_lineEdit = QLineEdit()
+        self.subj_id_lineEdit.setProperty('class', 'file_dialog')
+        self.subj_id_lineEdit.setPlaceholderText('Subject identifier')
+        self.file_id_lineEdit = QLineEdit()
+        self.file_id_lineEdit.setProperty('class', 'file_dialog')
+        self.file_id_lineEdit.setPlaceholderText('Recording identifier')
+        self.file_description_textEdit = QTextEdit()
+        self.file_description_textEdit.setProperty(
+            'class', 'file_dialog')
+        self.file_description_textEdit.setPlaceholderText(
+            'Recording description')
 
-            # File path
-            self.file_path_lineEdit = QLineEdit()
-            self.file_path_lineEdit.setProperty('class', 'file_dialog')
-            self.file_path_lineEdit.setEnabled(False)
-            self.browse_button = QToolButton()
-            self.browse_button.setText('...')
-            self.browse_button.setProperty('class', 'file_dialog')
-            self.browse_button.setCursor(QCursor(Qt.PointingHandCursor))
-            self.browse_button.clicked.connect(self.on_browse_button_clicked)
+        # File path
+        self.file_path_lineEdit = QLineEdit()
+        self.file_path_lineEdit.setProperty('class', 'file_dialog')
+        self.file_path_lineEdit.setEnabled(False)
+        self.browse_button = QToolButton()
+        self.browse_button.setText('...')
+        self.browse_button.setProperty('class', 'file_dialog')
+        self.browse_button.setCursor(QCursor(Qt.PointingHandCursor))
+        self.browse_button.clicked.connect(self.on_browse_button_clicked)
 
-            # Buttons
-            QBtn = QDialogButtonBox.Ok | QDialogButtonBox.Cancel
-            self.buttonBox = QDialogButtonBox(QBtn)
-            self.buttonBox.accepted.connect(self.accept)
-            self.buttonBox.rejected.connect(self.reject)
+        # Buttons
+        QBtn = QDialogButtonBox.Ok | QDialogButtonBox.Cancel
+        self.buttonBox = QDialogButtonBox(QBtn)
+        self.buttonBox.accepted.connect(self.accept)
+        self.buttonBox.rejected.connect(self.reject)
 
-            # Add the widgets to a layout
-            path_layout = QHBoxLayout()
-            path_layout.addWidget(self.file_path_lineEdit)
-            path_layout.addWidget(self.browse_button)
+        # Add the widgets to a layout
+        path_layout = QHBoxLayout()
+        path_layout.addWidget(self.file_path_lineEdit)
+        path_layout.addWidget(self.browse_button)
 
-            layout = QVBoxLayout()
-            layout.addWidget(self.subj_id_lineEdit)
-            layout.addWidget(self.file_id_lineEdit)
-            layout.addWidget(self.file_description_textEdit)
-            layout.addLayout(path_layout)
-            layout.addItem(QSpacerItem(40, 20, QSizePolicy.Minimum,
-                                       QSizePolicy.Expanding))
-            layout.addWidget(self.buttonBox)
-            return layout
-        except Exception as ex:
-            print(str(ex))
-            raise ex
+        layout = QVBoxLayout()
+        layout.addWidget(self.subj_id_lineEdit)
+        layout.addWidget(self.file_id_lineEdit)
+        layout.addWidget(self.file_description_textEdit)
+        layout.addLayout(path_layout)
+        layout.addItem(QSpacerItem(40, 20, QSizePolicy.Minimum,
+                                   QSizePolicy.Expanding))
+        layout.addWidget(self.buttonBox)
+        return layout
 
     def get_file_info(self):
-        try:
-            subj_id = self.subj_id_lineEdit.text()
-            recording_id = self.file_id_lineEdit.text()
-            file_description = self.file_description_textEdit.toPlainText()
-            file_ext = self.name.split('.')[-1]
-            return {'subject_id': subj_id,
-                    'recording_id': recording_id,
-                    'description': file_description,
-                    'path': self.path, 'extension': file_ext}
-        except Exception as ex:
-            print(str(ex))
-            raise ex
+        subj_id = self.subj_id_lineEdit.text()
+        recording_id = self.file_id_lineEdit.text()
+        file_description = self.file_description_textEdit.toPlainText()
+        file_ext = self.name.split('.')[-1]
+        return {'subject_id': subj_id,
+                'recording_id': recording_id,
+                'description': file_description,
+                'path': self.path, 'extension': file_ext}
 
     def on_browse_button_clicked(self):
-        try:
-            # Delete the extension
-            fdialog = QFileDialog()
-            filter = 'Binary (*.bson);; Binary (*.mat);; Text (*.json)'
-            path = fdialog.getSaveFileName(fdialog, 'Save recording file',
-                                           self.path, filter=filter)[0]
-            split_name = os.path.basename(path).split('.')
-            if len(split_name) == 1:
-                dialogs.error_dialog('Incorrect file name: %s. '
-                                    'The extension must be *.%s.%s' %
-                                    (os.path.basename(path),
-                                     self.app_ext, split_name[-1]),
-                                    'Error')
-            elif split_name[-2] != self.app_ext:
-                dialogs.error_dialog('Incorrect file name: %s. '
-                                     'The extension must be *.%s.%s' %
-                                     (os.path.basename(path),
-                                      self.app_ext, split_name[-1]),
-                                     'Error')
-            else:
-                self.path = path
-                self.name = os.path.basename(path)
-                self.file_path_lineEdit.setText(os.path.basename(path))
-        except Exception as ex:
-            print(str(ex))
-            raise ex
+        # Delete the extension
+        fdialog = QFileDialog()
+        filter = 'Binary (*.bson);; Binary (*.mat);; Text (*.json)'
+        path = fdialog.getSaveFileName(fdialog, 'Save recording file',
+                                       self.path, filter=filter)[0]
+        split_name = os.path.basename(path).split('.')
+        if len(split_name) == 1:
+            dialogs.error_dialog('Incorrect file name: %s. '
+                                'The extension must be *.%s.%s' %
+                                (os.path.basename(path),
+                                 self.app_ext, split_name[-1]),
+                                'Error')
+        elif split_name[-2] != self.app_ext:
+            dialogs.error_dialog('Incorrect file name: %s. '
+                                 'The extension must be *.%s.%s' %
+                                 (os.path.basename(path),
+                                  self.app_ext, split_name[-1]),
+                                 'Error')
+        else:
+            self.path = path
+            self.name = os.path.basename(path)
+            self.file_path_lineEdit.setText(os.path.basename(path))
 
 
 class BasicConfigWindow(QMainWindow):

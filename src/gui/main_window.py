@@ -1,7 +1,7 @@
 # PYTHON MODULES
 import os, sys, time
 import multiprocessing as mp
-import json
+import json, traceback
 
 # EXTERNAL MODULES
 from PyQt5 import uic
@@ -518,21 +518,35 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
             # Check exception
             if not isinstance(ex, exceptions.MedusaException):
                 ex = exceptions.MedusaException(
-                    ex, importance=exceptions.EXCEPTION_UNKNOWN,
-                    scope='general',
-                    origin='GuiMain/handle_exception')
-            # Print exception message
-            print(ex.get_msg(verbose=True))
+                    ex, scope='general',
+                    origin='GuiMain.handle_exception')
+            # Print exception in stderr
+            print('MEDUSA exception report:', file=sys.stderr)
+            print('\tException in function %s' % ex.origin, file=sys.stderr)
+            print('\tProcess: %s' % ex.process, file=sys.stderr)
+            print('\tThread: %s' % ex.thread, file=sys.stderr)
+            print('\tUID: %s' % ex.uid, file=sys.stderr)
+            print('\tImportance: %s' % exceptions.importance_code_to_str(
+                ex.importance), file=sys.stderr)
+            print('\tCustom message: %s' % ex.msg, file=sys.stderr)
+            print('\tScope: %s' % ex.scope, file=sys.stderr)
+            print('\tException type: %s' % ex.exception_type.__name__,
+                  file=sys.stderr)
+            print('\tException msg: %s\n' % ex.exception_msg, file=sys.stderr)
             print(ex.traceback, file=sys.stderr)
+            # Print exception in log panel
             self.print_log(ex.get_msg(verbose=True),
                            style={'color': self.theme_colors['THEME_RED']})
+            imp_codes = exceptions.MedusaException.IMPORTANCE_CODES
             # Take actions
-            if ex.importance == exceptions.EXCEPTION_CRITICAL:
+            if ex.importance == imp_codes['critical']:
                 if ex.scope == 'app':
                     self.apps_panel_widget.terminate_app_process(kill=True)
                     self.reset_apps_panel()
                 elif ex.scope == 'plots':
                     self.reset_plots_panel()
+                elif ex.scope == 'log':
+                    self.reset_log_panel()
                 elif ex.scope == 'general' or ex.scope is None:
                     self.apps_panel_widget.terminate_app_process(kill=True)
                     self.reset()

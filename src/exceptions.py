@@ -1,29 +1,36 @@
-import traceback, sys, functools
+import traceback, functools
 import threading, multiprocessing
 import warnings
 
 
-# EXCEPTIONS IMPORTANCE
-EXCEPTION_CRITICAL = 0      # CRITICAL ERROR. SHUT DOWN ORIGIN.
-EXCEPTION_IMPORTANT = 1     # IMPORTANT ERROR WITH UNEXPECTED CONSEQUENCES.
-EXCEPTION_HANDLED = 2       # CONTROLLED ERROR THAT HAS BEEN HANDLED.
-EXCEPTION_UNKNOWN = 3       # ERROR WITH UNKNOWN CONSEQUENCES.
-
-
-def error_handler(scope='app', medusa_interface=None,
+def error_handler(def_importance=None, def_msg=None, def_scope=None,
+                  def_origin=None, medusa_interface=None,
                   handle_exception=None):
-    """
+    """Decorator to handle errors automatically within MEDUSA. This decorator
+    must be used only as last resource, exceptions are better handled
+    individually where they are raised!
 
     Parameters
     ----------
-    scope: str
-        Indicates the scope of the decorated method as defined in class
+    def_importance: int or str
+        Default importance of unhandled exceptions in the handler
+    def_msg: str
+        Default Message of the exception
+    def_scope: str
+        Indicates the default scope of the decorated method as defined in class
         MedusaException.
+    def_origin: str
+        Indicates the default origin of the exception. If None, it will be
+        assigned automatically to the wrapped function __qualname__ attribute.
     medusa_interface: resources.MedusaInterface
-        Current interface to medusa main gui
+        Current interface to medusa main gui. If the wrapped method is owned
+        by a class with attribute medusa_interface, it will be used
+        automatically.
     handle_exception: callable
         Function that will be executed in case an exception is detected. It
-        must have 1 (and only 1) parameter to pass the exception.
+        must have 1 (and only 1) parameter to pass the exception. If the wrapped
+        method is owned by a class with attribute handle_exception, it will
+        be used automatically.
 
     Returns
     -------
@@ -31,9 +38,7 @@ def error_handler(scope='app', medusa_interface=None,
         It returns the decorated method wiht automatic error handling
     """
     def inner(func):
-        # if not isinstance(is_class_method, bool):
-        #     raise ValueError('Parameter is_class_method must be boolean')
-        if scope is not None and scope not in MedusaException.SCOPES:
+        if def_scope not in MedusaException.SCOPES:
             raise ValueError('Scope must be one of %s' %
                              str(MedusaException.SCOPES))
 
@@ -44,18 +49,21 @@ def error_handler(scope='app', medusa_interface=None,
                 value = func(*args, **kwargs)
                 return value
             except Exception as ex:
-                # Important variables
+                # Get the current process and thread
                 curr_th = threading.current_thread()
                 curr_pr = multiprocessing.current_process()
-                scope_ = scope
+                origin = func.__qualname__ if def_origin is None else def_origin
                 medusa_interface_ = medusa_interface
                 handle_exception_ = handle_exception
+                importance_ = def_importance if def_importance is not None else \
+                    MedusaException.IMPORTANCE_CODES['unknown']
 
-                # Convert to MEDUSA exception
+                # Create MEDUSA exception if needed
                 if not isinstance(ex, MedusaException):
-                    mds_ex = MedusaException(ex, importance=EXCEPTION_UNKNOWN,
-                                             scope=scope_,
-                                             origin=func.__qualname__)
+                    mds_ex = MedusaException(
+                        ex, importance=importance_, msg=def_msg, scope=def_scope,
+                        origin=origin, process=curr_pr.name,
+                        thread=curr_th.name)
                 else:
                     mds_ex = ex
 
@@ -63,35 +71,29 @@ def error_handler(scope='app', medusa_interface=None,
                 if len(func.__qualname__.split('.')) > 1 and len(args) > 0:
                     # Get class and check the attributes
                     cls = args[0]
-                    if hasattr(cls, 'scope'):
-                        scope_ = cls.scope
-                    if hasattr(cls, 'medusa_interface'):
+                    if medusa_interface_ is None and \
+                            hasattr(cls, 'medusa_interface'):
                         medusa_interface_ = cls.medusa_interface
-                    if hasattr(cls, 'handle_exception'):
+                    if handle_exception_ is None and \
+                            hasattr(cls, 'handle_exception'):
                         handle_exception_ = cls.handle_exception
-
-                # Print exception
-                print('MEDUSA exceptions.error_handler report:',
-                      file=sys.stderr)
-                print('Exception in %s (process: %s) (thread: %s)' %
-                      (func.__name__, curr_pr.name, curr_th.name),
-                      file=sys.stderr)
-                traceback.print_exc()
+                # Handle exception
+                if handle_exception_ is not None:
+                    handle_exception_(ex)
 
                 # Operations
-                if handle_exception_ is not None:
-                    handle_exception_(mds_ex)
-                    mds_ex.set_handled(True)
-                if curr_th.name != 'MainThread' or \
-                        curr_pr.name != 'MainProcess':
+                if mds_ex.thread != 'MainThread' or \
+                        mds_ex.process != 'MainProcess':
                     if medusa_interface_ is not None:
                         medusa_interface_.error(mds_ex)
                     else:
-                        warnings.warn('The exception occurred on a child '
-                                      'process and thread and medusa_interface '
+                        warnings.warn('This exception occurred on a child '
+                                      'process or thread and medusa_interface '
                                       'is None! This exception will not be '
                                       'passed to the main gui.')
+
         return wrapper_decorator
+
     return inner
 
 
@@ -103,25 +105,32 @@ class MedusaException(Exception):
     afterwards.
     """
 
+    IMPORTANCE_CODES = {
+        'critical': 0,   # CRITICAL ERROR. SHUT DOWN ORIGIN
+        'important': 1,  # IMPORTANT ERROR WITH UNKNOWN CONSEQUENCES
+        'handled': 2,    # CONTROLLED ERROR THAT HAS BEEN HANDLED
+        'unknown': 3,    # ERROR WITH UNKNOWN CONSEQUENCES
+    }
     SCOPES = ['app', 'plots', 'log', 'general']
 
-    def __init__(self, exception, importance=None, msg=None, scope=None,
-                 origin=None):
+    def __init__(self, exception, uid=None, importance=None, msg=None,
+                 scope=None, origin=None, process=None, thread=None):
         """Class constructor for
 
         Parameters
         ----------
         exception: Exception
             Original exception class
+         msg: int or str
+            Unique identifier of the exception within a context
         msg: str or None
             Message of the exception. If None, Medusa will display the
             message of the original exception
-        importance: int or None
+        importance: int or str or None
             Importance of the exception. Depending of the importance,
             the main process take different actions. If None, the exception
-            will be treated as critical. See module constants
-            EXCEPTION_CRITICAL, EXCEPTION_IMPORTANT, EXCEPTION_HANDLED,
-            EXCEPTION_UNKNOWN.
+            will be treated as unknown. Possible values {'critical'|'important'|
+            'handled'|'unknown'}.
         scope: str or None {'app'|'plots'|'log'|'general'}
             Scope of the error. Must be None, 'app', 'plots' or 'general'. If
             None, Medusa will treat this error as general. Actions will be taken
@@ -129,17 +138,20 @@ class MedusaException(Exception):
             will terminate the current application if the importance is set
             to critical.
         origin: str or None
-            Method that created the MedusaException instance. Ideally,
-            this should be the same method that throws the original exception.
-            It should contain as max info as possible.
-            E.g., dev_app_qt/App.stop_run.
+            Qualified name of the exception origin.
+        process: str or None
+            Name of the process that thrown the exception
+        thread: str or None
+            Name of the thread that thrown the exception
         """
         # Check errors, default values, etc
         if not isinstance(exception, Exception):
             raise ValueError('Parameter exception must be subclass of '
                              'Exception')
         if importance is None:
-            importance = EXCEPTION_CRITICAL
+            importance = self.IMPORTANCE_CODES['unknown']
+        if isinstance(importance, str):
+            importance = self.IMPORTANCE_CODES[importance]
         if scope is not None and scope not in self.SCOPES:
             raise ValueError('Scope must be one of %s' % str(self.SCOPES))
         # Set attributes
@@ -147,10 +159,15 @@ class MedusaException(Exception):
         self.exception_type = type(exception)
         self.exception_msg = str(exception)
         self.traceback = traceback.format_exc()
+        self.uid = uid
         self.importance = importance
         self.msg = msg
         self.scope = scope
         self.origin = origin
+        self.process = process if process is not None else \
+            multiprocessing.current_process().name
+        self.thread = thread if thread is not None else \
+            threading.current_thread().name
         self.handled = False
 
     def get_msg(self, verbose=False):
@@ -161,12 +178,19 @@ class MedusaException(Exception):
         msg = self.exception_type.__name__ + msg
         if verbose:
             tab = ''.join(['&nbsp;' for i in range(6)])
-            msg += ' [Scope: %s]' % (str(self.scope))
-            msg += ' [Origin: %s]' % (str(self.origin))
+            msg += ' [Scope: %s]' % (str(self.scope)) \
+                if self.scope is not None else ''
+            msg += ' [Origin: %s]' % (str(self.origin)) \
+                if self.origin is not None else ''
+            msg += ' [Process: %s]' % (str(self.process)) \
+                if self.process is not None else ''
+            msg += ' [Thread: %s]' % (str(self.thread)) \
+                if self.thread is not None else ''
         return msg
 
     def set_handled(self, handled):
         self.handled = handled
+
 
 class LSLStreamNotFound(Exception):
 
@@ -291,3 +315,20 @@ class IncorrectLSLConfig(Exception):
         super().__init__(msg)
 
 
+def get_imp_code(code_str):
+    return MedusaException.IMPORTANCE_CODES[code_str]
+
+
+def importance_code_to_str(code):
+    imp_codes = MedusaException.IMPORTANCE_CODES
+
+    if code == imp_codes['critical']:
+        return 'critical'
+    elif code == imp_codes['important']:
+        return 'important'
+    elif code == imp_codes['handled']:
+        return 'handled'
+    elif code == imp_codes['unknown']:
+        return 'unknown'
+    else:
+        raise ValueError('Unknown importance code')

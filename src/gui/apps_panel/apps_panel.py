@@ -2,14 +2,9 @@
 import sys
 import json
 import importlib
-import glob
 import time
 import warnings
 import os
-import zipfile
-import tempfile
-import shutil
-from datetime import datetime
 # EXTERNAL MODULES
 from PyQt5 import uic
 from PyQt5.QtWidgets import *
@@ -61,11 +56,10 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
 
     def handle_exception(self, ex):
         # Treat exception
+        print('AppsPanelWidget.handle_exception')
         if not isinstance(ex, exceptions.MedusaException):
             ex = exceptions.MedusaException(
-                ex, importance=exceptions.EXCEPTION_UNKNOWN,
-                scope='app',
-                origin='apps_panel/apps_panel/handle_exception')
+                ex, scope='app', origin='AppsPanel.handle_exception')
         # Notify exception to gui main
         self.medusa_interface.error(ex)
 
@@ -84,9 +78,10 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
         critical to close the app"""
         success = False
         if self.app_process is not None:
+            # The app cannot be closed nicely because lives in other process!
             # Try to close the app nicely
-            self.app_process.close_app()
-            success = self.wait_until_app_closed(interval=0.05, timeout=2)
+            # self.app_process.close_app()
+            # success = self.wait_until_app_closed(interval=0.05, timeout=2)
             # Kill the app
             if not success and kill:
                 warnings.warn('Killing the app. This should not be '
@@ -210,12 +205,10 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
                 # Serialize working_lsl_streams
                 ser_lsl_streams = [lsl_str.to_serializable_obj() for
                                    lsl_str in self.working_lsl_streams]
-                # Get app extension
-                ext = self.apps_manager.apps_dict[current_app_key]['extension']
                 # Get app manager
                 self.app_process = app_process_mdl.App(
+                    app_info=self.apps_manager.apps_dict[current_app_key],
                     app_settings=self.app_settings,
-                    app_extension=ext,
                     medusa_interface=self.medusa_interface,
                     app_state=self.app_state,
                     run_state=self.run_state,

@@ -5,7 +5,8 @@ import sys
 import traceback
 import resources
 import time
-from abc import ABC
+from abc import ABC, abstractmethod
+from PyQt5 import QtCore
 
 
 class MedusaThread(threading.Thread):
@@ -39,12 +40,22 @@ def random_method():
         c += 1
 
 
-class SomeRandomClass:
+class SomeRandomClassSkeleton(ABC):
 
     def __init__(self):
         pass
 
+    @abstractmethod
     @exceptions.error_handler()
+    def random_method(self):
+        raise Exception('Hi from random_method!')
+
+
+class SomeRandomClass(SomeRandomClassSkeleton):
+
+    def __init__(self):
+        super().__init__()
+
     def random_method(self):
         raise Exception('Hi from random_method!')
 
@@ -71,10 +82,16 @@ class SomeRandomClassThread(MedusaThread):
         raise Exception('Hi from SomeRandomClassThread.random_method!')
 
 
-class SomeRandomClassProcess(MedusaProcess):
-    def __init__(self):
-        super().__init__(name='RandomProcess')
+class SomeRandomClassQThread(QtCore.QThread):
 
+    def __init__(self):
+        super().__init__()
+        self.setObjectName('RandomQThread')
+
+    def handle_exception(self, ex):
+        print('CUSTOM EXCEPTION HANDLING in SomeRandomClassThread')
+
+    @exceptions.error_handler()
     def run(self):
         c = 0
         while True:
@@ -84,7 +101,24 @@ class SomeRandomClassProcess(MedusaProcess):
             print('RandomProcess running ...')
             c += 1
 
+    def random_method(self):
+        raise Exception('Hi from SomeRandomClassThread.random_method!')
+
+
+class SomeRandomClassProcess(MedusaProcess):
+    def __init__(self):
+        super().__init__(name='RandomProcess')
+
     @exceptions.error_handler()
+    def run(self):
+        c = 0
+        while True:
+            if c > 2:
+                self.random_method()
+            time.sleep(1)
+            print('RandomProcess running ...')
+            c += 1
+
     def random_method(self):
         raise Exception('Hi from SomeRandomClassProcess.random_method!')
 
@@ -97,10 +131,10 @@ if __name__ == '__main__':
     # time.sleep(1)
     #
     # # Error in class
-    # cls = SomeRandomClass()
-    # cls.random_method()
-    # print('\n\n==============================================================')
-    # time.sleep(1)
+    cls = SomeRandomClass()
+    cls.random_method()
+    print('\n\n==============================================================')
+    time.sleep(1)
     #
     # # Error in child thread
     # th = threading.Thread(target=random_method)
@@ -109,27 +143,31 @@ if __name__ == '__main__':
     # print('\n\n==============================================================')
     # time.sleep(1)
     #
-    # # Error in child thread with inheritance
+    # Error in child thread with inheritance
     # th = SomeRandomClassThread()
     # th.start()
     # th.join()
     # print('\n\n==============================================================')
     # time.sleep(1)
-    #
-    # # Error in child process
+
+    # Error in child thread with inheritance
+    # th = SomeRandomClassQThread()
+    # th.start()
+    # th.wait()
+    # print('\n\n==============================================================')
+    # time.sleep(1)
+
+    # Error in child process
     # pr = multiprocessing.Process(target=random_method)
     # pr.start()
     # pr.join()
     # print('\n\n==============================================================')
     # time.sleep(1)
-
-    # Error in child process with inheritance
-    pr = SomeRandomClassProcess()
-    pr.start()
-    pr.join()
-    print('\n\n==============================================================')
-    time.sleep(1)
-
+    #
+    # # Error in child process with inheritance
+    # pr = SomeRandomClassProcess()
+    # pr.start()
+    # pr.join()
 
 
 
