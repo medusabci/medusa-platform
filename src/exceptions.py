@@ -1,4 +1,4 @@
-import traceback
+import traceback, sys, functools
 
 
 # EXCEPTIONS IMPORTANCE
@@ -8,6 +8,46 @@ EXCEPTION_HANDLED = 2       # CONTROLLED ERROR THAT HAS BEEN HANDLED.
 EXCEPTION_UNKNOWN = 3       # ERROR WITH UNKNOWN CONSEQUENCES.
 
 
+class ExceptionHandler:
+    """ Class to handle exceptions within medusa
+    """
+    def __init__(self, medusa_interface):
+        self.medusa_interface = medusa_interface
+        self.scope = None
+
+    def set_scope(self, scope):
+        possible_scopes = ['app', 'plots', 'log', 'general']
+        if scope is not None and scope not in possible_scopes:
+            raise ValueError('Scope must be one of %s' % str(possible_scopes))
+        self.scope = scope
+
+    def handle_exception(self, ex):
+        print('exceptions.ExceptionHandler:', file=sys.stderr)
+        traceback.print_exc()
+
+    def method_excepthook(self, func):
+        @functools.wraps(func)
+        def wrapper_decorator(*args, **kwargs):
+            # Do something before
+            try:
+                value = func(*args, **kwargs)
+                return value
+            except Exception as ex:
+                if not isinstance(ex, MedusaException):
+                    ex = MedusaException(ex, importance=EXCEPTION_UNKNOWN,
+                                         scope=self.scope,
+                                         origin=func.__qualname__)
+                self.handle_exception(ex)
+        return wrapper_decorator
+
+    def safe_excepthook(self, thread, ex):
+        if not isinstance(ex, MedusaException):
+            ex = MedusaException(ex, importance=EXCEPTION_UNKNOWN,
+                                 scope=self.scope,
+                                 origin=thread.name)
+        self.medusa_interface.error(ex)
+
+
 class MedusaException(Exception):
 
     """This class must be used to communicate errors to the main process
@@ -15,8 +55,8 @@ class MedusaException(Exception):
     Qt throws errors asynchronously which are very difficult to locate
     afterwards.
     """
-    def __init__(self, exception, importance=None, msg=None,
-                 scope=None, origin=None):
+    def __init__(self, exception, importance=None, msg=None, scope=None,
+                 origin=None):
         """Class constructor for
 
         Parameters
@@ -54,6 +94,7 @@ class MedusaException(Exception):
         if scope is not None and scope not in possible_scopes:
             raise ValueError('Scope must be one of %s' % str(possible_scopes))
         # Set attributes
+        self.exception = exception
         self.exception_type = type(exception)
         self.exception_msg = str(exception)
         self.traceback = traceback.format_exc()
@@ -66,9 +107,12 @@ class MedusaException(Exception):
         """Return the message of the exception. Some info can be added if
         verbose is True."""
         msg = self.msg if self.msg is not None else str(self.exception_msg)
+        msg = ': %s' % msg if len(msg) > 0 else ''
+        msg = self.exception_type.__name__ + msg
         if verbose:
-            msg += ' [Scope: %s] ' % str(self.scope)
-            msg += '[Origin: %s] ' % str(self.origin)
+            tab = ''.join(['&nbsp;' for i in range(6)])
+            msg += ' [Scope: %s]' % (str(self.scope))
+            msg += ' [Origin: %s]' % (str(self.origin))
         return msg
 
 

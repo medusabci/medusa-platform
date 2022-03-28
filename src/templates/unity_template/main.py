@@ -5,8 +5,8 @@ import time
 from PyQt5.QtWidgets import QApplication
 # Medusa imports
 import resources, constants, exceptions
-from apps.dev_app_unity.app_controller import AppController
-from apps.dev_app_unity.constants import *
+from app_controller import AppController
+from constants import *
 from gui import gui_utils
 # Medusa core imports
 from medusa import components

@@ -1,22 +1,25 @@
-Client sent: {"event_type":"waiting"}#_?END?_#
-Client sent: {"event_type":"ready"}#_?END?_#
-Client sent: {"event_type":"request_samples","dummy":"value"}#_?END?_#
-Client sent: {"event_type":"request_samples","dummy":"value"}#_?END?_#
-Client sent: {"event_type":"request_samples","dummy":"value"}#_?END?_#
-Client sent: {"event_type":"request_samples","dummy":"value"}#_?END?_#
-Client sent: {"event_type":"request_samples","dummy":"value"}#_?END?_#
-Client sent: {"event_type":"request_samples","dummy":"value"}#_?END?_#
-Client sent: {"event_type":"request_samples","dummy":"value"}#_?END?_#
-Client sent: {"event_type":"request_samples","dummy":"value"}#_?END?_#
-Client sent: {"event_type":"request_samples","dummy":"value"}#_?END?_#
-Client sent: {"event_type":"request_samples","dummy":"value"}#_?END?_#
-Client sent: {"event_type":"close"}#_?END?_#
-Closing...
-Client closed
-Client sent: {"event_type":"waiting"}#_?END?_#
-Client sent: {"event_type":"ready"}#_?END?_#
-Client sent: {"event_type":"request_samples","dummy":"value"}#_?END?_#
-Client sent: {"event_type":"request_samples","dummy":"value"}#_?END?_#
-Client sent: {"event_type":"close"}#_?END?_#
+Client sent: {"event_type":"waiting"}
+Client sent: {"event_type":"ready"}
+Client sent: {"event_type":"request_samples","dummy":"value"}
+Client sent: {"event_type":"request_samples","dummy":"value"}
+Client sent: {"event_type":"request_samples","dummy":"value"}
+Client sent: {"event_type":"request_samples","dummy":"value"}
+Client sent: {"event_type":"request_samples","dummy":"value"}
+Client sent: {"event_type":"request_samples","dummy":"value"}
+Client sent: {"event_type":"request_samples","dummy":"value"}
+Client sent: {"event_type":"request_samples","dummy":"value"}
+Client sent: {"event_type":"request_samples","dummy":"value"}
+Client sent: {"event_type":"request_samples","dummy":"value"}
+Client sent: {"event_type":"request_samples","dummy":"value"}
+Client sent: {"event_type":"request_samples","dummy":"value"}
+Client sent: {"event_type":"request_samples","dummy":"value"}
+Client sent: {"event_type":"request_samples","dummy":"value"}
+Client sent: {"event_type":"request_samples","dummy":"value"}
+Client sent: {"event_type":"request_samples","dummy":"value"}
+Client sent: {"event_type":"request_samples","dummy":"value"}
+Client sent: {"event_type":"request_samples","dummy":"value"}
+Client sent: {"event_type":"request_samples","dummy":"value"}
+Client sent: {"event_type":"request_samples","dummy":"value"}
+Client sent: {"event_type":"close"}
 Closing...
 Client closed

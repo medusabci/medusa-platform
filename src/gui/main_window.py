@@ -523,7 +523,7 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
                     origin='GuiMain/handle_exception')
             # Print exception message
             print(ex.get_msg(verbose=True))
-            print(ex.traceback)
+            print(ex.traceback, file=sys.stderr)
             self.print_log(ex.get_msg(verbose=True),
                            style={'color': self.theme_colors['THEME_RED']})
             # Take actions

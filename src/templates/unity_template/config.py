@@ -14,7 +14,8 @@ class Config(QtWidgets.QMainWindow):
 
     close_signal = QtCore.pyqtSignal(object)
 
-    def __init__(self, sett, theme_colors=None):
+    def __init__(self, sett, medusa_interface,
+                 working_lsl_streams_info, theme_colors=None):
         """
         Config constructor.
 
@@ -30,7 +31,7 @@ class Config(QtWidgets.QMainWindow):
         # Initialize the gui application
         self.theme_colors = gui_utils.get_theme_colors('dark') if \
             theme_colors is None else theme_colors
-        self.stl = gui_utils.set_css_and_theme(self, 'style.css',
+        self.stl = gui_utils.set_css_and_theme(self, 'gui/style.css',
                                                self.theme_colors)
         self.setWindowIcon(QtGui.QIcon('../gui/images/medusa_favicon.png'))
         self.setWindowTitle('Default configuration window')

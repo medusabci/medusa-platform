@@ -15,7 +15,41 @@ from gui.qt_widgets import dialogs
 from gui import gui_utils
 
 
-class AppSkeleton(mp.Process, ABC):
+class MedusaThread(ABC, th.Thread):
+
+    def __init__(self, medusa_interface, **th_kwargs):
+        super().__init__(**th_kwargs)
+        self.exception_handler = exceptions.ExceptionHandler(medusa_interface)
+
+    @abstractmethod
+    def safe_run(self):
+        pass
+
+    def run(self):
+        try:
+            super().run()
+        except Exception as e:
+            self.exception_handler.safe_excepthook(self, e)
+
+
+class MedusaProcess(ABC, mp.Process):
+
+    def __init__(self, medusa_interface, **pr_kwargs):
+        super().__init__(**pr_kwargs)
+        self.exception_handler = exceptions.ExceptionHandler(medusa_interface)
+
+    @abstractmethod
+    def safe_run(self):
+        pass
+
+    def run(self):
+        try:
+            self.safe_run()
+        except Exception as e:
+            self.exception_handler.safe_excepthook(self, e)
+
+
+class AppSkeleton(MedusaProcess):
     """
     This class is the baseline for Medusa apps, providing an optimized
     structure for real-time biofeedback applications. Generally,
@@ -41,11 +75,8 @@ class AppSkeleton(mp.Process, ABC):
             App configuration
         app_extension: str
             App extension (e.g., 'dev' to save files as 'file.dev')
-        queue_to_medusa: mp.Queue
-            Multiprocessing queue to communicate events to medusa. Do not use it
-            directly, use medusa_interface.
-        queue_from_medusa: mp.Queue
-            Multiprocessing queue to receive information from medusa
+       medusa_interface: resources.Medusa_interface
+            Interface to the main gui of medusa
         app_state: mp.Value
             App state
         run_state: mp.Value
@@ -54,8 +85,8 @@ class AppSkeleton(mp.Process, ABC):
             List of the lsl streams connected to medusa
         """
         # Calling superclass constructor
+        super().__init__(medusa_interface)
         # -------------------------- CHECK ERRORS ---------------------------- #
-        super().__init__()
         # ---------------------------- SETTINGS ------------------------------ #
         self.app_settings = app_settings
         self.app_extension = app_extension
@@ -82,22 +113,19 @@ class AppSkeleton(mp.Process, ABC):
         # Data receiver
         self.manager_thread = None
 
-    def run(self):
+    def safe_run(self):
         """Setup the working threads and the app
         """
-        try:
-            # Working threads
-            self.setup_lsl_workers()
-            self.setup_manager_thread()
-            # Main method (blocking)
-            self.main()
-            # Join the working threads
-            self.lsl_workers_join()
-            self.manager_thread.join()
-            # Debug info
-            print('[APP] App GUI and workers terminated')
-        except Exception as ex:
-            self.handle_exception(ex)
+        # Working threads
+        self.setup_lsl_workers()
+        self.setup_manager_thread()
+        # Main method (blocking)
+        self.main()
+        # Join the working threads
+        self.lsl_workers_join()
+        self.manager_thread.join()
+        # Debug info
+        print('[APP] App GUI and workers terminated')
 
     def setup_lsl_workers(self):
         """Creates and starts the working threads that receive the LSL streams.
@@ -107,30 +135,31 @@ class AppSkeleton(mp.Process, ABC):
         that need to be updated when each sample is received). Override this
         method and use custom LSL workers in those cases.
         """
-        try:
-            # Data receiver
-            self.lsl_streams_info = [
-                lsl_utils.LSLStreamWrapper.from_serializable_obj(ser_lsl_str)
-                for ser_lsl_str in self.lsl_streams_info
-            ]
-            for info in self.lsl_streams_info:
-                if info.lsl_uid in self.lsl_workers:
-                    raise ValueError('Duplicated lsl stream uid %s' %
-                                     info.lsl_uid)
-                receiver = lsl_utils.LSLStreamReceiver(info)
-                self.lsl_workers[info.medusa_uid] = \
-                    LSLStreamAppWorker(receiver, self.app_state,
-                                       self.run_state,
-                                       self.medusa_interface,
-                                       preprocessor=None)
-                self.lsl_workers[info.medusa_uid].start()
-        except Exception as e:
-            e = exceptions.MedusaException(
-                e, importance=exceptions.EXCEPTION_UNKNOWN,
-                msg=None, scope=None,
-                origin='App/setup_lsl_workers',
-            )
-            self.handle_exception(e)
+        # try:
+        # Data receiver
+        raise Exception
+        self.lsl_streams_info = [
+            lsl_utils.LSLStreamWrapper.from_serializable_obj(ser_lsl_str)
+            for ser_lsl_str in self.lsl_streams_info
+        ]
+        for info in self.lsl_streams_info:
+            if info.lsl_uid in self.lsl_workers:
+                raise ValueError('Duplicated lsl stream uid %s' %
+                                 info.lsl_uid)
+            receiver = lsl_utils.LSLStreamReceiver(info)
+            self.lsl_workers[info.medusa_uid] = \
+                LSLStreamAppWorker(receiver, self.app_state,
+                                   self.run_state,
+                                   self.medusa_interface,
+                                   preprocessor=None)
+            self.lsl_workers[info.medusa_uid].start()
+        # except Exception as e:
+        #     e = exceptions.MedusaException(
+        #         e, importance=exceptions.EXCEPTION_UNKNOWN,
+        #         msg=None, scope=None,
+        #         origin='App/setup_lsl_workers',
+        #     )
+        #     self.handle_exception(e)
 
     def lsl_workers_join(self):
         for worker in self.lsl_workers.values():
@@ -260,7 +289,7 @@ class AppSkeleton(mp.Process, ABC):
         raise NotImplemented
 
 
-class LSLStreamAppWorker(th.Thread):
+class LSLStreamAppWorker(MedusaThread):
     """Thread that receives samples from a LSL stream and saves them.
 
     To read and process the data in a thread-safe way, use function get_data.
@@ -289,7 +318,7 @@ class LSLStreamAppWorker(th.Thread):
             applied in real time to the signal. For most applications set to
             None.
         """
-        super().__init__()
+        super().__init__(medusa_interface)
         # Check errors
         if receiver.lsl_stream_info.lsl_stream_inlet is None:
             raise ValueError('Call function init_lsl_inlet of class '
@@ -305,7 +334,7 @@ class LSLStreamAppWorker(th.Thread):
         self.data = np.zeros((0, self.receiver.n_cha))
         self.timestamps = np.zeros((0,))
 
-    def run(self):
+    def safe_run(self):
         try:
             """Method executed by the thread. It contains an infinite loop that
             receives and stores samples from a lsl receiver. The attribute

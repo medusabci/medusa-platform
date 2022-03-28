@@ -61,8 +61,7 @@ class AppController(TCPServer):
         self.run_state = run_state
 
         # Pass the IP and port to the TCPServer
-        super().__init__(ip=self.app_settings.ip, port=self.app_settings.port,
-                         magic_message=END_OF_MESSAGE)
+        super().__init__(ip=self.app_settings.ip, port=self.app_settings.port)
 
         # States
         self.server_state = mp.Value('i', SERVER_DOWN)
@@ -73,22 +72,23 @@ class AppController(TCPServer):
         event.accept()
 
     def close(self):
-        super().close()
+        super().stop()
         self.server_state.value = SERVER_DOWN
         return True
 
     def start_application(self):
         """ Starts the Unity application that will act as a TCP client. """
         try:
-            # TODO: variable IP and port
-            subprocess.call(self.app_settings.path_to_exe)
+            subprocess.call([self.app_settings.path_to_exe,
+                             self.app_settings.ip,
+                             str(self.app_settings.port)])
         except Exception as ex:
             raise ex
 
     def start_server(self):
         """ Starts the TCP server in MEDUSA. """
         try:
-            asyncio.run(super().start_on_thread())
+            super().start()
         except Exception as ex:
             raise ex
 
@@ -129,27 +129,34 @@ class AppController(TCPServer):
         self.server_state.value = SERVER_UP
         print(self.TAG, "Server is UP!")
     
-    def send_command(self, command_dict, client_idx=0):
+    def send_command(self, command_dict, client_addresses=None):
         """ Stores a dict command in the TCP server's buffer to send it in the
         next loop iteration.
 
         Parameters
         ----------
-        msg : dict
+        command_dict : dict
             Dictionary that includes the command to be sent.
+        client_addresses : list of (string, int)
+            List of client's addresses who must receive the command, use None
+            for sending the message to all connected clients.
         """
-        super().send_command(command_dict, client_idx=0)    # Encoding
+        super().send_command(client_addresses=client_addresses,
+                             msg=command_dict)
         
-    def on_data_received(self, received_message):
+    def on_data_received(self, client_address, received_message):
         """ Callback when TCP server receives a message from Unity.
 
         Parameters
         ----------
-        jsonMsg : string
-            JSON encoded string of the message received from Unity, which will
-            be decoded as a dictionary afterward.
+        client_address : (string, int)
+            IP and port of the client that sent the message
+        received_message : string
+            JSON encoded string of the message received from the client,
+            which will be decoded as a dictionary afterward.
         """
-        msg = super().on_data_received(received_message)    # Decoding
+        client_address, msg = super().on_data_received(
+            client_address, received_message)
         if msg["event_type"] == "waiting":
             # Unity is UP and waiting for the parameters
             self.unity_state.value = UNITY_UP
@@ -166,8 +173,6 @@ class AppController(TCPServer):
         elif msg["event_type"] == "request_samples":
             # Process the message using the App callback
             self.callback.process_event(msg)
-            # TODO: direct call? queues? inheriting?
-            # self.queue_from_controller.put(msg)
         else:
             print(self.TAG, "Unknown message in 'on_data_received': " +
                   msg["event_type"])
