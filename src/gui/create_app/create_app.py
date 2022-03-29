@@ -82,7 +82,7 @@ class CreateAppDialog(QtWidgets.QDialog, create_app_dialog):
             else:
                 raise ValueError('Unknown template!')
 
-            # Install
+            # Install app
             self.apps_manager.install_app_template(
                 app_id, app_name, app_extension, app_template_path)
 
