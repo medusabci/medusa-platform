@@ -241,7 +241,7 @@ class AppSkeleton(mp.Process):
         print("Override this method!! Event: " + str(event))
 
     @abstractmethod
-    def close_app(self):
+    def close_app(self, force=False):
         """This function has to terminate the app and working threads,
         returning control to the main process. Take into account that,
         once the working threads are stopped, the app will not be able to

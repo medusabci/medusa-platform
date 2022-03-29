@@ -1,11 +1,11 @@
-# External modules
-import asyncio
+# BUILT-IN modules
 import subprocess
 import multiprocessing as mp
-# Medusa modules
+# MEDUSA modules
 import constants
-from apps.dev_app_unity.constants import *
 from tcp.async_tcp_server import TCPServer
+# APP MODULES
+from apps.{{app_info['id']}}.app_constants import *
 
 
 class AppController(TCPServer):
@@ -45,15 +45,6 @@ class AppController(TCPServer):
     """
 
     def __init__(self, callback, app_settings, run_state):
-        """ Constructor method for the ``AppController```class.
-
-        Parameters
-        ----------
-        app_settings : Settings
-        run_state : multiprocessing.Value
-        queue_to_controller : queue.Queue
-        queue_from_controller : queue.Queue
-        """
         # Parameters
         self.TAG = '[apps.dev_app_unity.AppController]'
         self.callback = callback
@@ -78,19 +69,13 @@ class AppController(TCPServer):
 
     def start_application(self):
         """ Starts the Unity application that will act as a TCP client. """
-        try:
-            subprocess.call([self.app_settings.path_to_exe,
-                             self.app_settings.ip,
-                             str(self.app_settings.port)])
-        except Exception as ex:
-            raise ex
+        subprocess.call([self.app_settings.path_to_exe,
+                         self.app_settings.ip,
+                         str(self.app_settings.port)])
 
     def start_server(self):
         """ Starts the TCP server in MEDUSA. """
-        try:
-            super().start()
-        except Exception as ex:
-            raise ex
+        super().start()
 
     # --------------- SEND MESSAGES TO UNITY --------------- #        
     def send_parameters(self):

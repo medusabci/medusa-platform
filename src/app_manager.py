@@ -1,7 +1,9 @@
 # BUILT-IN MODULES
-import shutil, json, os
+import shutil, json, os, glob
 from datetime import datetime
 import zipfile, tempfile
+# EXTERNAL MODULES
+from jinja2 import Template
 # INTERNAL MODULES
 import constants
 
@@ -49,10 +51,11 @@ class AppManager:
                              app_template_path):
         # Check errors
         if app_id in self.apps_dict:
-            raise Exception('App %s is already installed' % app_name)
-        # Install app
+            raise Exception('App with id %s is already installed' % app_id)
+        # Copy tree
         app_path = 'apps/%s' % app_id
         shutil.copytree(app_template_path, app_path)
+        # App info
         info = {
             'id': app_id,
             'name': app_name,
@@ -62,6 +65,17 @@ class AppManager:
             'compilation-date': 'development',
             'installation-date': self.get_date_today()
         }
+        # Render jinja2 templates
+        jinja2_files_path = glob.glob('%s/*.jinja2' % app_path)
+        for jinja2_file_path in jinja2_files_path:
+            jinja2_file_path_rendered = jinja2_file_path.split('.jinja2')[0]
+            with open(jinja2_file_path, 'r') as f:
+                jinja2_file_content = f.read()
+                jinja2_template = Template(jinja2_file_content)
+            with open(jinja2_file_path_rendered, 'w') as f:
+                f.write(jinja2_template.render(app_info=info))
+            os.remove(jinja2_file_path)
+        # Update apps file
         self.apps_dict[info['id']] = info
         self.update_apps_file()
 

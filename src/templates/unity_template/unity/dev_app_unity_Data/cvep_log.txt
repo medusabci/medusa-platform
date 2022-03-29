@@ -23,3 +23,20 @@ Client sent: {"event_type":"request_samples","dummy":"value"}
 Client sent: {"event_type":"close"}
 Closing...
 Client closed
+Client sent: {"event_type":"waiting"}
+Client sent: {"event_type":"ready"}
+Client sent: {"event_type":"request_samples","dummy":"value"}
+Client sent: {"event_type":"request_samples","dummy":"value"}
+Client sent: {"event_type":"request_samples","dummy":"value"}
+Client sent: {"event_type":"request_samples","dummy":"value"}
+Client sent: {"event_type":"request_samples","dummy":"value"}
+Client sent: {"event_type":"request_samples","dummy":"value"}
+Client sent: {"event_type":"request_samples","dummy":"value"}
+Client sent: {"event_type":"request_samples","dummy":"value"}
+Client sent: {"event_type":"request_samples","dummy":"value"}
+Client sent: {"event_type":"request_samples","dummy":"value"}
+Client sent: {"event_type":"request_samples","dummy":"value"}
+Client sent: {"event_type":"request_samples","dummy":"value"}
+Client sent: {"event_type":"close"}
+Closing...
+Client closed

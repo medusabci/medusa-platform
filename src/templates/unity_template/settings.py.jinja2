@@ -16,7 +16,7 @@ class Settings(SerializableComponent):
         # Default .exe path
         if self.path_to_exe is None:
             self.path_to_exe = os.path.join(
-                os.getcwd(), 'apps/dev_app_unity/unity/dev_app_unity.exe')
+                os.getcwd(), 'apps/{{app_info['id']}}/unity/dev_app_unity.exe')
 
     def to_serializable_obj(self):
         return self.__dict__
