@@ -194,7 +194,8 @@ class App(resources.AppSkeleton):
         # 3 - Change app state to power on
         self.medusa_interface.app_state_changed(
             mds_constants.APP_STATE_ON)
-        # 4 - Start the Unity app and block the execution until it is closed
+        # 4 - Wait until server is UP, start the unity app and block the
+        # execution until it is closed
         while self.app_controller.server_state.value == \
                 app_constants.SERVER_DOWN:
             time.sleep(0.1)
