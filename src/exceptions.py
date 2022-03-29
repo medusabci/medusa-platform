@@ -108,8 +108,7 @@ class MedusaException(Exception):
     IMPORTANCE_CODES = {
         'critical': 0,   # CRITICAL ERROR. SHUT DOWN ORIGIN
         'important': 1,  # IMPORTANT ERROR WITH UNKNOWN CONSEQUENCES
-        'handled': 2,    # CONTROLLED ERROR THAT HAS BEEN HANDLED
-        'unknown': 3,    # ERROR WITH UNKNOWN CONSEQUENCES
+        'unknown': 2,    # ERROR WITH UNKNOWN CONSEQUENCES
     }
     SCOPES = ['app', 'plots', 'log', 'general']
 
@@ -130,7 +129,7 @@ class MedusaException(Exception):
             Importance of the exception. Depending of the importance,
             the main process take different actions. If None, the exception
             will be treated as unknown. Possible values {'critical'|'important'|
-            'handled'|'unknown'}.
+            'unknown'}.
         scope: str or None {'app'|'plots'|'log'|'general'}
             Scope of the error. Must be None, 'app', 'plots' or 'general'. If
             None, Medusa will treat this error as general. Actions will be taken
