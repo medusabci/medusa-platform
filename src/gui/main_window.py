@@ -1,6 +1,7 @@
 # PYTHON MODULES
 import os, sys, time
 import multiprocessing as mp
+import multiprocessing.queues as mp_queues
 import json, traceback
 
 # EXTERNAL MODULES
@@ -60,7 +61,7 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         self.run_state = mp.Value('i', constants.RUN_STATE_READY)
 
         # Medusa interface
-        self.interface_queue = mp.Queue()
+        self.interface_queue = self.MedusaInterfaceQueue()
         self.medusa_interface_listener = None
         self.set_up_medusa_interface_listener(self.interface_queue)
         self.medusa_interface = resources.MedusaInterface(self.interface_queue)
@@ -626,10 +627,52 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
                 # Close log panel
                 if self.log_panel_widget.undocked:
                     self.log_panel_window.close()
+                # Close medusa interface queue
+                self.medusa_interface_listener.terminate()
+                self.interface_queue.close()
                 # let the window close
                 event.accept()
         except Exception as e:
             self.handle_exception(e)
+
+    class MedusaInterfaceQueue:
+
+        """Communication queue between all medusa elements and the main gui
+        """
+
+        FLUSH = '#@flush@#'
+
+        def __init__(self):
+            self.queue = mp.Queue()
+            self.closed = False
+
+        def put(self, obj, block=True, timeout=None):
+            self.queue.put(obj, block=block, timeout=timeout)
+
+        def get(self, block=True, timeout=None):
+            msg = self.queue.get(block, timeout)
+            if self.is_flush(msg):
+                return None
+            else:
+                return msg
+
+        def flush(self):
+            """If the Medusa interface listener"""
+            self.put(self.FLUSH)
+
+        def is_flush(self, msg):
+            return True if msg == self.FLUSH else False
+
+        def close(self):
+            """This method must be used to close the queue
+            """
+            # self.flush()
+            self.queue.close()
+            self.queue.join_thread()
+            self.closed = True
+
+        def is_closed(self):
+            return self.closed
 
     class MedusaInterfaceListener(QThread):
         """Class to receive messages from MedusaInterface
@@ -640,7 +683,7 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
 
         Attributes
         ----------
-        queue : multiprocessing queue
+        medusa_interface_queue : multiprocessing queue
         stop : boolean
                Parameter to stop the listener thread.
         """
@@ -655,16 +698,16 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         app_state_changed_signal = pyqtSignal(int)
         run_state_changed_signal = pyqtSignal(int)
 
-        def __init__(self, queue):
+        def __init__(self, medusa_interface_queue):
             """Class constructor
 
             Parameters
             ----------
-            queue : multiprocessing queue
+            medusa_interface_queue : multiprocessing queue
                     Queue where the manager process puts the messages
             """
             QThread.__init__(self)
-            self.queue = queue
+            self.medusa_interface_queue = medusa_interface_queue
             self.stop = False
 
         def run(self):
@@ -672,34 +715,51 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
             """
             while not self.stop:
                 try:
-                    info = self.queue.get()
-                    if info is not None:
-                        if info['info_type'] == \
-                                resources.MedusaInterface.INFO_LOG:
-                            self.msg_signal.emit(info['info'], info['style'])
-                        elif info[
-                            'info_type'] == \
-                                resources.MedusaInterface.INFO_EXCEPTION:
-                            self.exception_signal.emit(info['info'])
-                        elif info['info_type'] == \
-                                resources.MedusaInterface.INFO_APP_STATE_CHANGED:
-                            self.app_state_changed_signal.emit(info['info'])
-                        elif info['info_type'] == \
-                                resources.MedusaInterface.INFO_RUN_STATE_CHANGED:
-                            self.run_state_changed_signal.emit(info['info'])
-                        elif info['info_type'] == \
-                                resources.MedusaInterface.INFO_UNDOCKED_PLOTS_CLOSED:
-                            self.undocked_plots_closed.emit()
-                        else:
-                            raise ValueError('Incorrect msg received in '
-                                             'MedusaInterfaceListener')
+                    # Check if queue is closed
+                    if self.medusa_interface_queue.is_closed():
+                        continue
+                    # Wait for incoming messages
+                    info = self.medusa_interface_queue.get()
+                    # Check flush
+                    if info is None:
+                        continue
+                    # Decode message
+                    if info['info_type'] == \
+                            resources.MedusaInterface.INFO_LOG:
+                        self.msg_signal.emit(info['info'], info['style'])
+                    elif info['info_type'] == \
+                            resources.MedusaInterface.INFO_EXCEPTION:
+                        self.exception_signal.emit(info['info'])
+                    elif info['info_type'] == \
+                            resources.MedusaInterface.INFO_APP_STATE_CHANGED:
+                        self.app_state_changed_signal.emit(info['info'])
+                    elif info['info_type'] == \
+                            resources.MedusaInterface.INFO_RUN_STATE_CHANGED:
+                        self.run_state_changed_signal.emit(info['info'])
+                    elif info['info_type'] == \
+                            resources.MedusaInterface.INFO_UNDOCKED_PLOTS_CLOSED:
+                        self.undocked_plots_closed.emit()
+                    else:
+                        raise ValueError('Incorrect msg received in '
+                                         'MedusaInterfaceListener')
+                except (EOFError, BrokenPipeError, ValueError) as e:
+                    # Broken pipe
+                    ex = exceptions.MedusaException(
+                        e, uid='QueueError',
+                        importance='critical',
+                        msg='Catastrophic error in medusa interface '
+                            'communication queue',
+                        scope='general',
+                        origin='MedusaInterfaceListener.run')
+                    self.exception_signal.emit(ex)
                 except Exception as e:
                     ex = exceptions.MedusaException(
-                        e, importance=exceptions.EXCEPTION_HANDLED,
-                        scope='general', origin='MedusaInterfaceListener/run')
+                        e, importance='handled', scope='general',
+                        origin='MedusaInterfaceListener.run')
                     self.exception_signal.emit(ex)
 
         def terminate(self):
             self.stop = True
-            self.queue.put(None)
+            if not self.medusa_interface_queue.is_closed():
+                self.medusa_interface_queue.flush()
             self.wait()
