@@ -5,7 +5,7 @@ import multiprocessing as mp
 import constants
 from tcp.async_tcp_server import TCPServer
 # APP MODULES
-from apps.{{app_info['id']}}.app_constants import *
+from .app_constants import *
 
 
 class AppController(TCPServer):

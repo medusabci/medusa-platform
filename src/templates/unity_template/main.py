@@ -11,8 +11,8 @@ import resources, exceptions
 import constants as mds_constants
 from gui import gui_utils
 # APP MODULES
-from apps.{{app_info['id']}} import app_controller
-from apps.{{app_info['id']}} import app_constants
+from . import app_controller
+from . import app_constants
 
 
 class App(resources.AppSkeleton):
@@ -251,7 +251,7 @@ class App(resources.AppSkeleton):
             self.stop_working_threads()
         self.app_controller = None
 
-    @exceptions.error_handler(def_scope='app')
+    @exceptions.error_handler(scope='app')
     def on_save_rec_accepted(self):
         file_info = self.save_file_dialog.get_file_info()
         # Experiment data
@@ -278,6 +278,6 @@ class App(resources.AppSkeleton):
         # Print a message
         self.medusa_interface.log('Recording saved successfully')
 
-    @exceptions.error_handler(def_scope='app')
+    @exceptions.error_handler(scope='app')
     def on_save_rec_rejected(self):
         pass
