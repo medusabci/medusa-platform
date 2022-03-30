@@ -28,9 +28,11 @@ class App(resources.AppSkeleton):
         self.queue_from_gui = mp.Queue()
 
     def handle_exception(self, ex):
+        if not isinstance(ex, exceptions.MedusaException):
+            raise ValueError('Unhandled exception')
         if isinstance(ex, exceptions.MedusaException):
             # Take actions
-            if ex.importance == exceptions.get_imp_code('critical'):
+            if ex.importance == 'critical':
                 self.close_app(force=True)
 
     def check_lsl_config(self, working_lsl_streams_info):

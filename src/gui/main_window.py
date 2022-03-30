@@ -65,7 +65,6 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         self.medusa_interface_listener = None
         self.set_up_medusa_interface_listener(self.interface_queue)
         self.medusa_interface = resources.MedusaInterface(self.interface_queue)
-
         # Log panel (set up first in case any exception is raised in other
         # functions)
         self.log_panel_widget = None
@@ -89,6 +88,7 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         self.show()
         # splash_screen.finish(self)  # Close the SplashScreen
 
+    @exceptions.error_handler(scope='general')
     def reset_sizes(self):
         # Define size and splitters
         self.resize(self.default_width, self.default_height)
@@ -160,101 +160,92 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
 
         return splash_screen
 
+    @exceptions.error_handler(scope='general')
     def set_status(self, msg):
         """ Changes the status bar message.
 
         :param msg: basestring
             Status message.
         """
-        try:
-            self.statusBar().showMessage(msg)
-        except Exception as e:
-            self.handle_exception(e)
+        self.statusBar().showMessage(msg)
 
     # ================================ SET UP ================================ #
+    @exceptions.error_handler(scope='general')
     def set_up_medusa_interface_listener(self, interface_queue):
-        try:
-            self.medusa_interface_listener = self.MedusaInterfaceListener(
-                interface_queue)
-            self.medusa_interface_listener.msg_signal.connect(self.print_log)
-            self.medusa_interface_listener.exception_signal.connect(
-                self.handle_exception)
-            self.medusa_interface_listener.app_state_changed_signal.connect(
-                self.on_app_state_changed)
-            self.medusa_interface_listener.run_state_changed_signal.connect(
-                self.on_run_state_changed)
-            self.medusa_interface_listener.start()
-        except Exception as e:
-            self.handle_exception(e)
+        self.medusa_interface_listener = self.MedusaInterfaceListener(
+            interface_queue)
+        self.medusa_interface_listener.msg_signal.connect(self.print_log)
+        self.medusa_interface_listener.exception_signal.connect(
+            self.handle_exception)
+        self.medusa_interface_listener.app_state_changed_signal.connect(
+            self.on_app_state_changed)
+        self.medusa_interface_listener.run_state_changed_signal.connect(
+            self.on_run_state_changed)
+        self.medusa_interface_listener.start()
 
+    @exceptions.error_handler(scope='general')
     def set_up_log_panel(self):
-        try:
-            self.log_panel_widget = log_panel.LogPanelWidget(
-                self.medusa_interface,
-                self.theme_colors)
-            # Add widget
-            self.box_log_panel.layout().addWidget(self.log_panel_widget)
-            self.box_log_panel.layout().setContentsMargins(0, 0, 0, 0)
-            # Connect external actions
-            self.log_panel_widget.toolButton_log_undock.clicked.connect(
-                self.undock_log_panel)
-        except Exception as e:
-            self.handle_exception(e)
+        self.log_panel_widget = log_panel.LogPanelWidget(
+            self.medusa_interface,
+            self.theme_colors)
+        # Add widget
+        self.box_log_panel.layout().addWidget(self.log_panel_widget)
+        self.box_log_panel.layout().setContentsMargins(0, 0, 0, 0)
+        # Connect external actions
+        self.log_panel_widget.toolButton_log_undock.clicked.connect(
+            self.undock_log_panel)
 
+    @exceptions.error_handler(scope='general')
     def set_up_lsl_config(self):
-        try:
-            self.working_lsl_streams = list()
-            if os.path.isfile(constants.LSL_CONFIG_FILE):
-                with open(constants.LSL_CONFIG_FILE, 'r') as f:
-                    last_streams = json.load(f)
-                for lsl_stream_info_dict in last_streams:
-                    try:
-                        lsl_stream_info = \
-                            lsl_utils.LSLStreamWrapper.from_serializable_obj(
-                                lsl_stream_info_dict)
-                    except exceptions.LSLStreamNotFound as e:
-                        self.print_log('LSL stream %s not found' %
-                                       lsl_stream_info_dict['medusa_uid'])
-                        continue
-                    self.working_lsl_streams.append(lsl_stream_info)
-                    self.print_log('Connected to LSL stream: %s' %
-                                   lsl_stream_info.medusa_uid)
-        except Exception as e:
-            self.handle_exception(e)
+        self.working_lsl_streams = list()
+        if os.path.isfile(constants.LSL_CONFIG_FILE):
+            with open(constants.LSL_CONFIG_FILE, 'r') as f:
+                last_streams = json.load(f)
+            for lsl_stream_info_dict in last_streams:
+                try:
+                    lsl_stream_info = \
+                        lsl_utils.LSLStreamWrapper.from_serializable_obj(
+                            lsl_stream_info_dict)
+                except exceptions.LSLStreamNotFound as e:
+                    self.print_log('LSL stream %s not found' %
+                                   lsl_stream_info_dict['medusa_uid'])
+                    continue
+                self.working_lsl_streams.append(lsl_stream_info)
+                self.print_log('Connected to LSL stream: %s' %
+                               lsl_stream_info.medusa_uid)
 
+    @exceptions.error_handler(scope='general')
     def set_up_apps_panel(self):
-        try:
-            self.apps_panel_widget = apps_panel.AppsPanelWidget(
-                self.apps_manager,
-                self.working_lsl_streams,
-                self.app_state,
-                self.run_state,
-                self.medusa_interface,
-                self.theme_colors)
-            # Add widget
-            self.box_apps_panel.layout().addWidget(self.apps_panel_widget)
-            self.box_apps_panel.layout().setContentsMargins(0, 0, 0, 0)
-        except Exception as e:
-            self.handle_exception(e)
+        self.apps_panel_widget = apps_panel.AppsPanelWidget(
+            self.apps_manager,
+            self.working_lsl_streams,
+            self.app_state,
+            self.run_state,
+            self.medusa_interface,
+            self.theme_colors)
+        # Connect signals
+        self.apps_panel_widget.error_signal.connect(self.handle_exception)
+        # Add widget
+        self.box_apps_panel.layout().addWidget(self.apps_panel_widget)
+        self.box_apps_panel.layout().setContentsMargins(0, 0, 0, 0)
 
+    @exceptions.error_handler(scope='general')
     def set_up_plots_panel(self):
-        try:
-            # Create widget
-            self.plots_panel_widget = plots_panel.PlotsPanelWidget(
-                self.working_lsl_streams,
-                self.plot_state,
-                self.medusa_interface,
-                self.theme_colors)
-            # Add widget
-            self.box_plots_panel.layout().addWidget(self.plots_panel_widget)
-            self.box_plots_panel.layout().setContentsMargins(0, 0, 0, 0)
-            # Connect external actions
-            self.plots_panel_widget.toolButton_plot_undock.clicked.connect(
-                self.undock_plots_panel)
-        except Exception as e:
-            self.handle_exception(e)
+        # Create widget
+        self.plots_panel_widget = plots_panel.PlotsPanelWidget(
+            self.working_lsl_streams,
+            self.plot_state,
+            self.medusa_interface,
+            self.theme_colors)
+        # Add widget
+        self.box_plots_panel.layout().addWidget(self.plots_panel_widget)
+        self.box_plots_panel.layout().setContentsMargins(0, 0, 0, 0)
+        # Connect external actions
+        self.plots_panel_widget.toolButton_plot_undock.clicked.connect(
+            self.undock_plots_panel)
 
     # =============================== MENU BAR =============================== #
+    @exceptions.error_handler(scope='general')
     def set_up_menu_bar_main(self):
         # Preferences
         # TODO: menuAction_view_intergated, menuAction_view_split,
@@ -272,133 +263,122 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         #  menuAction_help_update, menuAction_help_about
 
     # =============================== TOOL BAR =============================== #
+    @exceptions.error_handler(scope='general')
     def reset_tool_bar_main(self):
-        try:
-            # Create QAction buttons
-            lsl_config_icon = QIcon("%s/icons/link_enabled_icon.png" %
-                                    constants.IMG_FOLDER)
-            plots_icon = QIcon("%s/icons/signal_enabled_icon.png" %
-                               constants.IMG_FOLDER)
-            profile_icon = QIcon("%s/icons/user_enabled.png" %
-                                 constants.IMG_FOLDER)
-            # Create QToolButton
-            self.toolButton_lsl_config.setIcon(lsl_config_icon)
-            self.toolButton_analyzer.setIcon(plots_icon)
-            self.toolButton_profile.setIcon(profile_icon)
-        except Exception as e:
-            self.handle_exception(e)
+        # Create QAction buttons
+        lsl_config_icon = QIcon("%s/icons/link_enabled_icon.png" %
+                                constants.IMG_FOLDER)
+        plots_icon = QIcon("%s/icons/signal_enabled_icon.png" %
+                           constants.IMG_FOLDER)
+        profile_icon = QIcon("%s/icons/user_enabled.png" %
+                             constants.IMG_FOLDER)
+        # Create QToolButton
+        self.toolButton_lsl_config.setIcon(lsl_config_icon)
+        self.toolButton_analyzer.setIcon(plots_icon)
+        self.toolButton_profile.setIcon(profile_icon)
 
+    @exceptions.error_handler(scope='general')
     def set_up_tool_bar_main(self):
-        try:
-            # Create lsl config button
-            self.toolButton_lsl_config = QToolButton(self.toolBar)
-            self.setProperty("class", "main-toolbar-button")
-            self.toolButton_lsl_config.clicked.connect(self.open_lsl_config_window)
-            # Create plots button
-            self.toolButton_analyzer = QToolButton(self.toolBar)
-            self.setProperty("class", "main-toolbar-button")
-            self.toolButton_analyzer.clicked.connect(self.open_analyzer_window)
-            # Create profile button
-            self.toolButton_profile = QToolButton(self.toolBar)
-            self.setProperty("class", "main-toolbar-button")
-            self.toolButton_profile.clicked.connect(self.open_user_profile_window)
-            # Create spacer widget
-            spacer = QWidget()
-            spacer.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-            # Add QActions to QToolBar
-            self.toolBar.addWidget(self.toolButton_lsl_config)
-            self.toolBar.addWidget(self.toolButton_analyzer)
-            self.toolBar.addWidget(spacer)
-            self.toolBar.addWidget(self.toolButton_profile)
-            # Set default
-            self.reset_tool_bar_main()
-        except Exception as e:
-            print(e)
-            self.handle_exception(e)
+        # Create lsl config button
+        self.toolButton_lsl_config = QToolButton(self.toolBar)
+        self.setProperty("class", "main-toolbar-button")
+        self.toolButton_lsl_config.clicked.connect(self.open_lsl_config_window)
+        # Create plots button
+        self.toolButton_analyzer = QToolButton(self.toolBar)
+        self.setProperty("class", "main-toolbar-button")
+        self.toolButton_analyzer.clicked.connect(self.open_analyzer_window)
+        # Create profile button
+        self.toolButton_profile = QToolButton(self.toolBar)
+        self.setProperty("class", "main-toolbar-button")
+        self.toolButton_profile.clicked.connect(self.open_user_profile_window)
+        # Create spacer widget
+        spacer = QWidget()
+        spacer.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        # Add QActions to QToolBar
+        self.toolBar.addWidget(self.toolButton_lsl_config)
+        self.toolBar.addWidget(self.toolButton_analyzer)
+        self.toolBar.addWidget(spacer)
+        self.toolBar.addWidget(self.toolButton_profile)
+        # Set default
+        self.reset_tool_bar_main()
 
+    @exceptions.error_handler(scope='general')
     def open_analyzer_window(self):
         pass
 
+    @exceptions.error_handler(scope='general')
     def open_user_profile_window(self, event):
-        try:
-            self.user_profile_window = user_profile.UserProfileDialog(
-                theme_colors=self.theme_colors)
-            # menu = QMenu(self)
-            # menu.addAction("Profile")
-            # menu.addAction("Close session")
-            # menu.exec_(QCursor.pos())
-        except Exception as e:
-            self.handle_exception(e)
+        self.user_profile_window = user_profile.UserProfileDialog(
+            theme_colors=self.theme_colors)
+        # menu = QMenu(self)
+        # menu.addAction("Profile")
+        # menu.addAction("Close session")
+        # menu.exec_(QCursor.pos())
 
     # ======================== LAB-STREAMING LAYER =========================== #
+    @exceptions.error_handler(scope='general')
     def open_lsl_config_window(self):
-        try:
-            self.lsl_config_window = \
-                lsl_config.LSLConfig(self.working_lsl_streams,
-                                     theme_colors=self.theme_colors)
-            self.lsl_config_window.accepted.connect(self.set_lsl_streams)
-            self.lsl_config_window.rejected.connect(self.reset_lsl_streams)
-        except Exception as e:
-            self.handle_exception(e)
+        self.lsl_config_window = \
+            lsl_config.LSLConfig(self.working_lsl_streams,
+                                 theme_colors=self.theme_colors)
+        self.lsl_config_window.accepted.connect(self.set_lsl_streams)
+        self.lsl_config_window.rejected.connect(self.reset_lsl_streams)
 
+    @exceptions.error_handler(scope='general')
     def set_lsl_streams(self):
-        try:
-            # Set working streams
-            self.working_lsl_streams = self.lsl_config_window.working_streams
-            # Update the working streams within the panels
-            self.plots_panel_widget.update_working_lsl_streams(
-                self.working_lsl_streams)
-            self.apps_panel_widget.update_working_lsl_streams(
-                self.working_lsl_streams)
-            # Print log info
-            for lsl_stream_info in self.working_lsl_streams:
-                self.print_log('Connected to LSL stream: %s' %
-                               lsl_stream_info.medusa_uid)
-        except Exception as e:
-            self.handle_exception(e)
+        # Set working streams
+        self.working_lsl_streams = self.lsl_config_window.working_streams
+        # Update the working streams within the panels
+        self.plots_panel_widget.update_working_lsl_streams(
+            self.working_lsl_streams)
+        self.apps_panel_widget.update_working_lsl_streams(
+            self.working_lsl_streams)
+        # Print log info
+        for lsl_stream_info in self.working_lsl_streams:
+            self.print_log('Connected to LSL stream: %s' %
+                           lsl_stream_info.medusa_uid)
 
+    @exceptions.error_handler(scope='general')
     def reset_lsl_streams(self):
-        try:
-            pass
-        except Exception as e:
-            self.handle_exception(e)
+        pass
 
     # ========================= DEVELOPER TOOLS ============================== #
-    def create_app_config_window(self):
+    @exceptions.error_handler(scope='general')
+    def create_app_config_window(self, checked):
         self.create_app_window = \
             create_app.CreateAppDialog(self.apps_manager,
                                        theme_colors=self.theme_colors)
         self.create_app_window.accepted.connect(self.update_apps_panel)
 
+    @exceptions.error_handler(scope='general')
     def update_apps_panel(self):
         self.apps_panel_widget.update_apps_panel()
 
     # ======================= PLOTS PANEL FUNCTIONS ========================== #
+    @exceptions.error_handler(scope='general')
     def undock_plots_panel(self):
-        try:
-            if not self.plots_panel_widget.undocked:
-                # Get current dimensions
-                window_height = self.height()
-                plots_panel_width = self.plots_panel_widget.width()
-                apps_panel_width = self.apps_panel_widget.width()
-                # Create main window
-                self.plots_panel_window = plots_panel.PlotsPanelWindow(
-                    self.plots_panel_widget, self.theme_colors,
-                    plots_panel_width, window_height
-                )
-                self.plots_panel_widget.set_undocked(True)
-                self.plots_panel_window.close_signal.connect(
-                    self.dock_plots_panel)
-                # Hide group box and set splitter
-                self.widget_right_side.hide()
-                self.resize(apps_panel_width, window_height)
-                self.splitter.setSizes([apps_panel_width, 0])
-            else:
-                self.plots_panel_window.close()
-        except Exception as e:
-            self.handle_exception(e)
+        if not self.plots_panel_widget.undocked:
+            # Get current dimensions
+            window_height = self.height()
+            plots_panel_width = self.plots_panel_widget.width()
+            apps_panel_width = self.apps_panel_widget.width()
+            # Create main window
+            self.plots_panel_window = plots_panel.PlotsPanelWindow(
+                self.plots_panel_widget, self.theme_colors,
+                plots_panel_width, window_height
+            )
+            self.plots_panel_widget.set_undocked(True)
+            self.plots_panel_window.close_signal.connect(
+                self.dock_plots_panel)
+            # Hide group box and set splitter
+            self.widget_right_side.hide()
+            self.resize(apps_panel_width, window_height)
+            self.splitter.setSizes([apps_panel_width, 0])
+        else:
+            self.plots_panel_window.close()
 
-    def dock_plots_panel(self):
+    @exceptions.error_handler(scope='general')
+    def dock_plots_panel(self, checked):
         # Get current dimensions
         window_height = self.height()
         window_width = self.width()
@@ -417,28 +397,27 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         self.widget_right_side.show()
 
     # ======================== LOG PANEL FUNCTIONS =========================== #
-    def undock_log_panel(self):
-        try:
-            if not self.log_panel_widget.undocked:
-                # Get current dimensions
-                window_height = self.height()
-                log_panel_width = self.apps_panel_widget.width()
-                # Create main window
-                self.log_panel_window = log_panel.LogPanelWindow(
-                    self.log_panel_widget, self.theme_colors,
-                    width=log_panel_width, height=window_height)
-                self.log_panel_widget.set_undocked(True)
-                self.log_panel_window.close_signal.connect(
-                    self.dock_log_panel)
-                # Hide group box and set splitter
-                self.box_log_panel.hide()
-                self.splitter_2.setSizes([log_panel_width, 0])
-            else:
-                self.log_panel_window.close()
-        except Exception as e:
-            self.handle_exception(e)
+    @exceptions.error_handler(scope='general')
+    def undock_log_panel(self, checked):
+        if not self.log_panel_widget.undocked:
+            # Get current dimensions
+            window_height = self.height()
+            log_panel_width = self.apps_panel_widget.width()
+            # Create main window
+            self.log_panel_window = log_panel.LogPanelWindow(
+                self.log_panel_widget, self.theme_colors,
+                width=log_panel_width, height=window_height)
+            self.log_panel_widget.set_undocked(True)
+            self.log_panel_window.close_signal.connect(
+                self.dock_log_panel)
+            # Hide group box and set splitter
+            self.box_log_panel.hide()
+            self.splitter_2.setSizes([log_panel_width, 0])
+        else:
+            self.log_panel_window.close()
 
-    def dock_log_panel(self):
+    @exceptions.error_handler(scope='general')
+    def dock_log_panel(self, checked):
         # Get current dimensions
         window_height = self.height()
         # Update state
@@ -454,32 +433,31 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         self.box_log_panel.show()
 
     # ========================== OTHER FUNCTIONS ============================= #
+    @exceptions.error_handler(scope='general')
     def on_app_state_changed(self, app_state_value):
         """Called by MedusaInterfaceListener when it receives an
         app_state_changed message
         """
-        try:
-            self.app_state.value = app_state_value
-            if self.app_state.value == constants.APP_STATE_OFF:
-                self.apps_panel_widget.reset_tool_bar_app_buttons()
-                self.on_run_state_changed(constants.RUN_STATE_READY)
-                self.set_status('Ready')
-                print('[GUiMain.on_app_state_changed]: APP_STATE_OFF')
-            elif self.app_state.value == constants.APP_STATE_POWERING_ON:
-                self.set_status('Powering on...')
-                print('[GUiMain.on_app_state_changed]: APP_STATE_POWERING_ON')
-            elif self.app_state.value == constants.APP_STATE_POWERING_OFF:
-                self.set_status('Powering off...')
-                print('[GUiMain.on_app_state_changed]: APP_STATE_POWERING_OFF')
-            elif self.app_state.value == constants.APP_STATE_ON:
-                self.set_status('Running')
-                print('[GUiMain.on_app_state_changed]: APP_STATE_ON')
-            else:
-                raise ValueError('Unknown app state: %s' %
-                                 str(self.app_state.value))
-        except Exception as e:
-            self.handle_exception(e)
+        self.app_state.value = app_state_value
+        if self.app_state.value == constants.APP_STATE_OFF:
+            self.apps_panel_widget.reset_tool_bar_app_buttons()
+            self.on_run_state_changed(constants.RUN_STATE_READY)
+            self.set_status('Ready')
+            print('[GUiMain.on_app_state_changed]: APP_STATE_OFF')
+        elif self.app_state.value == constants.APP_STATE_POWERING_ON:
+            self.set_status('Powering on...')
+            print('[GUiMain.on_app_state_changed]: APP_STATE_POWERING_ON')
+        elif self.app_state.value == constants.APP_STATE_POWERING_OFF:
+            self.set_status('Powering off...')
+            print('[GUiMain.on_app_state_changed]: APP_STATE_POWERING_OFF')
+        elif self.app_state.value == constants.APP_STATE_ON:
+            self.set_status('Running')
+            print('[GUiMain.on_app_state_changed]: APP_STATE_ON')
+        else:
+            raise ValueError('Unknown app state: %s' %
+                             str(self.app_state.value))
 
+    @exceptions.error_handler(scope='general')
     def on_run_state_changed(self, run_state_value):
         """Called by MedusaInterfaceListener when it receives a
         run_state_changed message
@@ -499,12 +477,14 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
             raise ValueError('Unknown app state: %s' %
                              str(self.app_state.value))
 
+    @exceptions.error_handler(scope='general')
     def print_log(self, msg, style=None):
         """ Prints in the application log."""
-        try:
+        # hasattr is needed because if an exception occurs before
+        # log_panel_widget is initialized, the program enters in an infinite
+        # loop because exception handling
+        if hasattr(self, 'log_panel_widget'):
             self.log_panel_widget.print_log(msg, style)
-        except Exception as e:
-            self.handle_exception(e)
 
     # ====================== EXCEPTION HANDLER, CLOSE ======================== #
     def handle_exception(self, ex):
@@ -519,16 +499,19 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
             # Check exception
             if not isinstance(ex, exceptions.MedusaException):
                 ex = exceptions.MedusaException(
-                    ex, scope='general',
+                    ex, msg='Exception generated automatically because a '
+                            'non MedusaException exception reached '
+                            'GuiMain.handle_exception. This situation should '
+                            'be avoided!',
+                    scope='general',
                     origin='GuiMain.handle_exception')
             # Print exception in stderr
-            print('MEDUSA exception report:', file=sys.stderr)
+            print('\nMEDUSA exception report:', file=sys.stderr)
             print('\tException in function %s' % ex.origin, file=sys.stderr)
             print('\tProcess: %s' % ex.process, file=sys.stderr)
             print('\tThread: %s' % ex.thread, file=sys.stderr)
             print('\tUID: %s' % ex.uid, file=sys.stderr)
-            print('\tImportance: %s' % exceptions.importance_code_to_str(
-                ex.importance), file=sys.stderr)
+            print('\tImportance: %s' % ex.importance, file=sys.stderr)
             print('\tCustom message: %s' % ex.msg, file=sys.stderr)
             print('\tScope: %s' % ex.scope, file=sys.stderr)
             print('\tException type: %s' % ex.exception_type.__name__,
@@ -536,11 +519,9 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
             print('\tException msg: %s\n' % ex.exception_msg, file=sys.stderr)
             print(ex.traceback, file=sys.stderr)
             # Print exception in log panel
-            self.print_log(ex.get_msg(verbose=True),
-                           style={'color': self.theme_colors['THEME_RED']})
-            imp_codes = exceptions.MedusaException.IMPORTANCE_CODES
+            self.print_log(ex.get_msg(verbose=True), style='error')
             # Take actions
-            if ex.importance == imp_codes['critical']:
+            if ex.importance == 'critical':
                 if ex.scope == 'app':
                     self.apps_panel_widget.terminate_app_process(kill=True)
                     self.reset_apps_panel()
@@ -552,9 +533,10 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
                     self.apps_panel_widget.terminate_app_process(kill=True)
                     self.reset()
         except Exception as e:
-            self.print_log(
-                str(e), style={'color': self.theme_colors['THEME_RED']})
+            traceback.print_exc()
+            self.print_log(str(e), style='error')
 
+    @exceptions.error_handler(scope='general')
     def reset_apps_panel(self):
         """Stop and reset of the current application.
         """
@@ -565,6 +547,7 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         self.on_app_state_changed(constants.APP_STATE_OFF)
         self.on_run_state_changed(constants.RUN_STATE_READY)
 
+    @exceptions.error_handler(scope='general')
     def reset_plots_panel(self):
         # Close current plots
         self.plot_state.value = constants.PLOT_STATE_OFF
@@ -576,64 +559,61 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         self.plots_panel_widget.reset_tool_bar_plot_buttons()
         self.plots_panel_widget.reset_plots_panel()
 
+    @exceptions.error_handler(scope='general')
     def reset_log_panel(self):
         if self.log_panel_widget.undocked:
             self.log_panel_window.close()
         self.log_panel_widget.reset_tool_bar_log_buttons()
 
+    @exceptions.error_handler(scope='general')
     def reset(self):
-        try:
-            """ This function resets MEDUSA to its initial state. Usually is
-            called after an exception has occurred.
-            """
-            # Reset states
-            self.reset_apps_panel()
-            self.reset_plots_panel()
-            self.reset_log_panel()
-            # Close medusa_interface_listener
-            if self.medusa_interface_listener is not None:
-                self.medusa_interface_listener.terminate()
-                self.set_up_medusa_interface_listener(self.interface_queue)
-            # Update status
-            self.set_status('App state off')
-        except Exception as e:
-            self.handle_exception(e)
+        """ This function resets MEDUSA to its initial state. Usually is
+        called after an exception has occurred.
+        """
+        # Reset states
+        self.reset_apps_panel()
+        self.reset_plots_panel()
+        self.reset_log_panel()
+        # Close medusa_interface_listener
+        if self.medusa_interface_listener is not None:
+            self.medusa_interface_listener.terminate()
+            self.set_up_medusa_interface_listener(self.interface_queue)
+        # Update status
+        self.set_status('App state off')
 
+    @exceptions.error_handler(scope='general')
     def closeEvent(self, event):
-        try:
-            """This method is executed when the wants to close the application. 
-            All the processes and threads have to be closed 
-            """
-            if self.app_state.value != constants.APP_STATE_OFF or \
-                    self.run_state.value != constants.RUN_STATE_READY:
-                # Paradigm open. Not allowed to close Medusa
-                msg = QMessageBox()
-                msg.setIcon(QMessageBox.Information)
-                msg.setText("Please, finish the current run pressing the stop "
-                            "button before closing MEDUSA")
-                msg.setWindowTitle("Warning!")
-                msg.setStandardButtons(QMessageBox.Ok)
-                msg.exec_()
-                event.ignore()
-            else:
-                # Close current app
-                self.app_state.value = constants.APP_STATE_OFF
-                self.run_state.value = constants.RUN_STATE_READY
-                self.apps_panel_widget.terminate_app_process()
-                # Close current plots
-                self.plot_state.value = constants.PLOT_STATE_OFF
-                if self.plots_panel_widget.undocked:
-                    self.plots_panel_window.close()
-                # Close log panel
-                if self.log_panel_widget.undocked:
-                    self.log_panel_window.close()
-                # Close medusa interface queue
-                self.medusa_interface_listener.terminate()
-                self.interface_queue.close()
-                # let the window close
-                event.accept()
-        except Exception as e:
-            self.handle_exception(e)
+        """This method is executed when the wants to close the application.
+        All the processes and threads have to be closed
+        """
+        if self.app_state.value != constants.APP_STATE_OFF or \
+                self.run_state.value != constants.RUN_STATE_READY:
+            # Paradigm open. Not allowed to close Medusa
+            msg = QMessageBox()
+            msg.setIcon(QMessageBox.Information)
+            msg.setText("Please, finish the current run pressing the stop "
+                        "button before closing MEDUSA")
+            msg.setWindowTitle("Warning!")
+            msg.setStandardButtons(QMessageBox.Ok)
+            msg.exec_()
+            event.ignore()
+        else:
+            # Close current app
+            self.app_state.value = constants.APP_STATE_OFF
+            self.run_state.value = constants.RUN_STATE_READY
+            self.apps_panel_widget.terminate_app_process()
+            # Close current plots
+            self.plot_state.value = constants.PLOT_STATE_OFF
+            if self.plots_panel_widget.undocked:
+                self.plots_panel_window.close()
+            # Close log panel
+            if self.log_panel_widget.undocked:
+                self.log_panel_window.close()
+            # Close medusa interface queue
+            self.medusa_interface_listener.terminate()
+            self.interface_queue.close()
+            # let the window close
+            event.accept()
 
     class MedusaInterfaceQueue:
 
@@ -745,7 +725,7 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
                 except (EOFError, BrokenPipeError, ValueError) as e:
                     # Broken pipe
                     ex = exceptions.MedusaException(
-                        e, uid='QueueError',
+                        e, uid='MedusaInterfaceQueueError',
                         importance='critical',
                         msg='Catastrophic error in medusa interface '
                             'communication queue',
@@ -754,7 +734,10 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
                     self.exception_signal.emit(ex)
                 except Exception as e:
                     ex = exceptions.MedusaException(
-                        e, importance='handled', scope='general',
+                        e, uid='MedusaInterfaceError',
+                        importance='critical',
+                        msg='Catastrophic error in MedusaInterfaceListener',
+                        scope='general',
                         origin='MedusaInterfaceListener.run')
                     self.exception_signal.emit(ex)
 

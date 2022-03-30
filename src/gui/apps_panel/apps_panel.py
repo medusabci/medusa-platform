@@ -28,6 +28,7 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
     def __init__(self, apps_manager, working_lsl_streams, app_state, run_state,
                  medusa_interface, theme_colors):
         super().__init__()
+        self.is_loaded = False
         self.setupUi(self)
         self.set_up_tool_bar_app()
         # Attributes
@@ -53,16 +54,14 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
         self.scrollArea_apps.setWidget(self.apps_panel_grid_widget)
         self.scrollArea_apps.setWidgetResizable(True)
         self.verticalLayout_apps_panel.addWidget(self.scrollArea_apps)
+        self.is_loaded = True
 
-    def handle_exception(self, ex):
-        # Treat exception
-        print('AppsPanelWidget.handle_exception')
-        if not isinstance(ex, exceptions.MedusaException):
-            ex = exceptions.MedusaException(
-                ex, scope='app', origin='AppsPanel.handle_exception')
-        # Notify exception to gui main
-        self.medusa_interface.error(ex)
+    def handle_exception(self, mds_ex):
+        # Send exception to gui main
+        # self.medusa_interface.error(ex)
+        self.error_signal.emit(mds_ex)
 
+    @exceptions.error_handler(scope='general')
     def wait_until_app_closed(self, interval=0.1, timeout=1):
         success = True
         start = time.time()
@@ -73,6 +72,7 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
             time.sleep(interval)
         return success
 
+    @exceptions.error_handler(scope='general')
     def terminate_app_process(self, kill=False):
         """Terminates the app process. Kill should be True only if it is
         critical to close the app"""
@@ -103,220 +103,206 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
             widget.app_update.connect(self.update_app)
             widget.app_uninstall.connect(self.uninstall_app)
 
+    @exceptions.error_handler(scope='general')
     def update_apps_panel(self):
         self.fill_apps_panel()
         self.apps_panel_grid_widget.arrange_panel(
             self.apps_panel_grid_widget.width())
 
+    @exceptions.error_handler(scope='general')
     def update_working_lsl_streams(self, working_lsl_streams):
         self.working_lsl_streams = working_lsl_streams
 
+    @exceptions.error_handler(scope='general')
     def resizeEvent(self, event):
         # w = event.size().width()
         w_scr = self.scrollArea_apps.width()
         self.apps_panel_grid_widget.arrange_panel(w_scr)
 
     def reset_tool_bar_app_buttons(self):
-        try:
-            # Creates QIcons for the app tool bar
-            power_icon = QIcon("%s/icons/power_enabled_icon.png" %
-                               constants.IMG_FOLDER)
-            play_icon = QIcon("%s/icons/play_disabled_icon.png" %
-                              constants.IMG_FOLDER)
-            stop_icon = QIcon("%s/icons/stop_disabled_icon.png" %
-                              constants.IMG_FOLDER)
-            config_icon = QIcon("%s/icons/gear.png" % constants.IMG_FOLDER)
-            search_icon = QIcon("%s/icons/search.png" % constants.IMG_FOLDER)
-            install_icon = QIcon("%s/icons/plus.png" % constants.IMG_FOLDER)
+        # Creates QIcons for the app tool bar
+        power_icon = QIcon("%s/icons/power_enabled_icon.png" %
+                           constants.IMG_FOLDER)
+        play_icon = QIcon("%s/icons/play_disabled_icon.png" %
+                          constants.IMG_FOLDER)
+        stop_icon = QIcon("%s/icons/stop_disabled_icon.png" %
+                          constants.IMG_FOLDER)
+        config_icon = QIcon("%s/icons/gear.png" % constants.IMG_FOLDER)
+        search_icon = QIcon("%s/icons/search.png" % constants.IMG_FOLDER)
+        install_icon = QIcon("%s/icons/plus.png" % constants.IMG_FOLDER)
 
-            # Set icons in buttons
-            self.toolButton_app_power.setIcon(power_icon)
-            self.toolButton_app_play.setIcon(play_icon)
-            self.toolButton_app_stop.setIcon(stop_icon)
-            self.toolButton_app_config.setIcon(config_icon)
-            self.toolButton_app_search.setIcon(search_icon)
-            self.toolButton_app_install.setIcon(install_icon)
+        # Set icons in buttons
+        self.toolButton_app_power.setIcon(power_icon)
+        self.toolButton_app_play.setIcon(play_icon)
+        self.toolButton_app_stop.setIcon(stop_icon)
+        self.toolButton_app_config.setIcon(config_icon)
+        self.toolButton_app_search.setIcon(search_icon)
+        self.toolButton_app_install.setIcon(install_icon)
 
-            self.toolButton_app_power.setToolTip('Start app run')
-            self.toolButton_app_config.setToolTip('Config app run')
-            self.toolButton_app_install.setToolTip('Install new app')
+        self.toolButton_app_power.setToolTip('Start app run')
+        self.toolButton_app_config.setToolTip('Config app run')
+        self.toolButton_app_install.setToolTip('Install new app')
 
-            # Set button states
-            self.toolButton_app_power.setDisabled(False)
-            self.toolButton_app_play.setDisabled(True)
-            self.toolButton_app_stop.setDisabled(True)
-        except Exception as e:
-            self.handle_exception(e)
+        # Set button states
+        self.toolButton_app_power.setDisabled(False)
+        self.toolButton_app_play.setDisabled(True)
+        self.toolButton_app_stop.setDisabled(True)
 
     def set_up_tool_bar_app(self):
         """ This method creates the QAction buttons displayed in the toolbar
         """
-        try:
-            # Set buttons icons
-            self.reset_tool_bar_app_buttons()
-            # Connects signals to a functions
-            self.toolButton_app_power.clicked.connect(self.app_power)
-            self.toolButton_app_play.clicked.connect(self.app_play)
-            self.toolButton_app_stop.clicked.connect(self.app_stop)
-            self.toolButton_app_config.clicked.connect(self.app_config)
-            self.lineEdit_app_search.textChanged.connect(self.app_search)
-            self.toolButton_app_install.clicked.connect(self.install_app)
-        except Exception as e:
-            self.handle_exception(e)
+        # Set buttons icons
+        self.reset_tool_bar_app_buttons()
+        # Connects signals to a functions
+        self.toolButton_app_power.clicked.connect(self.app_power)
+        self.toolButton_app_play.clicked.connect(self.app_play)
+        self.toolButton_app_stop.clicked.connect(self.app_stop)
+        self.toolButton_app_config.clicked.connect(self.app_config)
+        self.lineEdit_app_search.textChanged.connect(self.app_search)
+        self.toolButton_app_install.clicked.connect(self.install_app)
 
-    def app_power(self):
+    @exceptions.error_handler(scope='general')
+    def app_power(self, checked):
         """ This function starts the paradigm. Once the paradigm is powered, it
         can only be stopped with stop button
         """
-        try:
-            # Check errors
-            if len(self.working_lsl_streams) == 0:
-                self.medusa_interface.log('No LSL streams available!')
-                return
-            # Check app selected
-            current_app_key = self.apps_panel_grid_widget.get_selected_app()
-            if current_app_key is None:
-                raise ValueError('Select an app to start!')
-            # Start app
-            if self.app_state.value is constants.APP_STATE_OFF:
-                # Enabling, disabling and changing the buttons in the toolbar
-                self.toolButton_app_power.setDisabled(True)
-                self.toolButton_app_power.setIcon(
-                    QIcon("%s/icons/power_disabled_icon.png" %
-                          constants.IMG_FOLDER))
-                self.toolButton_app_play.setDisabled(False)
+        # Check errors
+        if len(self.working_lsl_streams) == 0:
+            self.medusa_interface.log('No LSL streams available!')
+            return
+        # Check app selected
+        current_app_key = self.apps_panel_grid_widget.get_selected_app()
+        if current_app_key is None:
+            raise ValueError('Select an app to start!')
+        # Start app
+        if self.app_state.value is constants.APP_STATE_OFF:
+            # Enabling, disabling and changing the buttons in the toolbar
+            self.toolButton_app_power.setDisabled(True)
+            self.toolButton_app_power.setIcon(
+                QIcon("%s/icons/power_disabled_icon.png" %
+                      constants.IMG_FOLDER))
+            self.toolButton_app_play.setDisabled(False)
+            self.toolButton_app_play.setIcon(
+                QIcon("%s/icons/play_enabled_icon.png" %
+                      constants.IMG_FOLDER))
+            self.toolButton_app_stop.setDisabled(False)
+            self.toolButton_app_stop.setIcon(
+                QIcon("%s/icons/stop_enabled_icon.png" %
+                      constants.IMG_FOLDER))
+            # Get selected app modules
+            app_process_mdl = importlib.import_module('apps.%s.main' %
+                                                      current_app_key)
+            app_settings_mdl = importlib.import_module('apps.%s.settings' %
+                                                       current_app_key)
+            # Get app settings
+            if self.app_settings is None or \
+                    not isinstance(self.app_settings,
+                                   app_settings_mdl.Settings):
+                self.app_settings = app_settings_mdl.Settings()
+            # Serialize working_lsl_streams
+            ser_lsl_streams = [lsl_str.to_serializable_obj() for
+                               lsl_str in self.working_lsl_streams]
+            # Get app manager
+            self.app_process = app_process_mdl.App(
+                app_info=self.apps_manager.apps_dict[current_app_key],
+                app_settings=self.app_settings,
+                medusa_interface=self.medusa_interface,
+                app_state=self.app_state,
+                run_state=self.run_state,
+                working_lsl_streams_info=ser_lsl_streams
+            )
+            self.app_process.start()
+            self.run_state.value = constants.RUN_STATE_READY
+            self.current_app_key = current_app_key
+
+    @exceptions.error_handler(scope='general')
+    def app_play(self, checked):
+        """ Starts a run with specified settings. The run will be recorded"""
+        if self.app_state.value is constants.APP_STATE_ON and \
+                self.run_state.value is not constants.RUN_STATE_FINISHED:
+            if self.run_state.value is constants.RUN_STATE_READY:
+                self.run_state.value = constants.RUN_STATE_RUNNING
+                self.toolButton_app_play.setIcon(
+                    QIcon("%s/icons/pause_icon.png" % constants.IMG_FOLDER))
+                # Feedback
+                self.medusa_interface.log("Run started")
+            elif self.run_state.value is constants.RUN_STATE_RUNNING:
+                self.run_state.value = constants.RUN_STATE_PAUSED
                 self.toolButton_app_play.setIcon(
                     QIcon("%s/icons/play_enabled_icon.png" %
                           constants.IMG_FOLDER))
-                self.toolButton_app_stop.setDisabled(False)
-                self.toolButton_app_stop.setIcon(
-                    QIcon("%s/icons/stop_enabled_icon.png" %
-                          constants.IMG_FOLDER))
-                # Get selected app modules
-                app_process_mdl = importlib.import_module('apps.%s.main' %
-                                                          current_app_key)
-                app_settings_mdl = importlib.import_module('apps.%s.settings' %
-                                                           current_app_key)
-                # Get app settings
-                if self.app_settings is None or \
-                        not isinstance(self.app_settings,
-                                       app_settings_mdl.Settings):
-                    self.app_settings = app_settings_mdl.Settings()
-                # Serialize working_lsl_streams
-                ser_lsl_streams = [lsl_str.to_serializable_obj() for
-                                   lsl_str in self.working_lsl_streams]
-                # Get app manager
-                self.app_process = app_process_mdl.App(
-                    app_info=self.apps_manager.apps_dict[current_app_key],
-                    app_settings=self.app_settings,
-                    medusa_interface=self.medusa_interface,
-                    app_state=self.app_state,
-                    run_state=self.run_state,
-                    working_lsl_streams_info=ser_lsl_streams
-                )
-                self.app_process.start()
-                self.run_state.value = constants.RUN_STATE_READY
-                self.current_app_key = current_app_key
-        except Exception as e:
-            self.handle_exception(e)
-
-    def app_play(self):
-        """ Starts a run with specified settings. The run will be recorded"""
-        try:
-            if self.app_state.value is constants.APP_STATE_ON and \
-                    self.run_state.value is not constants.RUN_STATE_FINISHED:
-                if self.run_state.value is constants.RUN_STATE_READY:
-                    self.run_state.value = constants.RUN_STATE_RUNNING
-                    self.toolButton_app_play.setIcon(
-                        QIcon("%s/icons/pause_icon.png" % constants.IMG_FOLDER))
-                    # Feedback
-                    self.medusa_interface.log("Run started")
-                elif self.run_state.value is constants.RUN_STATE_RUNNING:
-                    self.run_state.value = constants.RUN_STATE_PAUSED
-                    self.toolButton_app_play.setIcon(
-                        QIcon("%s/icons/play_enabled_icon.png" %
-                              constants.IMG_FOLDER))
-                    # Feedback
-                    self.medusa_interface.log("Run paused")
-                elif self.run_state.value is constants.RUN_STATE_PAUSED:
-                    self.run_state.value = constants.RUN_STATE_RUNNING
-                    self.toolButton_app_play.setIcon(
-                        QIcon("%s/icons/pause_icon.png" % constants.IMG_FOLDER))
-                    # Feedback
-                    self.medusa_interface.log("Run resumed")
-        except Exception as e:
-            self.handle_exception(e)
-
-    def app_stop(self):
-        """ Stops the run"""
-        try:
-            if self.app_state.value is constants.APP_STATE_ON:
-                # Change state
-                self.run_state.value = constants.RUN_STATE_STOP
                 # Feedback
-                self.medusa_interface.log("Run stopped")
-                # Enabling, disabling and changing the buttons in the toolbar
-                self.toolButton_app_power.setDisabled(False)
-                self.toolButton_app_power.setIcon(
-                    QIcon("%s/icons/power_enabled_icon.png" %
-                          constants.IMG_FOLDER))
-                self.toolButton_app_play.setDisabled(True)
+                self.medusa_interface.log("Run paused")
+            elif self.run_state.value is constants.RUN_STATE_PAUSED:
+                self.run_state.value = constants.RUN_STATE_RUNNING
                 self.toolButton_app_play.setIcon(
-                    QIcon("%s/icons/play_disabled_icon.png" %
-                          constants.IMG_FOLDER))
-                self.toolButton_app_stop.setDisabled(True)
-                self.toolButton_app_stop.setIcon(
-                    QIcon("%s/icons/stop_disabled_icon.png" %
-                          constants.IMG_FOLDER))
-        except Exception as e:
-            self.handle_exception(e)
+                    QIcon("%s/icons/pause_icon.png" % constants.IMG_FOLDER))
+                # Feedback
+                self.medusa_interface.log("Run resumed")
 
-    def app_config(self):
+    @exceptions.error_handler(scope='general')
+    def app_stop(self, checked):
+        """ Stops the run"""
+        if self.app_state.value is constants.APP_STATE_ON:
+            # Change state
+            self.run_state.value = constants.RUN_STATE_STOP
+            # Feedback
+            self.medusa_interface.log("Run stopped")
+            # Enabling, disabling and changing the buttons in the toolbar
+            self.toolButton_app_power.setDisabled(False)
+            self.toolButton_app_power.setIcon(
+                QIcon("%s/icons/power_enabled_icon.png" %
+                      constants.IMG_FOLDER))
+            self.toolButton_app_play.setDisabled(True)
+            self.toolButton_app_play.setIcon(
+                QIcon("%s/icons/play_disabled_icon.png" %
+                      constants.IMG_FOLDER))
+            self.toolButton_app_stop.setDisabled(True)
+            self.toolButton_app_stop.setIcon(
+                QIcon("%s/icons/stop_disabled_icon.png" %
+                      constants.IMG_FOLDER))
+
+    @exceptions.error_handler(scope='general')
+    def app_config(self, checked):
         """ Launches the config UI for the selected run """
+        # Check app selected
+        current_app_key = self.apps_panel_grid_widget.get_selected_app()
+        if current_app_key is None:
+            raise ValueError('Select an app to start!')
+        app_settings_mdl = importlib.import_module('apps.%s.settings' %
+                                                   current_app_key)
         try:
-            # Check app selected
-            current_app_key = self.apps_panel_grid_widget.get_selected_app()
-            if current_app_key is None:
-                raise ValueError('Select an app to start!')
-            app_settings_mdl = importlib.import_module('apps.%s.settings' %
-                                                       current_app_key)
-            try:
-                app_config_mdl = importlib.import_module('apps.%s.config' %
-                                                         current_app_key)
-                conf_window = app_config_mdl.Config
-            except ModuleNotFoundError as e:
-                conf_window = resources.BasicConfigWindow
-            if self.app_settings is None or not isinstance(
-                    self.app_settings, app_settings_mdl.Settings):
-                self.app_settings = app_settings_mdl.Settings()
-            self.app_config_window = conf_window(
-                self.app_settings,
-                medusa_interface=self.medusa_interface,
-                working_lsl_streams_info=self.working_lsl_streams
-            )
-            self.app_config_window.close_signal.connect(
-                self.on_config_window_close_event)
-        except Exception as e:
-            self.handle_exception(e)
+            app_config_mdl = importlib.import_module('apps.%s.config' %
+                                                     current_app_key)
+            conf_window = app_config_mdl.Config
+        except ModuleNotFoundError as e:
+            conf_window = resources.BasicConfigWindow
+        if self.app_settings is None or not isinstance(
+                self.app_settings, app_settings_mdl.Settings):
+            self.app_settings = app_settings_mdl.Settings()
+        self.app_config_window = conf_window(
+            self.app_settings,
+            medusa_interface=self.medusa_interface,
+            working_lsl_streams_info=self.working_lsl_streams
+        )
+        self.app_config_window.close_signal.connect(
+            self.on_config_window_close_event)
 
+    @exceptions.error_handler(scope='general')
     def on_config_window_close_event(self, settings):
         """ This method is called when config window is closed. See
         on_new_settings_button_clicked function
         """
-        try:
-            if settings is not None:
-                self.app_settings = settings
-        except Exception as e:
-            self.handle_exception(e)
+        if settings is not None:
+            self.app_settings = settings
 
+    @exceptions.error_handler(scope='general')
     def app_search(self):
-        try:
-            curr_text = self.lineEdit_app_search.text()
-            self.apps_panel_grid_widget.find_app(curr_text)
-        except Exception as e:
-            self.handle_exception(e)
+        curr_text = self.lineEdit_app_search.text()
+        self.apps_panel_grid_widget.find_app(curr_text)
 
-    def install_app(self):
+    @exceptions.error_handler(scope='general')
+    def install_app(self, checked):
         # Get app file
         filt = "MEDUSA app (*.app)"
         directory = "../../"
@@ -330,24 +316,28 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
         # Update apps panel
         self.update_apps_panel()
 
+    @exceptions.error_handler(scope='general')
     def about_app(self, app_key):
         dialogs.info_dialog(
             '%s' % json.dumps(self.apps_manager.apps_dict[app_key], indent=4),
             'About %s' % self.apps_manager.apps_dict[app_key]['name'],
             self.theme_colors)
 
+    @exceptions.error_handler(scope='general')
     def documentation_app(self, app_key):
         dialogs.warning_dialog(
             'No available documentation for %s' %
             self.apps_manager.apps_dict[app_key]['name'],
             'Documentation', self.theme_colors)
 
+    @exceptions.error_handler(scope='general')
     def update_app(self, app_key):
         dialogs.warning_dialog(
             'No available updates for %s' %
             self.apps_manager.apps_dict[app_key]['name'],
             'Update', self.theme_colors)
 
+    @exceptions.error_handler(scope='general')
     def uninstall_app(self, app_key):
         # Confirm dialog
         if not dialogs.confirmation_dialog(

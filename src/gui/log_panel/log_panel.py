@@ -128,6 +128,9 @@ class LogPanelWidget(QWidget, ui_plots_panel_widget):
         """ Prints in the application log.
         """
         try:
+            # Default styles
+            if style == 'error':
+                style = {'color': self.theme_colors['THEME_RED']}
             style = {} if style is None else style
             color = style.pop('color', None)
             formatted_msg = self.format_log_msg(msg, color=color, **style)

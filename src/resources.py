@@ -75,7 +75,7 @@ class AppSkeleton(mp.Process):
         # Data receiver
         self.manager_thread = None
 
-    @exceptions.error_handler(def_importance='critical', def_scope='app')
+    @exceptions.error_handler(def_importance='critical', scope='app')
     def run(self):
         """Setup the working threads and the app. Any unhandled exception will
         kill the process.
@@ -123,7 +123,7 @@ class AppSkeleton(mp.Process):
             worker.stop = True
 
     @exceptions.error_handler(
-        def_importance='critical', def_scope='app',
+        def_importance='critical', scope='app',
         def_origin='AppSkeleton.manager_thread_worker')
     def manager_thread_wrapper(self):
         """This wrapper is just used to improve error handing"""
@@ -308,7 +308,7 @@ class LSLStreamAppWorker(th.Thread):
     def handle_exception(self, ex):
         pass
 
-    @exceptions.error_handler(def_importance='important', def_scope='app')
+    @exceptions.error_handler(def_importance='important', scope='app')
     def run(self):
         """Method executed by the thread. It contains an infinite loop that
         receives and stores samples from a lsl receiver. The attribute
