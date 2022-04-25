@@ -385,18 +385,25 @@ class EditStreamDialog(QtWidgets.QDialog, ui_stream_config_dialog):
         desc_fields = self.lsl_stream_info.get_description_fields()
         # Update combobox
         self.comboBox_desc_channels_field.clear()
-        for field in desc_fields:
-            self.comboBox_desc_channels_field.addItem(field)
-        gui_utils.select_entry_combobox(self.comboBox_desc_channels_field,
-                                        'channels', force_selection=False)
+        if len(desc_fields) > 0:
+            for field in desc_fields:
+                self.comboBox_desc_channels_field.addItem(field, True)
+            gui_utils.select_entry_combobox(self.comboBox_desc_channels_field,
+                                            'channels', force_selection=False)
+        else:
+            self.comboBox_desc_channels_field.addItem('channels', False)
 
     def update_channel_fields(self):
         """Updates the values of the combobox to select the channel label
         """
         # Get channels
-        self.cha_info = self.lsl_stream_info.get_all_channels_info(
-            self.comboBox_desc_channels_field.currentText(),
-        )
+        current_desc_field_validity = \
+            self.comboBox_desc_channels_field.currentData()
+        current_desc_field = \
+            self.comboBox_desc_channels_field.currentText()
+        self.cha_info = \
+            self.lsl_stream_info.get_all_channels_info(current_desc_field) \
+                if current_desc_field_validity else list()
         if len(self.cha_info) == 0:
             for i in range(self.lsl_stream_info.lsl_n_cha):
                 self.cha_info.append({'label': str(i)})

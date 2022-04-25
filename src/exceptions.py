@@ -39,7 +39,7 @@ def error_handler(scope, def_importance=None, def_msg=None, def_origin=None,
         Controls if the exception should be raised again. This can be useful
         when different behaviours could be expected from the execution of the
         same function (e.g., before/after class initialization), but it can
-        lead to double exceptions.
+        lead to double exceptions so it should be avoided.
 
     Returns
     -------

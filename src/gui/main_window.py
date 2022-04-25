@@ -317,7 +317,7 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
 
     # ======================== LAB-STREAMING LAYER =========================== #
     @exceptions.error_handler(scope='general')
-    def open_lsl_config_window(self):
+    def open_lsl_config_window(self, checked):
         self.lsl_config_window = \
             lsl_config.LSLConfig(self.working_lsl_streams,
                                  theme_colors=self.theme_colors)

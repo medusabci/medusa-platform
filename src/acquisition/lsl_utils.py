@@ -111,6 +111,10 @@ class LSLStreamWrapper(components.SerializableComponent):
         self.lsl_stream_info_xml = self.lsl_stream_info.as_xml()
         self.lsl_stream_info_json_format = \
             utils.xml_string_to_json(self.lsl_stream_info_xml)
+        if 'desc' not in self.lsl_stream_info_json_format or \
+                self.lsl_stream_info_json_format['desc'] == '':
+            # Field desc must be a dict
+            self.lsl_stream_info_json_format['desc'] = dict()
         # Additional Medusa parameters
         self.medusa_params_initialized = False
         self.medusa_uid = None
@@ -119,7 +123,7 @@ class LSLStreamWrapper(components.SerializableComponent):
         self.channel_label_field = None
         self.selected_channels_idx = None
         self.n_cha = None
-        self.info_cha = None
+        self.cha_info = None
         self.l_cha = None
 
     def get_easy_description(self):
@@ -131,7 +135,6 @@ class LSLStreamWrapper(components.SerializableComponent):
             stream_descr = '%s (host: %s, type: %s, channels: %i)' % \
                            (self.lsl_name, self.hostname,
                             self.lsl_type, self.lsl_n_cha)
-
         return stream_descr
 
     def get_description_fields(self):
@@ -141,16 +144,6 @@ class LSLStreamWrapper(components.SerializableComponent):
         """Returns the info of all the channels of the lsl inlet. These
         channels can be different from the channels selected for Medusa use!"""
         # Get all channels
-        # root = et.fromstring(self.lsl_stream_info_xml)
-        # channels_info_elem = root.find('desc').find(desc_channels_field)
-        # channels_info_elems = list(channels_info_elem) if \
-        #     channels_info_elem else []
-        # cha_info = []
-        # for channel_info_elems in channels_info_elems:
-        #     channel_info_dict = {}
-        #     for elem in channel_info_elems.iter():
-        #         channel_info_dict[elem.tag] = elem.text
-        #     cha_info.append(channel_info_dict)
         return self.lsl_stream_info_json_format['desc'][desc_channels_field]
 
     def set_medusa_parameters(self, medusa_uid, medusa_type,
@@ -187,8 +180,8 @@ class LSLStreamWrapper(components.SerializableComponent):
         self.channel_label_field = channel_label_field
         self.selected_channels_idx = selected_channels_idx
         self.n_cha = len(self.selected_channels_idx)
-        self.info_cha = cha_info
-        self.l_cha = [info[channel_label_field] for info in self.info_cha] \
+        self.cha_info = cha_info
+        self.l_cha = [info[channel_label_field] for info in self.cha_info] \
             if channel_label_field is not None else list(range(self.n_cha))
         self.medusa_params_initialized = True
 
@@ -216,7 +209,7 @@ class LSLStreamWrapper(components.SerializableComponent):
         class_dict['channel_label_field'] = self.channel_label_field
         class_dict['selected_channels_idx'] = self.selected_channels_idx
         class_dict['n_cha'] = self.n_cha
-        class_dict['info_cha'] = self.info_cha
+        class_dict['cha_info'] = self.cha_info
         class_dict['l_cha'] = self.l_cha
         return class_dict
 
@@ -238,7 +231,7 @@ class LSLStreamWrapper(components.SerializableComponent):
                                            dict_data['desc_channels_field'],
                                            dict_data['channel_label_field'],
                                            dict_data['selected_channels_idx'],
-                                           dict_data['info_cha'])
+                                           dict_data['cha_info'])
         return instance
 
 
@@ -267,7 +260,7 @@ class LSLStreamReceiver:
         self.fs = self.lsl_stream_info.fs
         self.n_cha = self.lsl_stream_info.n_cha
         self.l_cha = self.lsl_stream_info.l_cha
-        self.info_cha = self.lsl_stream_info.info_cha
+        self.info_cha = self.lsl_stream_info.cha_info
         self.idx_cha = self.lsl_stream_info.selected_channels_idx
         # Difference between the LSL clock and the Python time-time()
         # for synchronization with applications, which will use the Python clock
