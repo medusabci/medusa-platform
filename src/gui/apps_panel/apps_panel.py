@@ -101,6 +101,7 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
             widget.app_about.connect(self.about_app)
             widget.app_doc.connect(self.documentation_app)
             widget.app_update.connect(self.update_app)
+            widget.app_package.connect(self.package_app)
             widget.app_uninstall.connect(self.uninstall_app)
 
     @exceptions.error_handler(scope='general')
@@ -305,16 +306,17 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
     def install_app(self, checked):
         # Get app file
         filt = "MEDUSA app (*.app)"
-        directory = "../../"
+        directory = "../"
         if not os.path.exists(directory):
             os.makedirs(directory)
         app_file = QFileDialog.getOpenFileName(caption="MEDUSA app",
                                                directory=directory,
                                                filter=filt)[0]
-        # Install app
-        self.apps_manager.install_app_bundle(app_file)
-        # Update apps panel
-        self.update_apps_panel()
+        if app_file != '':
+            # Install app
+            self.apps_manager.install_app_bundle(app_file)
+            # Update apps panel
+            self.update_apps_panel()
 
     @exceptions.error_handler(scope='general')
     def about_app(self, app_key):
@@ -336,6 +338,20 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
             'No available updates for %s' %
             self.apps_manager.apps_dict[app_key]['name'],
             'Update', self.theme_colors)
+
+    @exceptions.error_handler(scope='general')
+    def package_app(self, app_key):
+        # Choose path
+        filt = "MEDUSA app (*.zip)"
+        directory = "../%s.zip" % app_key
+        app_file = QFileDialog.getSaveFileName(caption="Make app bundle",
+                                               directory=directory,
+                                               filter=filt)[0]
+        dir_name = os.path.dirname(app_file)
+        base_name = os.path.basename(app_file).split('.zip')[0]
+        output_path = '%s/%s' % (dir_name, base_name)
+        # Package app
+        self.apps_manager.package_app(app_key, output_path)
 
     @exceptions.error_handler(scope='general')
     def uninstall_app(self, app_key):
@@ -466,6 +482,7 @@ class AppWidget(QFrame):
     app_about = pyqtSignal(str)
     app_doc = pyqtSignal(str)
     app_update = pyqtSignal(str)
+    app_package = pyqtSignal(str)
     app_uninstall = pyqtSignal(str)
 
     def __init__(self, min_widget_width, app_key, app_params,
@@ -507,18 +524,27 @@ class AppWidget(QFrame):
 
     class AppMenu(QMenu):
 
-        def __init__(self):
+        def __init__(self, is_in_development):
             super().__init__()
             # Create actions
-            self.about_action = QAction('About')
-            self.doc_action = QAction('Documentation')
-            self.update_action = QAction('Update')
-            self.uninstall_action = QAction('Uninstall')
-            # Add actions
-            self.addAction(self.about_action)
-            self.addAction(self.doc_action)
-            self.addAction(self.update_action)
-            self.addAction(self.uninstall_action)
+            if is_in_development:
+                self.about_action = QAction('About')
+                self.package_action = QAction('Package')
+                self.uninstall_action = QAction('Uninstall')
+                # Add actions
+                self.addAction(self.about_action)
+                self.addAction(self.package_action)
+                self.addAction(self.uninstall_action)
+            else:
+                self.about_action = QAction('About')
+                self.doc_action = QAction('Documentation')
+                self.update_action = QAction('Update')
+                self.uninstall_action = QAction('Uninstall')
+                # Add actions
+                self.addAction(self.about_action)
+                self.addAction(self.doc_action)
+                self.addAction(self.update_action)
+                self.addAction(self.uninstall_action)
 
     def get_icon_path(self):
         return 'apps/%s/icon.png' % self.app_key
@@ -527,12 +553,22 @@ class AppWidget(QFrame):
         if event.button() == Qt.LeftButton:
             self.select()
         elif event.button() == Qt.RightButton:
-            menu = self.AppMenu()
-            menu.about_action.triggered.connect(self.about)
-            menu.doc_action.triggered.connect(self.documentation)
-            menu.update_action.triggered.connect(self.update)
-            menu.uninstall_action.triggered.connect(self.uninstall)
-            menu.exec_(event.globalPos())
+            # Check if we have to create the development or normal version of
+            # the menu
+            is_in_development = \
+                self.app_params['compilation-date'] == 'development'
+            menu = self.AppMenu(is_in_development=is_in_development)
+            if is_in_development:
+                menu.about_action.triggered.connect(self.about)
+                menu.package_action.triggered.connect(self.package)
+                menu.uninstall_action.triggered.connect(self.uninstall)
+                menu.exec_(event.globalPos())
+            else:
+                menu.about_action.triggered.connect(self.about)
+                menu.doc_action.triggered.connect(self.documentation)
+                menu.update_action.triggered.connect(self.update)
+                menu.uninstall_action.triggered.connect(self.uninstall)
+                menu.exec_(event.globalPos())
 
     def select(self):
         self.app_selected.emit(self.app_key)
@@ -545,6 +581,9 @@ class AppWidget(QFrame):
 
     def update(self):
         self.app_update.emit(self.app_key)
+
+    def package(self):
+        self.app_package.emit(self.app_key)
 
     def uninstall(self):
         self.app_uninstall.emit(self.app_key)

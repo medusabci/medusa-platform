@@ -49,6 +49,8 @@ class AppManager:
 
     def install_app_template(self, app_id, app_name, app_extension,
                              app_template_path):
+        """ This function is used to create a new template app for
+        development purposes"""
         # Check errors
         if app_id in self.apps_dict:
             raise Exception('App with id %s is already installed' % app_id)
@@ -78,6 +80,10 @@ class AppManager:
         # Update apps file
         self.apps_dict[info['id']] = info
         self.update_apps_file()
+
+    def package_app(self, app_key, output_path):
+        input_dir = 'apps/%s' % app_key
+        shutil.make_archive(output_path, 'zip', input_dir)
 
     def uninstall_app(self, app_key):
         # Remove directory
