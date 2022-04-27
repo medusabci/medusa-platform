@@ -9,3 +9,4 @@ scikit-learn
 scipy
 six
 medusa-kernel
+jinja2
