@@ -10,7 +10,7 @@ class UserSession:
         """ This class handles user sessions to a BeeLab database """
 
         # Server and database name
-        self.url_server = 'http://www.medusabci.com/api'
+        self.url_server = 'https://www.medusabci.com/api'
 
         # Session
         self.session = requests.Session()
@@ -31,7 +31,8 @@ class UserSession:
         # Make request
         params = {'email': email, 'password': password}
         data = json.dumps(params)
-        resp = self.session.post(url, json=data)
+        # TODO: Solve problems with SSL if verify is True
+        resp = self.session.post(url, json=data, verify=False)
         # Error handling
         if resp.status_code != 200:
             if resp.status_code == 401:
