@@ -1,7 +1,6 @@
 # PYTHON MODULES
 import os, sys, time
 import multiprocessing as mp
-import multiprocessing.queues as mp_queues
 import json, traceback
 
 # EXTERNAL MODULES
@@ -19,6 +18,7 @@ from gui.lsl_config import lsl_config
 from gui.create_app import create_app
 from gui.apps_panel import apps_panel
 from gui.log_panel import log_panel
+from gui.user_profile import login
 from gui.user_profile import user_profile
 
 # Load the .ui file
@@ -87,6 +87,17 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         self.set_status('Ready')
         self.show()
         # splash_screen.finish(self)  # Close the SplashScreen
+
+        # Check user session
+        if not os.path.isfile('session.json'):
+            # Login
+            self.login_window = login.LoginDialog(
+                login_required=True,
+                theme_colors=self.theme_colors)
+            self.login_window.exec()
+            self.session = self.login_window.session
+            if self.session is None:
+                self.close()
 
     @exceptions.error_handler(scope='general')
     def reset_sizes(self):

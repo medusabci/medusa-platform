@@ -25,8 +25,6 @@ class UserProfileDialog(QtWidgets.QDialog, ui_main_dialog):
 
         Parameters
         ----------
-        working_streams: list of acquisition.lsl_utils.LSLStreamWrapper
-            List with the current working LSL streams
         theme_colors: dict
             Dict with the theme colors
         """
