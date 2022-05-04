@@ -10,7 +10,7 @@ class UserSession:
         """ This class handles user sessions to a BeeLab database """
 
         # Server and database name
-        self.url_server = 'http://localhost/api'
+        self.url_server = 'http://www.medusabci.com/api'
 
         # Session
         self.session = requests.Session()
