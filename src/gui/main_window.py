@@ -41,7 +41,13 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         self.reset_sizes()
 
         # Splash screen
-        # splash_screen = self.set_splash_screen()
+        splash_screen = self.set_splash_screen()
+
+        # Tell windows that this application is not pythonw.exe so it can
+        # have its own icon
+        import ctypes
+        medusaid = u'neuralia.medusa.' + constants.MEDUSA_VERSION
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(medusaid)
 
         # Initialize the application
         self.theme_colors = gui_utils.get_theme_colors('dark')
@@ -86,7 +92,7 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         # Set up
         self.set_status('Ready')
         self.show()
-        # splash_screen.finish(self)  # Close the SplashScreen
+        splash_screen.finish(self)  # Close the SplashScreen
 
         # Check user session
         if not os.path.isfile('session.json'):
@@ -114,21 +120,25 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
     def set_splash_screen():
         """ Sets the initial splash screen while it loads things. """
         # Attaching the splash image
-        splash_image = QPixmap('gui/images/medusa_splash_v1.png')
+        splash_image = QPixmap('gui/images/medusa_splash_' +
+                               constants.MEDUSA_VERSION + '.png')
         splash_screen = QSplashScreen(splash_image, Qt.WindowStaysOnTopHint)
+        splash_screen.setStyleSheet("QSplashScreen { margin-right: 0px; "
+                                    "padding-right: 0px;}")
         splash_screen.setMask(splash_image.mask())
 
         # Creating the progress bar
         splash_progbar = QProgressBar(splash_screen)
         splash_progbar.setStyleSheet(
             "QProgressBar{ "
-            "height: 10px; "
+            "height: 8px; "
+            "margin-right: -5px;"
+            "padding-right: 0px;"
             "color: none; "
             "border: 1px solid transparent; "
             "background: rgba(0,0,0,0); "
-            "margin-left: 320px; "
-            "margin-right: 32px; "
-            "margin-top: 250px;"
+            "margin-left: 330px; "
+            "margin-top: 337px;"
             "}" +
             "QProgressBar::chunk{ background: white; }")
         # Creating the progress text
@@ -136,15 +146,15 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         splash_text.setStyleSheet("color: white; "
                                   "font-size: 8pt; "
                                   "font-weight: bold; "
-                                  "margin-top: 280px; "
+                                  "margin-top: 390px; "
                                   "margin-left: 318px; "
-                                  "margin-right: 32px; "
                                   "font-family: sans-serif, "
                                   "Helvetica, Arial; "
                                   "text-align: left;")
 
         # Creating the final layout
         splash_layout = QGridLayout()
+        splash_layout.setContentsMargins(0, 0, 0, 0)
         splash_layout.addWidget(splash_progbar, 0, 0)
         splash_layout.addWidget(splash_text, 0, 0)
         splash_screen.setLayout(splash_layout)

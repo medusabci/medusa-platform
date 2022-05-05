@@ -498,7 +498,8 @@ class AppWidget(QFrame):
         self.pix_map = QPixmap(self.pixmap_path)
         self.icon = QLabel()
         self.icon.setPixmap(self.pix_map.scaledToWidth(
-            int(0.75 * min_widget_width)))
+            int(0.75 * min_widget_width),
+            Qt.TransformationMode.SmoothTransformation))
         self.icon.setAlignment(Qt.AlignCenter)
         self.icon.setMargin(0)
         self.icon.setContentsMargins(0, 0, 0, 0)

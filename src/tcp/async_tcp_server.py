@@ -1,5 +1,6 @@
-""" Created on Tuesday March 23 19:00:42 2022
+""" Created on Tuesday May 05 2022
 @author: Víctor Martínez-Cagigal
+@version: 2.0 (05/05/2022)
 """
 
 import selectors
@@ -10,7 +11,9 @@ import traceback
 import struct
 import json
 import io
+import time
 from abc import ABC, abstractmethod
+from contextlib import closing
 
 
 class TCPServer(ABC):
@@ -43,19 +46,72 @@ class TCPServer(ABC):
     >>> server.start()
     >>> server.stop()
     """
-    def __init__(self, ip, port):
+    def __init__(self, ip, port, discovery_data=None):
         self.TAG = "[tcp/async_tcp_server/TCPServer]"
         self.ip = ip
         self.port = port
+        self.discovery_data = discovery_data
 
         # Other attributes
         self.selector = None
         self.socket = None
         self.clients = dict()
 
+        # Discovery mode
+        self.discovery_loop = None
+        self.udp_socket = None
+        self.must_stop_discovery_loop = False
+
         # Working loop
         self.must_stop_working_loop = True
         self.working_loop = None
+
+    @staticmethod
+    def is_socket_open(host, port):
+        """ Checks if a socket is opened. In this class, the function is used
+        to know if the server is already up.
+
+        Parameters
+        ----------
+        host : string
+            Socket IP.
+        port: int
+            Socket port.
+
+        Returns
+        ----------
+        bool
+            True if socket is opened, false otherwise.
+        """
+        with closing(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as sock:
+            if sock.connect_ex((host, port)) == 0:
+                return True
+            else:
+                return False
+
+    def set_discovery_data(self, port, magic_str, name=''):
+        """ Setter function to make the server discoverable.
+
+        Parameters
+        -----------
+        port : int
+            Port in which the discover UDP socket will be opened.
+        magic_str : str
+            String identifier for the broadcasted messages.
+        name : str
+            Server's name.
+        """
+        if not isinstance(magic_str, str):
+            print(self.TAG, 'Cannot set up discovery mode if the magic '
+                            'UDP message is not a string!')
+            return
+        if not isinstance(port, int):
+            print(self.TAG, 'Cannot set up discovery mode if the port '
+                            'is not an integer!')
+            return
+        self.discovery_data = {'port': port,
+                               'magic': magic_str,
+                               'name': name}
 
     def start(self):
         """ Starts the TCP/IP server asynchronously.
@@ -64,6 +120,11 @@ class TCPServer(ABC):
         nonblocking mode and enables it to listen for new connections. Then, it
         starts a thread (TCPServer_WorkingLoopThread) that will listen for
         any new client, or any reading or writing event.
+
+        If set_discovery_data() was called before, then an additional UDP
+        socket will be opened at the given port. This socket will be devoted
+        to broadcast UDP messages so that the server will be discoverable by
+        target clients.
         """
         # Open a TCP/IP socket to accept connections
         print(self.TAG, '> Opening TCP/IP server at %s:%s...' % (self.ip, self.port))
@@ -86,6 +147,19 @@ class TCPServer(ABC):
         self.working_loop = threading.Thread(target=self._working_loop, args=())
         self.working_loop.name = 'TCPServer_WorkingLoopThread'
         self.working_loop.start()
+
+        # Discovery mode?
+        if self.discovery_data is not None:
+            self.must_stop_discovery_loop = False
+            self.udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            self.udp_socket.bind(('', 0))
+            self.udp_socket.setsockopt(socket.SOL_SOCKET,
+                                       socket.SO_BROADCAST, 1)
+            self.discovery_loop = threading.Thread(
+                target=self._discovery_loop, args=())
+            self.discovery_loop.name = 'TCPServer_UDPDiscoveryThread'
+            self.discovery_loop.start()
+
         # Notify that the server is up
         self.on_server_up()
 
@@ -100,6 +174,12 @@ class TCPServer(ABC):
         self.working_loop.join()
         print(self.TAG, '> Working loop thread closed')
 
+        # Close discovery thread
+        if self.discovery_loop is not None:
+            self.must_stop_discovery_loop = True
+            self.discovery_loop.join()
+            print(self.TAG, '> UDP discovery loop thread closed')
+
         # Close selector
         self.selector.close()
 
@@ -112,6 +192,34 @@ class TCPServer(ABC):
         self.selector = None
         self.socket = None
         print(self.TAG, '> Server closed!')
+
+    def _discovery_loop(self):
+        """ This function is executed by the TCPServer_UDPDiscoveryThread to
+        make the server discoverable provided set_discovery_data() was called
+        before start().
+
+        The loop uses the UDP socket to broadcast messages to the network.
+        These messages are encoded by UTF-8 and are composed of: (1) the
+        magic string (to identify the type of server), (2) the server's IP,
+        (3) the server's port, and (4) the server's name.
+        """
+        try:
+            print(self.TAG, '[udp_thread] > Discovery loop started')
+            while not self.must_stop_discovery_loop:
+                disc_msg = bytes(self.discovery_data['magic'] + self.ip + ':'
+                                 + str(self.port) + ':' +
+                                 self.discovery_data['name'],
+                                 'utf-8')
+                self.udp_socket.sendto(disc_msg, ('<broadcast>',
+                                                  self.discovery_data['port']
+                                                  )
+                                       )
+                time.sleep(1)
+        except Exception:
+            print(self.TAG, '[thread] > Exception occurred')
+            print(traceback.format_exc())
+        finally:
+            print(self.TAG, '[thread] > Discovery loop ended')
 
     def _working_loop(self):
         """ This function is executed by the TCPServer_WorkingLoopThread to
@@ -136,9 +244,10 @@ class TCPServer(ABC):
                         # It must be a write or read event
                         message = key.data
                         try:
-                            rcv_msg = message.process_event(mask)
-                            if rcv_msg:
-                                self.on_data_received(message.address, rcv_msg)
+                            rcv_msgs = message.process_event(mask)
+                            if rcv_msgs:
+                                for msg in rcv_msgs:
+                                    self.on_data_received(message.address, msg)
                         except TCPClientDisconnected:
                             # If client disconnected, close it but keep
                             # monitoring the rest of them
@@ -204,6 +313,7 @@ class TCPServer(ABC):
         self.selector.unregister(self.clients[client_address]['socket'])
         self.clients[client_address]['socket'].close()
         self.clients.pop(client_address, None)
+        self.on_client_disconnected(client_address)
 
     def _send_to_all(self, msg):
         """ Send a message to all clients at once.
@@ -254,7 +364,7 @@ class TCPServer(ABC):
             self._send_to_all(msg)
             return
         for client_address in client_addresses:
-            add_ = client_address[0] + ':' + client_address[1]
+            add_ = client_address[0] + ':' + str(client_address[1])
             self._send_to(add_, msg)
 
     @abstractmethod
@@ -279,6 +389,9 @@ class TCPServer(ABC):
         from TCPServer.
         """
         pass
+
+    def on_client_disconnected(self, client_address):
+        return client_address
 
 
 class TCPServerMessage:
@@ -337,45 +450,77 @@ class TCPServerMessage:
         ----------
         mask : int
             Selector mask (EVENT_READ or EVENT_WRITE).
+
+        Returns
+        ---------
+        list(basestring)
+            Received messages if any.
         """
+        received_msgs = None
         if mask & selectors.EVENT_READ:
-            received_msg = self.read()
-            if received_msg is not None:
-                return received_msg
+            received_msgs = self._read()
         if mask & selectors.EVENT_WRITE:
             # Warning: if there is nothing to read(), the selector will only try
             # to write, that's why the send() function is used
             self._write()
-        return None
+        return received_msgs
+
+    def _set_selector_events_mask(self, mode):
+        """Set selector to listen for events: mode is 'r', 'w', or 'rw'."""
+        if mode == "r":
+            events = selectors.EVENT_READ
+        elif mode == "w":
+            events = selectors.EVENT_WRITE
+        elif mode == "rw":
+            events = selectors.EVENT_READ | selectors.EVENT_WRITE
+        else:
+            raise ValueError(f"Invalid events mask mode {mode!r}.")
+        self.selector.modify(self.socket, events, data=self)
+        print(self.TAG, "Changed functionality to: %s" % mode)
 
     # -------------------------------- READING ---------------------------------
-    def read(self):
-        """ Main function to read any incoming message from a client.
+    def _read(self):
+        """ Main function to read incoming messages from a client.
 
-        First, it reads a fixed number of bytes. If the first header,
-        indicating the length of the subsequent header is included in those
-        bytes, processes it. If the header length is already known,
-        it processes the entire message header. If the header has already
-        read, then it reads the message and starts again.
+        First, it reads a fixed number of bytes. Then, a while loop will try
+        to decode the message from those bytes following the next protocol:
+
+        If the first header, indicating the length of the subsequent header
+        is included in those bytes, processes it. If the header length is
+        already known, it processes the entire message header. If the header
+        has already read, then it reads the message and starts again.
+
+        Note that after this process we have three options:
+        1) the buffer is empty, so we need to stop the loop
+        2) the buffer is not empty, but the bytes left do not represent an
+        entire message, so we need to stop the loop (eventually, another
+        EVENT_READ operation will be triggered)
+        3) the buffer is not empty and the bytes left do represent more
+        messages, so we need to continue processing them. Note that if we
+        exit the loop here, no EVENT_READ will be raised as the message was
+        previously encoded in the read_bytes() call!
 
         Returns
         --------
-        basestring
+        list(basestring)
             Data read.
         """
-        self._read_bytes()                      # Read some bytes
-        if self._jsonheader_len is None:        # Process first header
-            self._process_header()
-        if self._jsonheader_len is not None:    # Process JSON header
-            if self._jsonheader is None:
-                self._process_jsonheader()
-        if self._jsonheader:                    # Read the message
-            data = self._process_message()
-            if data is not None:
-                self._jsonheader_len = None
-                self._jsonheader = None
-                self._recv_message = None
-                return data
+        # Read some bytes from the socket
+        self._read_bytes()
+
+        # Process these bytes to decode messages
+        received_msgs = list()
+        while len(self._recv_buffer) > 0:
+            r_msg = self._process_bytes()
+            if r_msg:
+                received_msgs.append(r_msg)
+            else:
+                # Two options here:
+                #   1) There is nothing left in the _recv_buffer
+                #   2) The buffer is not empty but we cannot decode an entire
+                #   message yet (so a new EVENT_READ will be raised eventually)
+                break
+        return received_msgs
 
     def _read_bytes(self, no_bytes=4096):
         """ Reads a fixed number of bytes from the socket and store them into
@@ -401,6 +546,28 @@ class TCPServerMessage:
             else:
                 # Client disconnected!
                 raise TCPClientDisconnected
+
+    def _process_bytes(self):
+        """ Main function to decode a message from the buffer.
+
+        Returns
+        --------
+        basestring
+            Data read.
+        """
+        if self._jsonheader_len is None:  # Process first header
+            self._process_header()
+        if self._jsonheader_len is not None:  # Process JSON header
+            if self._jsonheader is None:
+                self._process_jsonheader()
+        if self._jsonheader:  # Read the message
+            data = self._process_message()
+            if data is not None:
+                self._jsonheader_len = None
+                self._jsonheader = None
+                self._recv_message = None
+                return data
+        return None
 
     def _process_header(self):
         """ Processes the first header provided it is contained in the reading
@@ -469,7 +636,7 @@ class TCPServerMessage:
         """ Requests a message to be sent to the client associated with this
         class.
 
-        The message is not instantly sent, but it is appender to a list()
+        The message is not instantly sent, but it is appended to a list()
         buffer that will send the messages sequentially whenever the selector
         determines it is the time to write into the buffer.
 

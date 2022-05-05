@@ -10,3 +10,4 @@ scipy
 six
 medusa-kernel
 jinja2
+requests
