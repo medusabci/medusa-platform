@@ -112,8 +112,7 @@ class App(resources.AppSkeleton):
             print(TAG, 'Close signal emitted to Unity.')
 
             # Wait until the Unity server notify us that the app is closed
-            while self.app_controller.unity_state.value == \
-                    app_constants.UNITY_READY:
+            while self.app_controller.unity_state.value != app_constants.UNITY_FINISHED:
                 time.sleep(0.1)
             print(TAG, 'Unity application closed!')
 
@@ -157,8 +156,6 @@ class App(resources.AppSkeleton):
 
         # Loop
         while not self.stop:
-            # TODO: should we process events here instead of direct
-            #  callback?
             # Check for pause
             if self.run_state.value == mds_constants.RUN_STATE_PAUSED:
                 self.app_controller.pause()
