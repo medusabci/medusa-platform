@@ -95,11 +95,13 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         splash_screen.finish(self)  # Close the SplashScreen
 
         # Check user session
-        if not os.path.isfile('session.json'):
+        if not os.path.isfile('session'):
             # Login
             self.login_window = login.LoginDialog(
                 login_required=True,
                 theme_colors=self.theme_colors)
+            # Connect signals
+            self.login_window.error_signal.connect(self.handle_exception)
             self.login_window.exec()
             self.session = self.login_window.session
             if self.session is None:

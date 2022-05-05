@@ -1,6 +1,7 @@
 import requests
 import json, pickle
 import os, re
+import exceptions
 
 
 class UserSession:
@@ -11,6 +12,9 @@ class UserSession:
 
         # Server and database name
         self.url_server = 'https://www.medusabci.com/api'
+
+        # User data
+        self.user_info = None
 
         # Session
         self.session = requests.Session()
@@ -32,7 +36,10 @@ class UserSession:
         params = {'email': email, 'password': password}
         data = json.dumps(params)
         # TODO: Solve problems with SSL if verify is True
-        resp = self.session.post(url, json=data, verify=False)
+        try:
+            resp = self.session.post(url, json=data, verify=True)
+        except requests.exceptions.SSLError as e:
+            resp = self.session.post(url, json=data, verify=False)
         # Error handling
         if resp.status_code != 200:
             if resp.status_code == 401:

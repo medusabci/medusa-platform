@@ -1,7 +1,6 @@
 from gui.main_window import GuiMainClass
 from PyQt5.QtWidgets import QApplication
 import sys, json, os
-import session
 
 
 if __name__ == '__main__':

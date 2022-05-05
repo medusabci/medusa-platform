@@ -22,7 +22,7 @@ class LoginDialog(QtWidgets.QDialog, ui_main_dialog):
     """ Dialog for Login to MEDUSA
     """
 
-    login_signal = QtCore.pyqtSignal(object)
+    error_signal = QtCore.pyqtSignal(Exception)
 
     def __init__(self, login_required, theme_colors=None):
         """ Class constructor
@@ -84,7 +84,12 @@ class LoginDialog(QtWidgets.QDialog, ui_main_dialog):
         self.setModal(True)
         self.show()
 
-    def on_button_login_clicked(self):
+    def handle_exception(self, mds_ex):
+        # Send exception to gui main
+        self.error_signal.emit(mds_ex)
+
+    @exceptions.error_handler(scope='general')
+    def on_button_login_clicked(self, checked):
         """Query to medusa.com to log in"""
         # Get data
         email = self.lineEdit_email.text()
@@ -97,22 +102,26 @@ class LoginDialog(QtWidgets.QDialog, ui_main_dialog):
             self.close()
         except api_client.AuthenticationError as e:
             self.label_error_msg.setText('Incorrect email or password')
+            self.session = None
 
-    def on_button_signup_clicked(self):
+    @exceptions.error_handler(scope='general')
+    def on_button_signup_clicked(self, checked):
         """Go to sign up page"""
         webbrowser.open_new("http://www.medusabci.com/signup/")
 
-    def on_label_forgot_password_clicked(self):
+    @exceptions.error_handler(scope='general')
+    def on_label_forgot_password_clicked(self, checked):
         """Go to forgot password page"""
         webbrowser.open_new("http://www.medusabci.com/reset-password/")
 
+    @exceptions.error_handler(scope='general')
     def closeEvent(self, event):
         if self.session is None:
             if self.login_required:
                 resp = dialogs.confirmation_dialog(
-                    message='Login is requried. If you close this window, '
+                    message='Login is required. If you close this window, '
                             'MEDUSA will exit. Do you want to continue?',
-                    title='Login requried',
+                    title='Login required',
                     theme_colors=self.theme_colors
                 )
                 event.accept() if resp else event.ignore()
@@ -120,9 +129,6 @@ class LoginDialog(QtWidgets.QDialog, ui_main_dialog):
                 event.accept()
         else:
             event.accept()
-
-    def handle_exception(self, ex):
-        traceback.print_exc()
 
 
 class ForgotPasswordQLabel(QtWidgets.QLabel):
