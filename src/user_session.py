@@ -6,6 +6,9 @@ import exceptions
 
 class UserSession:
 
+    # TODO: Solve problems with SSL if verify is True
+    # TODO: Handle connection error uniformly for all methods
+
     def __init__(self):
 
         """ This class handles user sessions to a BeeLab database """
@@ -16,7 +19,6 @@ class UserSession:
 
         # User data
         self.user_info = None
-
         # Session
         self.session = requests.Session()
 
@@ -24,13 +26,10 @@ class UserSession:
         """Checks if the session is valid and returns any exception thrown by
         the checking process"""
         # Check session
-        if not isinstance(self, UserSession):
-            raise TypeError()
-        # Check connection with web
-        self.ping()
+        return False if self.user_info is None else True
 
     def ping(self):
-        """Ping to MEDUSA API
+        """Ping to MEDUSA API to check connection and session
         """
         # Parse URL
         url = self.url_server + '/ping/'
@@ -61,7 +60,6 @@ class UserSession:
         # Make request
         params = {'email': email, 'password': password}
         data = json.dumps(params)
-        # TODO: Solve problems with SSL if verify is True
         try:
             resp = self.session.post(url, json=data, verify=True)
         except requests.exceptions.SSLError as e:
@@ -78,13 +76,12 @@ class UserSession:
     def logout(self):
         """Request to logout from MEDUSA
         """
-        # Parse URL
-        url = self.url_server + '/logout/'
-        # Make request
-        resp = self.session.post(url)
-        # Error handling
-        if resp.status_code != 200:
-            raise Exception("\n\n" + resp.text)
+        # Remove session file
+        os.remove('session')
+        # User data
+        self.user_info = None
+        # Session
+        self.session = requests.Session()
 
     def save(self):
         with open('session', 'wb') as f:

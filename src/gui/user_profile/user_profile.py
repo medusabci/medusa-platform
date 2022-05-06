@@ -20,7 +20,12 @@ ui_main_dialog = \
 class UserProfileDialog(QtWidgets.QDialog, ui_main_dialog):
     """ Main dialog class of the LSL config panel
     """
-    def __init__(self, theme_colors=None):
+
+    error_signal = QtCore.pyqtSignal(Exception)
+    logout_signal = QtCore.pyqtSignal()
+    delete_signal = QtCore.pyqtSignal()
+
+    def __init__(self, user_session, theme_colors=None):
         """ Class constructor
 
         Parameters
@@ -42,57 +47,66 @@ class UserProfileDialog(QtWidgets.QDialog, ui_main_dialog):
             medusa_icon = QtGui.QIcon('%s/medusa_favicon.png' %
                                       constants.IMG_FOLDER)
             self.setWindowIcon(medusa_icon)
-            self.setWindowTitle('LOGIN')
+            self.setWindowTitle('PROFILE')
+            # Variables
+            self.user_session = user_session
             # Icon and title
-            self.label_title.setObjectName('login-label-title')
+            self.label_alias.setObjectName('profile-label-title')
             self.label_icon.setPixmap(medusa_icon.pixmap(
                 QtCore.QSize(256, 256)))
-            # Form entries
-            self.lineEdit_email.setProperty("class", "login-entry")
-            self.lineEdit_password.setProperty("class", "login-entry")
-            self.lineEdit_password.setEchoMode(QtWidgets.QLineEdit.Password)
+            self.label_alias.setText(
+                'Welcome %s!' % self.user_session.user_info['alias'])
+            # User info
+            self.label_name.setProperty("class", "profile-label")
+            self.label_name.setText(self.user_session.user_info['name'])
+            self.label_email.setProperty("class", "profile-label")
+            self.label_email.setText(self.user_session.user_info['email'])
             # Forgot password
-            self.label_forgot_password = ForgotPasswordQLabel(
-                'Forgot your password?')
-            self.label_forgot_password.setObjectName('login-forgot-password')
-            self.label_forgot_password.setAlignment(Qt.AlignRight)
-            self.label_forgot_password.clicked.connect(
-                self.on_label_forgot_password_clicked)
-            self.verticalLayout_form.addWidget(self.label_forgot_password)
+            self.label_goto_profile = WebsiteProfileQLabel(
+                'Go to profile')
+            self.label_goto_profile.setObjectName('login-forgot-password')
+            self.label_goto_profile.setAlignment(Qt.AlignRight)
+            self.label_goto_profile.clicked.connect(
+                self.on_label_goto_profile_clicked)
+            self.verticalLayout_form.addWidget(self.label_goto_profile)
             self.verticalLayout_form.addSpacerItem(
                 QtWidgets.QSpacerItem(
                     0, 0, QtWidgets.QSizePolicy.Expanding,
                     QtWidgets.QSizePolicy.Expanding)
             )
             # Buttons
-            self.pushButton_login.clicked.connect(
-                self.on_button_login_clicked)
-            self.pushButton_signup.clicked.connect(
-                self.on_button_signup_clicked)
+            self.pushButton_logout.clicked.connect(
+                self.on_button_logout_clicked)
+            self.pushButton_delete.clicked.connect(
+                self.on_button_delete_clicked)
             # Connect the buttons
             self.setModal(True)
             self.show()
         except Exception as e:
             self.handle_exception(e)
 
-    def on_button_login_clicked(self):
-        """Query to medusa.com to log in"""
-        raise NotImplementedError()
+    def handle_exception(self, mds_ex):
+        # Send exception to gui main
+        self.error_signal.emit(mds_ex)
 
-    def on_button_signup_clicked(self):
+    def on_button_logout_clicked(self):
+        """User logout"""
+        self.user_session.logout()
+        self.logout_signal.emit()
+        self.close()
+
+    def on_button_delete_clicked(self):
         """Go to sign up page"""
-        webbrowser.open_new("http://www.qtcentre.org")
+        self.user_session.logout()
+        self.delete_signal.emit()
+        self.close()
 
-    def on_label_forgot_password_clicked(self):
+    def on_label_goto_profile_clicked(self):
         """Go to forgot password page"""
-        webbrowser.open_new("http://www.qtcentre.org")
-
-    def handle_exception(self, ex):
-        traceback.print_exc()
-        self.notifications.new_notification('[ERROR] %s' % str(ex))
+        webbrowser.open_new("http://www.medusabci.com/")
 
 
-class ForgotPasswordQLabel(QtWidgets.QLabel):
+class WebsiteProfileQLabel(QtWidgets.QLabel):
 
     clicked = QtCore.pyqtSignal()
 

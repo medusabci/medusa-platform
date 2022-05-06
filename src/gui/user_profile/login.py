@@ -11,7 +11,7 @@ from acquisition import lsl_utils
 import exceptions
 import constants
 from medusa.plots import optimal_subplots
-import api_client
+import user_session
 
 # Load the .ui files
 ui_main_dialog = \
@@ -23,6 +23,7 @@ class LoginDialog(QtWidgets.QDialog, ui_main_dialog):
     """
 
     error_signal = QtCore.pyqtSignal(Exception)
+    login_signal = QtCore.pyqtSignal(bool)
 
     def __init__(self, user_session, login_required, theme_colors=None):
         """ Class constructor
@@ -92,15 +93,17 @@ class LoginDialog(QtWidgets.QDialog, ui_main_dialog):
     @exceptions.error_handler(scope='general')
     def on_button_login_clicked(self, checked):
         """Query to medusa.com to log in"""
-        # Get data
+        # Reset error message
         self.label_error_msg.setText('')
+        QtWidgets.qApp.processEvents()
+        # Get data
         email = self.lineEdit_email.text()
         password = self.lineEdit_password.text()
         try:
             self.user_session.login(email, password)
             self.success = True
             self.close()
-        except api_client.AuthenticationError as e:
+        except user_session.AuthenticationError as e:
             self.label_error_msg.setText('Incorrect email or password')
             self.success = False
 

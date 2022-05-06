@@ -28,7 +28,7 @@
        <item>
         <layout class="QHBoxLayout" name="horizontalLayout">
          <item>
-          <widget class="QLabel" name="label_title">
+          <widget class="QLabel" name="label_alias">
            <property name="sizePolicy">
             <sizepolicy hsizetype="Preferred" vsizetype="Minimum">
              <horstretch>0</horstretch>
@@ -36,7 +36,7 @@
             </sizepolicy>
            </property>
            <property name="text">
-            <string/>
+            <string>Welcome alias!</string>
            </property>
            <property name="alignment">
             <set>Qt::AlignCenter</set>
@@ -46,30 +46,30 @@
         </layout>
        </item>
        <item>
-        <widget class="QLineEdit" name="lineEdit_email">
-         <property name="placeholderText">
-          <string>Enter your email</string>
-         </property>
-        </widget>
-       </item>
-       <item>
-        <widget class="QLineEdit" name="lineEdit_password">
-         <property name="placeholderText">
-          <string>Enter your password</string>
-         </property>
-        </widget>
-       </item>
-       <item>
-        <widget class="QPushButton" name="pushButton_login">
+        <widget class="QLabel" name="label_name">
          <property name="text">
-          <string>LOGIN</string>
+          <string>Robert Smith</string>
          </property>
         </widget>
        </item>
        <item>
-        <widget class="QPushButton" name="pushButton_signup">
+        <widget class="QLabel" name="label_email">
          <property name="text">
-          <string>SIGN UP</string>
+          <string>example@example.com</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QPushButton" name="pushButton_logout">
+         <property name="text">
+          <string>LOGOUT</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QPushButton" name="pushButton_delete">
+         <property name="text">
+          <string>DELETE ACCOUNT</string>
          </property>
         </widget>
        </item>

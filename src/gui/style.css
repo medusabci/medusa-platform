@@ -673,3 +673,13 @@ Style of the apps panel
     color: @THEME_TEXT_ACCENT;
     text-align: right;
 }
+
+#profile-label-title{
+    font-size: 22px;
+    font-weight: bold;
+    margin-bottom: 15px;
+}
+
+.profile-label{
+    font-size: 16px;
+}

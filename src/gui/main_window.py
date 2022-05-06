@@ -10,7 +10,7 @@ from PyQt5.QtCore import *
 from PyQt5.QtGui import *
 
 # MEDUSA general
-import api_client
+import user_session
 import constants, resources, exceptions, app_manager
 from gui import gui_utils
 from acquisition import lsl_utils
@@ -95,28 +95,8 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         self.show()
 
         # Check user session
-        try:
-            self.user_session = api_client.UserSession.load()
-            self.user_session.check_session()
-            # Close splash screen
-            # splash_screen.finish(self)
-        except Exception as e:
-            self.handle_exception(e)
-            # Close splash screen
-            # splash_screen.finish(self)
-            # Create session
-            self.user_session = api_client.UserSession()
-            # Login
-            self.login_window = login.LoginDialog(
-                user_session=self.user_session,
-                login_required=True,
-                theme_colors=self.theme_colors)
-            # Connect signals
-            self.login_window.error_signal.connect(self.handle_exception)
-            self.login_window.exec()
-            self.user_session.save()
-            if not self.login_window.success:
-                self.close()
+        self.user_session = None
+        self.set_up_user_account()
 
     @exceptions.error_handler(scope='general')
     def reset_sizes(self):
@@ -278,6 +258,16 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         self.plots_panel_widget.toolButton_plot_undock.clicked.connect(
             self.undock_plots_panel)
 
+    def set_up_user_account(self):
+        if os.path.isfile('session'):
+            self.user_session = user_session.UserSession.load()
+            if not self.user_session.check_session():
+                self.user_session = user_session.UserSession()
+                self.open_login_window(login_required=True)
+        else:
+            self.user_session = user_session.UserSession()
+            self.open_login_window(login_required=True)
+
     # =============================== MENU BAR =============================== #
     @exceptions.error_handler(scope='general')
     def set_up_menu_bar_main(self):
@@ -324,7 +314,7 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         # Create profile button
         self.toolButton_profile = QToolButton(self.toolBar)
         self.setProperty("class", "main-toolbar-button")
-        self.toolButton_profile.clicked.connect(self.open_user_profile_window)
+        self.toolButton_profile.clicked.connect(self.open_account_window)
         # Create spacer widget
         spacer = QWidget()
         spacer.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
@@ -341,13 +331,40 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         pass
 
     @exceptions.error_handler(scope='general')
-    def open_user_profile_window(self, event):
-        self.user_profile_window = user_profile.UserProfileDialog(
+    def open_account_window(self, event):
+        if not self.user_session.check_session():
+            self.open_login_window(login_required=True)
+        else:
+            self.open_user_profile_window()
+
+    # =========================== USER ACCOUNT =============================== #
+    def open_login_window(self, login_required=False):
+        # Login
+        self.login_window = login.LoginDialog(
+            user_session=self.user_session,
+            login_required=login_required,
             theme_colors=self.theme_colors)
-        # menu = QMenu(self)
-        # menu.addAction("Profile")
-        # menu.addAction("Close session")
-        # menu.exec_(QCursor.pos())
+        # Connect signals
+        self.login_window.error_signal.connect(self.handle_exception)
+        self.login_window.exec()
+        self.user_session.save()
+        if login_required and not self.login_window.success:
+            self.close()
+
+    def open_user_profile_window(self):
+        self.user_profile_window = user_profile.UserProfileDialog(
+            user_session=self.user_session,
+            theme_colors=self.theme_colors)
+        self.user_profile_window.error_signal.connect(self.handle_exception)
+        self.user_profile_window.logout_signal.connect(self.on_user_logout)
+        self.user_profile_window.delete_signal.connect(self.on_user_delete)
+        self.user_profile_window.exec()
+
+    def on_user_logout(self):
+        self.open_login_window(login_required=True)
+
+    def on_user_delete(self):
+        print('on_user_delete')
 
     # ======================== LAB-STREAMING LAYER =========================== #
     @exceptions.error_handler(scope='general')
