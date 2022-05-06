@@ -10,6 +10,7 @@ from PyQt5.QtCore import *
 from PyQt5.QtGui import *
 
 # MEDUSA general
+import api_client
 import constants, resources, exceptions, app_manager
 from gui import gui_utils
 from acquisition import lsl_utils
@@ -41,7 +42,7 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         self.reset_sizes()
 
         # Splash screen
-        splash_screen = self.set_splash_screen()
+        # splash_screen = self.set_splash_screen()
 
         # Tell windows that this application is not pythonw.exe so it can
         # have its own icon
@@ -92,19 +93,29 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         # Set up
         self.set_status('Ready')
         self.show()
-        splash_screen.finish(self)  # Close the SplashScreen
 
         # Check user session
-        if not os.path.isfile('session'):
+        try:
+            self.user_session = api_client.UserSession.load()
+            self.user_session.check_session()
+            # Close splash screen
+            # splash_screen.finish(self)
+        except Exception as e:
+            self.handle_exception(e)
+            # Close splash screen
+            # splash_screen.finish(self)
+            # Create session
+            self.user_session = api_client.UserSession()
             # Login
             self.login_window = login.LoginDialog(
+                user_session=self.user_session,
                 login_required=True,
                 theme_colors=self.theme_colors)
             # Connect signals
             self.login_window.error_signal.connect(self.handle_exception)
             self.login_window.exec()
-            self.session = self.login_window.session
-            if self.session is None:
+            self.user_session.save()
+            if not self.login_window.success:
                 self.close()
 
     @exceptions.error_handler(scope='general')
@@ -120,7 +131,7 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
 
     @staticmethod
     def set_splash_screen():
-        """ Sets the initial splash screen while it loads things. """
+        """ Sets the initial splash screen while it loads things."""
         # Attaching the splash image
         splash_image = QPixmap('gui/images/medusa_splash_' +
                                constants.MEDUSA_VERSION + '.png')

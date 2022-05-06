@@ -24,7 +24,7 @@ class LoginDialog(QtWidgets.QDialog, ui_main_dialog):
 
     error_signal = QtCore.pyqtSignal(Exception)
 
-    def __init__(self, login_required, theme_colors=None):
+    def __init__(self, user_session, login_required, theme_colors=None):
         """ Class constructor
 
         Parameters
@@ -79,7 +79,8 @@ class LoginDialog(QtWidgets.QDialog, ui_main_dialog):
             self.on_button_signup_clicked)
         # Initialization
         self.login_required = login_required
-        self.session = None
+        self.user_session = user_session
+        self.success = False
         # Show
         self.setModal(True)
         self.show()
@@ -92,17 +93,16 @@ class LoginDialog(QtWidgets.QDialog, ui_main_dialog):
     def on_button_login_clicked(self, checked):
         """Query to medusa.com to log in"""
         # Get data
+        self.label_error_msg.setText('')
         email = self.lineEdit_email.text()
         password = self.lineEdit_password.text()
-        # Create session
-        self.session = api_client.UserSession()
         try:
-            self.session.login(email, password)
-            self.session.save()
+            self.user_session.login(email, password)
+            self.success = True
             self.close()
         except api_client.AuthenticationError as e:
             self.label_error_msg.setText('Incorrect email or password')
-            self.session = None
+            self.success = False
 
     @exceptions.error_handler(scope='general')
     def on_button_signup_clicked(self, checked):
@@ -116,7 +116,7 @@ class LoginDialog(QtWidgets.QDialog, ui_main_dialog):
 
     @exceptions.error_handler(scope='general')
     def closeEvent(self, event):
-        if self.session is None:
+        if self.user_session is None:
             if self.login_required:
                 resp = dialogs.confirmation_dialog(
                     message='Login is required. If you close this window, '
