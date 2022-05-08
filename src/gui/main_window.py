@@ -51,7 +51,7 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
 
         # Initialize the application
         self.theme_colors = gui_utils.get_theme_colors('dark')
-        gui_utils.set_css_and_theme(self, 'gui/style.css', self.theme_colors)
+        gui_utils.set_css_and_theme(self, self.theme_colors)
         self.setWindowIcon(QIcon('%s/medusa_icon.png' % constants.IMG_FOLDER))
         self.setWindowTitle('Medusa %s' % constants.MEDUSA_VERSION)
         self.setFocusPolicy(Qt.StrongFocus)

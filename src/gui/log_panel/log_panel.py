@@ -151,7 +151,7 @@ class LogPanelWindow(QMainWindow):
         # self.plots_panel_widget = plots_panel_widget
         self.theme_colors = theme_colors
         self.setCentralWidget(log_panel_widget)
-        gui_utils.set_css_and_theme(self, 'gui/style.css', self.theme_colors)
+        gui_utils.set_css_and_theme(self, self.theme_colors)
         # Resize plots window
         self.resize(width, height)
         self.show()

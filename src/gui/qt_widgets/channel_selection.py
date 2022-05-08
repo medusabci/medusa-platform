@@ -38,8 +38,7 @@ class ChannelSelectionWidget(QWidget, ui_main_file):
         theme_colors = None
         self.theme_colors = gui_utils.get_theme_colors('dark') if \
             theme_colors is None else theme_colors
-        self.stl = gui_utils.set_css_and_theme(self, 'gui\style.css',
-                                               self.theme_colors)
+        self.stl = gui_utils.set_css_and_theme(self, self.theme_colors)
         self.setWindowIcon(QtGui.QIcon('gui\images/medusa_icon.png'))
         self.setWindowTitle('MEDUSA EEG Channel Selection')
         self.used_btn.setStyleSheet('QPushButton {background-color: #76ba1b; color: #000000;}')

@@ -39,8 +39,7 @@ class AppGui(QtWidgets.QMainWindow):
         # Initialize the gui application
         self.theme_colors = gui_utils.get_theme_colors('dark') if \
             theme_colors is None else theme_colors
-        self.stl = gui_utils.set_css_and_theme(self, 'gui/style.css',
-                                               self.theme_colors)
+        self.stl = gui_utils.set_css_and_theme(self, self.theme_colors)
         self.setWindowIcon(QtGui.QIcon('%s/medusa_favicon.png' %
                                        constants.IMG_FOLDER))
         self.setWindowTitle('Default configuration window')

@@ -41,8 +41,7 @@ class LSLConfig(QtWidgets.QDialog, ui_main_dialog):
             self.dir = os.path.dirname(__file__)
             self.theme_colors = gui_utils.get_theme_colors('dark') if \
                 theme_colors is None else theme_colors
-            self.stl = gui_utils.set_css_and_theme(self, 'gui/style.css',
-                                                   self.theme_colors)
+            self.stl = gui_utils.set_css_and_theme(self, self.theme_colors)
             self.setWindowIcon(QtGui.QIcon('%s/medusa_favicon.png' %
                                constants.IMG_FOLDER))
             self.setWindowTitle('Lab streaming layer (LSL) settings')
@@ -307,8 +306,7 @@ class EditStreamDialog(QtWidgets.QDialog, ui_stream_config_dialog):
             # Set style
             self.theme_colors = gui_utils.get_theme_colors('dark') if \
                 theme_colors is None else theme_colors
-            self.stl = gui_utils.set_css_and_theme(self, 'gui/style.css',
-                                                   self.theme_colors)
+            self.stl = gui_utils.set_css_and_theme(self, self.theme_colors)
             self.setWindowIcon(QtGui.QIcon('%s/medusa_icon.png' %
                                            constants.IMG_FOLDER))
             self.setWindowTitle('Stream settings')

@@ -19,8 +19,7 @@ class MedusaDialog(QDialog):
             # Set style
             self.theme_colors = gui_utils.get_theme_colors('dark') if \
                 theme_colors is None else theme_colors
-            self.stl = gui_utils.set_css_and_theme(self, 'gui/style.css',
-                                                   self.theme_colors)
+            self.stl = gui_utils.set_css_and_theme(self, self.theme_colors)
             self.setWindowIcon(QIcon('gui/images/medusa_icon.png'))
             self.setWindowTitle(window_title)
             self.setGeometry(pos_x, pos_y, width, heigh)
@@ -60,7 +59,7 @@ def confirmation_dialog(message, title, theme_colors=None):
     msg.setWindowFlags(msg.windowFlags() | Qt.WindowStaysOnTopHint)
     theme_colors = gui_utils.get_theme_colors('dark') if \
         theme_colors is None else theme_colors
-    stl = gui_utils.set_css_and_theme(msg, 'gui/style.css', theme_colors)
+    stl = gui_utils.set_css_and_theme(msg, theme_colors)
     res = msg.exec_()
     if res == QMessageBox.Yes:
         return True
@@ -86,7 +85,7 @@ def info_dialog(message, title, theme_colors=None):
     msg.setWindowFlags(msg.windowFlags() | Qt.WindowStaysOnTopHint)
     theme_colors = gui_utils.get_theme_colors('dark') if \
         theme_colors is None else theme_colors
-    stl = gui_utils.set_css_and_theme(msg, 'gui/style.css', theme_colors)
+    stl = gui_utils.set_css_and_theme(msg, theme_colors)
     return msg.exec_()
 
 
@@ -108,7 +107,7 @@ def error_dialog(message, title, theme_colors=None):
     msg.setWindowFlags(msg.windowFlags() | Qt.WindowStaysOnTopHint)
     theme_colors = gui_utils.get_theme_colors('dark') if \
         theme_colors is None else theme_colors
-    stl = gui_utils.set_css_and_theme(msg, 'gui/style.css', theme_colors)
+    stl = gui_utils.set_css_and_theme(msg, theme_colors)
     return msg.exec_()
 
 
@@ -130,5 +129,5 @@ def warning_dialog(message, title, theme_colors=None):
     msg.setWindowFlags(msg.windowFlags() | Qt.WindowStaysOnTopHint)
     theme_colors = gui_utils.get_theme_colors('dark') if \
         theme_colors is None else theme_colors
-    stl = gui_utils.set_css_and_theme(msg, 'gui/style.css', theme_colors)
+    stl = gui_utils.set_css_and_theme(msg, theme_colors)
     return msg.exec_()

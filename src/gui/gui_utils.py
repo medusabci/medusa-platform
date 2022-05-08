@@ -1,3 +1,5 @@
+# Built-in modules
+import os, pathlib
 # External imports
 from PIL import Image, ImageQt
 from PyQt5.QtGui import *
@@ -265,24 +267,25 @@ def get_property(handle, name):
 
 
 # ============================ THEME DEFINITIONS ============================ #
-def set_css_and_theme(gui_handle, css_path, theme_colors):
+def set_css_and_theme(gui_handle, theme_colors, stylesheet_path=None):
     """Reads the stylesheet and sets a theme.
 
     :param gui_handle: object
         Instance of the GUI.
-    :param css_path: basestring
-        Absolute path of the CSS file.
     :param theme_colors: basestring
         Theme to select:
            'dark': Dark theme (i.e., darcula).
     :return stylesheet: basestring
         Gui stylesheet.
     """
-    # if css_path is None:
-    #     css_path = constants.STYLE_FILE
-    # if theme_colors is None:
-    #     css_path = constants.STYLE_FILE
-    stl = load_stylesheet(css_path)
+    if stylesheet_path is None:
+        start_dir = os.getcwd()
+        end_dir = os.path.dirname(__file__)
+        gui_dir_rel_path = os.path.relpath(end_dir, start=start_dir)
+        stylesheet_rel_path = '%s/style.css' % gui_dir_rel_path
+    else:
+        stylesheet_rel_path = stylesheet_path
+    stl = load_stylesheet(stylesheet_rel_path)
     stl = set_theme(stl, theme_colors)
     gui_handle.setStyleSheet(stl)
     return stl

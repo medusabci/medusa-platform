@@ -40,8 +40,7 @@ class LoginDialog(QtWidgets.QDialog, ui_main_dialog):
         self.dir = os.path.dirname(__file__)
         self.theme_colors = gui_utils.get_theme_colors('dark') if \
             theme_colors is None else theme_colors
-        self.stl = gui_utils.set_css_and_theme(self, 'gui/style.css',
-                                               self.theme_colors)
+        self.stl = gui_utils.set_css_and_theme(self, self.theme_colors)
         medusa_icon = QtGui.QIcon('%s/medusa_favicon.png' %
                                   constants.IMG_FOLDER)
         self.setWindowIcon(medusa_icon)

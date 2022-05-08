@@ -542,8 +542,7 @@ class ConfigPlotFrameDialog(QDialog, ui_plot_config_dialog):
             self.dir = os.path.dirname(__file__)
             self.theme_colors = gui_utils.get_theme_colors('dark') if \
                 theme_colors is None else theme_colors
-            self.stl = gui_utils.set_css_and_theme(self, 'gui/style.css',
-                                                   self.theme_colors)
+            self.stl = gui_utils.set_css_and_theme(self, self.theme_colors)
             self.setWindowIcon(QIcon('%s/medusa_icon.png' %
                                      constants.IMG_FOLDER))
             self.setWindowTitle('Plot configuration')
@@ -703,8 +702,7 @@ class PlotsPanelConfigDialog(QDialog, ui_plots_panel_config):
             self.dir = os.path.dirname(__file__)
             self.theme_colors = gui_utils.get_theme_colors('dark') if \
                 theme_colors is None else theme_colors
-            self.stl = gui_utils.set_css_and_theme(self, 'gui/style.css',
-                                                   self.theme_colors)
+            self.stl = gui_utils.set_css_and_theme(self, self.theme_colors)
             self.setWindowIcon(QIcon('%s/medusa_icon.png' %
                                      constants.IMG_FOLDER))
             self.setWindowTitle('Real time plots panel configuration')
