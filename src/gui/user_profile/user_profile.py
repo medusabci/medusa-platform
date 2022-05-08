@@ -96,8 +96,8 @@ class UserProfileDialog(QtWidgets.QDialog, ui_main_dialog):
     def on_button_delete_clicked(self):
         """Go to sign up page"""
         resp = dialogs.confirmation_dialog(
-            message='This will delete all user files and apps. '
-                    'Are you sure you want to continue?',
+            message='This will delete all user files and apps from '
+                    'this computer. Are you sure you want to continue?',
             title='Delete account',
             theme_colors=self.theme_colors
         )
