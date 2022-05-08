@@ -3,6 +3,7 @@ import sys, os, json, traceback, webbrowser, pickle
 # External imports
 from PyQt5 import QtCore, QtGui, QtWidgets, uic
 from PyQt5.QtCore import Qt
+import requests
 # Medusa imports
 from gui import gui_utils
 from gui.qt_widgets import dialogs
@@ -23,9 +24,8 @@ class LoginDialog(QtWidgets.QDialog, ui_main_dialog):
     """
 
     error_signal = QtCore.pyqtSignal(Exception)
-    login_signal = QtCore.pyqtSignal(bool)
 
-    def __init__(self, user_session, login_required, theme_colors=None):
+    def __init__(self, user_session, theme_colors=None):
         """ Class constructor
 
         Parameters
@@ -79,7 +79,6 @@ class LoginDialog(QtWidgets.QDialog, ui_main_dialog):
         self.pushButton_signup.clicked.connect(
             self.on_button_signup_clicked)
         # Initialization
-        self.login_required = login_required
         self.user_session = user_session
         self.success = False
         # Show
@@ -106,6 +105,9 @@ class LoginDialog(QtWidgets.QDialog, ui_main_dialog):
         except user_session.AuthenticationError as e:
             self.label_error_msg.setText('Incorrect email or password')
             self.success = False
+        except requests.exceptions.ConnectionError as e:
+            self.label_error_msg.setText('Host unreachable')
+            self.success = False
 
     @exceptions.error_handler(scope='general')
     def on_button_signup_clicked(self, checked):
@@ -120,16 +122,13 @@ class LoginDialog(QtWidgets.QDialog, ui_main_dialog):
     @exceptions.error_handler(scope='general')
     def closeEvent(self, event):
         if self.user_session is None:
-            if self.login_required:
-                resp = dialogs.confirmation_dialog(
-                    message='Login is required. If you close this window, '
-                            'MEDUSA will exit. Do you want to continue?',
-                    title='Login required',
-                    theme_colors=self.theme_colors
-                )
-                event.accept() if resp else event.ignore()
-            else:
-                event.accept()
+            resp = dialogs.confirmation_dialog(
+                message='Login is required. If you close this window, '
+                        'MEDUSA will exit. Do you want to continue?',
+                title='Login required',
+                theme_colors=self.theme_colors
+            )
+            event.accept() if resp else event.ignore()
         else:
             event.accept()
 

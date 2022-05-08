@@ -22,12 +22,6 @@ class UserSession:
         # Session
         self.session = requests.Session()
 
-    def check_session(self):
-        """Checks if the session is valid and returns any exception thrown by
-        the checking process"""
-        # Check session
-        return False if self.user_info is None else True
-
     def ping(self):
         """Ping to MEDUSA API to check connection and session
         """
@@ -39,11 +33,12 @@ class UserSession:
         except requests.exceptions.SSLError as e:
             resp = self.session.get(url, verify=False)
         # Error handling
-        if resp.status_code != 200:
-            if resp.status_code == 401:
-                raise AuthenticationError()
-            else:
-                raise Exception("\n\n" + resp.text)
+        if resp.status_code == 200:
+            return True
+        elif resp.status_code == 401:
+            raise AuthenticationError()
+        else:
+            raise Exception("\n\n" + resp.text)
 
     def login(self, email, password):
         """Request to login to MEDUSA
@@ -64,34 +59,13 @@ class UserSession:
             resp = self.session.post(url, json=data, verify=True)
         except requests.exceptions.SSLError as e:
             resp = self.session.post(url, json=data, verify=False)
-        # Error handling
-        if resp.status_code != 200:
-            if resp.status_code == 401:
-                raise AuthenticationError()
-            else:
-                raise Exception("\n\n" + resp.text)
-        # Save user info
-        self.user_info = json.loads(resp.content)
-
-    def logout(self):
-        """Request to logout from MEDUSA
-        """
-        # Remove session file
-        os.remove('session')
-        # User data
-        self.user_info = None
-        # Session
-        self.session = requests.Session()
-
-    def save(self):
-        with open('session', 'wb') as f:
-            pickle.dump(self, f)
-
-    @staticmethod
-    def load():
-        with open('session', 'rb') as f:
-            user_session = pickle.load(f)
-        return user_session
+        # Response handling
+        if resp.status_code == 200:
+            self.user_info = json.loads(resp.content)
+        elif resp.status_code == 401:
+            raise AuthenticationError()
+        else:
+            raise Exception("\n\n" + resp.text)
 
 
 class AuthenticationError(Exception):

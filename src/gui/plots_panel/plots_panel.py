@@ -20,7 +20,7 @@ ui_plots_panel_widget = \
 class PlotsPanelWidget(QWidget, ui_plots_panel_widget):
     
     def __init__(self, working_lsl_streams, plot_state, medusa_interface,
-                 theme_colors):
+                 plots_config_file_path, theme_colors):
         super().__init__()
         self.setupUi(self)
         # Attributes
@@ -34,9 +34,10 @@ class PlotsPanelWidget(QWidget, ui_plots_panel_widget):
         self.set_up_tool_bar_plot()
         # Initial configuration
         self.plots_panel_config = None
-        if os.path.isfile(constants.PLOTS_CONFIG_FILE):
+        self.plots_config_file_path = plots_config_file_path
+        if os.path.isfile(self.plots_config_file_path):
             try:
-                with open(constants.PLOTS_CONFIG_FILE, 'r') as f:
+                with open(self.plots_config_file_path, 'r') as f:
                     self.plots_panel_config = json.load(f)
                 self.update_plots_panel()
             except json.decoder.JSONDecodeError as e:
@@ -89,15 +90,17 @@ class PlotsPanelWidget(QWidget, ui_plots_panel_widget):
             if len(self.working_lsl_streams) == 0:
                 ex = exceptions.MedusaException(
                     exceptions.NoLSLStreamsAvailable(),
-                    importance=exceptions.EXCEPTION_HANDLED,
+                    importance='mild',
                     scope='plots',
                     origin='PlotsWidget/plot_panel_config'
                 )
+                ex.set_handled(True)
                 raise ex
             # Dashboard config window
             self.plots_panel_config_dialog = \
                 plots_panel_config.PlotsPanelConfigDialog(
                     self.working_lsl_streams,
+                    self.plots_config_file_path,
                     config=self.plots_panel_config,
                     theme_colors=self.theme_colors)
             self.plots_panel_config_dialog.accepted.connect(

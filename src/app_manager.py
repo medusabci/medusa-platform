@@ -10,20 +10,22 @@ import constants
 
 class AppManager:
 
-    def __init__(self):
+    def __init__(self, apps_config_file_path, apps_folder):
         # Get installed apps
+        self.apps_config_file_path = apps_config_file_path
+        self.apps_folder = apps_folder
         self.apps_dict = None
         self.load_apps_file()
 
     def load_apps_file(self):
-        if os.path.isfile(constants.APPS_CONFIG_FILE):
-            with open(constants.APPS_CONFIG_FILE, 'r') as f:
+        if os.path.isfile(self.apps_config_file_path):
+            with open(self.apps_config_file_path, 'r') as f:
                 self.apps_dict = json.load(f)
         else:
             self.apps_dict = {}
 
     def update_apps_file(self):
-        with open(constants.APPS_CONFIG_FILE, 'w') as f:
+        with open(self.apps_config_file_path, 'w') as f:
             json.dump(self.apps_dict, f, indent=4)
 
     def get_date_today(self):
@@ -40,7 +42,7 @@ class AppManager:
                 if info['id'] in self.apps_dict:
                     raise Exception('App %s is already installed' %
                                     info['name'])
-                dest_dir = 'apps/%s' % info['id']
+                dest_dir = '%s/%s' % (self.apps_folder, info['id'])
                 shutil.move(temp_dir, dest_dir)
             # Update apps file
             info['installation-date'] = self.get_date_today()
@@ -55,7 +57,7 @@ class AppManager:
         if app_id in self.apps_dict:
             raise Exception('App with id %s is already installed' % app_id)
         # Copy tree
-        app_path = 'apps/%s' % app_id
+        app_path = '%s/%s' % (self.apps_folder, app_id)
         shutil.copytree(app_template_path, app_path)
         # App info
         info = {
@@ -82,12 +84,13 @@ class AppManager:
         self.update_apps_file()
 
     def package_app(self, app_key, output_path):
-        input_dir = 'apps/%s' % app_key
+        input_dir = '%s/%s' % (self.apps_folder, app_key)
         shutil.make_archive(output_path, 'zip', input_dir)
 
     def uninstall_app(self, app_key):
         # Remove directory
-        shutil.rmtree('apps/%s' % app_key)
+        app_path = '%s/%s' % (self.apps_folder, app_key)
+        shutil.rmtree(app_path)
         # Update apps file
         self.apps_dict.pop(app_key)
         self.update_apps_file()

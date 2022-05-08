@@ -34,7 +34,7 @@ class LogPanelWidget(QWidget, ui_plots_panel_widget):
         # Treat exception
         if not isinstance(ex, exceptions.MedusaException):
             ex = exceptions.MedusaException(
-                ex, importance=exceptions.EXCEPTION_UNKNOWN,
+                ex, importance='unknown',
                 scope='log',
                 origin='log_panel/log_panel/handle_exception')
         # Notify exception to gui main

@@ -10,8 +10,7 @@ from PyQt5.QtCore import *
 from PyQt5.QtGui import *
 
 # MEDUSA general
-import user_session
-import constants, resources, exceptions, app_manager
+import constants, resources, exceptions, accounts_manager, app_manager
 from gui import gui_utils
 from acquisition import lsl_utils
 from gui.plots_panel import plots_panel
@@ -72,30 +71,21 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         self.medusa_interface_listener = None
         self.set_up_medusa_interface_listener(self.interface_queue)
         self.medusa_interface = resources.MedusaInterface(self.interface_queue)
-        # Log panel (set up first in case any exception is raised in other
-        # functions)
-        self.log_panel_widget = None
-        self.set_up_log_panel()
 
-        # LSL config
-        self.working_lsl_streams = None
-        self.set_up_lsl_config()
+        # Instantiate accounts manager
+        self.accounts_manager = accounts_manager.AccountsManager()
 
-        # Apps panel
-        self.apps_manager = app_manager.AppManager()
-        self.apps_panel_widget = None
-        self.set_up_apps_panel()
-
-        # Plots dashboard
-        self.plots_panel_widget = None
-        self.set_up_plots_panel()
+        # Reset panels
+        self.reset_panels()
 
         # Set up
         self.set_status('Ready')
         self.show()
 
-        # Check user session
-        self.user_session = None
+        # Hide splash screen
+        # splash_screen.finish(self)
+
+        # User account
         self.set_up_user_account()
 
     @exceptions.error_handler(scope='general')
@@ -185,6 +175,25 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
 
     # ================================ SET UP ================================ #
     @exceptions.error_handler(scope='general')
+    def reset_panels(self):
+        # Log panel (set up first in case any exception is raised in other
+        # functions)
+        self.log_panel_widget = None
+        self.set_up_log_panel()
+        # LSL config
+        self.working_lsl_streams = None
+        self.set_up_lsl_config()
+        # Apps panel
+        self.apps_manager = app_manager.AppManager(
+            self.accounts_manager.wrap_path(constants.APPS_CONFIG_FILE),
+            self.accounts_manager.wrap_path('apps'))
+        self.apps_panel_widget = None
+        self.set_up_apps_panel()
+        # Plots dashboard
+        self.plots_panel_widget = None
+        self.set_up_plots_panel()
+
+    @exceptions.error_handler(scope='general')
     def set_up_medusa_interface_listener(self, interface_queue):
         self.medusa_interface_listener = self.MedusaInterfaceListener(
             interface_queue)
@@ -202,6 +211,11 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         self.log_panel_widget = log_panel.LogPanelWidget(
             self.medusa_interface,
             self.theme_colors)
+        # Clear layout
+        while self.box_log_panel.layout().count():
+            child = self.box_log_panel.layout().takeAt(0)
+            if child.widget():
+                child.widget().deleteLater()
         # Add widget
         self.box_log_panel.layout().addWidget(self.log_panel_widget)
         self.box_log_panel.layout().setContentsMargins(0, 0, 0, 0)
@@ -211,9 +225,11 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
 
     @exceptions.error_handler(scope='general')
     def set_up_lsl_config(self):
+        lsl_config_file_path = self.accounts_manager.wrap_path(
+                constants.LSL_CONFIG_FILE)
         self.working_lsl_streams = list()
-        if os.path.isfile(constants.LSL_CONFIG_FILE):
-            with open(constants.LSL_CONFIG_FILE, 'r') as f:
+        if os.path.isfile(lsl_config_file_path):
+            with open(lsl_config_file_path, 'r') as f:
                 last_streams = json.load(f)
             for lsl_stream_info_dict in last_streams:
                 try:
@@ -236,9 +252,15 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
             self.app_state,
             self.run_state,
             self.medusa_interface,
+            self.accounts_manager.wrap_path('apps'),
             self.theme_colors)
         # Connect signals
         self.apps_panel_widget.error_signal.connect(self.handle_exception)
+        # Clear layout
+        while self.box_apps_panel.layout().count():
+            child = self.box_apps_panel.layout().takeAt(0)
+            if child.widget():
+                child.widget().deleteLater()
         # Add widget
         self.box_apps_panel.layout().addWidget(self.apps_panel_widget)
         self.box_apps_panel.layout().setContentsMargins(0, 0, 0, 0)
@@ -250,7 +272,13 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
             self.working_lsl_streams,
             self.plot_state,
             self.medusa_interface,
+            self.accounts_manager.wrap_path(constants.PLOTS_CONFIG_FILE),
             self.theme_colors)
+        # Clear layout
+        while self.box_plots_panel.layout().count():
+            child = self.box_plots_panel.layout().takeAt(0)
+            if child.widget():
+                child.widget().deleteLater()
         # Add widget
         self.box_plots_panel.layout().addWidget(self.plots_panel_widget)
         self.box_plots_panel.layout().setContentsMargins(0, 0, 0, 0)
@@ -259,20 +287,15 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
             self.undock_plots_panel)
 
     def set_up_user_account(self):
-        if os.path.isfile('session'):
-            self.user_session = user_session.UserSession.load()
-            if not self.user_session.check_session():
-                self.user_session = user_session.UserSession()
-                self.open_login_window(login_required=True)
-        else:
-            self.user_session = user_session.UserSession()
-            self.open_login_window(login_required=True)
+        # Check session
+        if not self.accounts_manager.check_session():
+            self.open_login_window()
 
     # =============================== MENU BAR =============================== #
     @exceptions.error_handler(scope='general')
     def set_up_menu_bar_main(self):
         # Preferences
-        # TODO: menuAction_view_intergated, menuAction_view_split,
+        # TODO: menuAction_view_integrated, menuAction_view_split,
         #  menuAction_color_dark, menuAction_color_light
         # Lab streaming layer
         # TODO: menuAction_lsl_doc, menuAction_lsl_repo, menuAction_lsl_about
@@ -332,28 +355,31 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
 
     @exceptions.error_handler(scope='general')
     def open_account_window(self, event):
-        if not self.user_session.check_session():
-            self.open_login_window(login_required=True)
+        if not self.accounts_manager.check_session():
+            self.open_login_window()
         else:
             self.open_user_profile_window()
 
     # =========================== USER ACCOUNT =============================== #
-    def open_login_window(self, login_required=False):
+    def open_login_window(self):
         # Login
         self.login_window = login.LoginDialog(
-            user_session=self.user_session,
-            login_required=login_required,
+            user_session=self.accounts_manager.current_session,
             theme_colors=self.theme_colors)
         # Connect signals
         self.login_window.error_signal.connect(self.handle_exception)
+        # Block execution
         self.login_window.exec()
-        self.user_session.save()
-        if login_required and not self.login_window.success:
+        # Login actions
+        if self.login_window.success:
+            self.accounts_manager.on_login()
+            self.reset_panels()
+        else:
             self.close()
 
     def open_user_profile_window(self):
         self.user_profile_window = user_profile.UserProfileDialog(
-            user_session=self.user_session,
+            user_session=self.accounts_manager.current_session,
             theme_colors=self.theme_colors)
         self.user_profile_window.error_signal.connect(self.handle_exception)
         self.user_profile_window.logout_signal.connect(self.on_user_logout)
@@ -361,17 +387,21 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         self.user_profile_window.exec()
 
     def on_user_logout(self):
-        self.open_login_window(login_required=True)
+        self.accounts_manager.on_logout()
+        self.open_login_window()
 
     def on_user_delete(self):
-        print('on_user_delete')
+        self.accounts_manager.on_delete_account()
+        self.open_login_window()
 
     # ======================== LAB-STREAMING LAYER =========================== #
     @exceptions.error_handler(scope='general')
     def open_lsl_config_window(self, checked):
         self.lsl_config_window = \
-            lsl_config.LSLConfig(self.working_lsl_streams,
-                                 theme_colors=self.theme_colors)
+            lsl_config.LSLConfig(
+                self.working_lsl_streams,
+                self.accounts_manager.wrap_path(constants.LSL_CONFIG_FILE),
+                theme_colors=self.theme_colors)
         self.lsl_config_window.accepted.connect(self.set_lsl_streams)
         self.lsl_config_window.rejected.connect(self.reset_lsl_streams)
 

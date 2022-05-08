@@ -91,15 +91,20 @@ class UserProfileDialog(QtWidgets.QDialog, ui_main_dialog):
 
     def on_button_logout_clicked(self):
         """User logout"""
-        self.user_session.logout()
-        self.logout_signal.emit()
         self.close()
+        self.logout_signal.emit()
 
     def on_button_delete_clicked(self):
         """Go to sign up page"""
-        self.user_session.logout()
-        self.delete_signal.emit()
-        self.close()
+        resp = dialogs.confirmation_dialog(
+            message='This will delete all user files and apps. '
+                    'Are you sure you want to continue?',
+            title='Delete account',
+            theme_colors=self.theme_colors
+        )
+        if resp:
+            self.close()
+            self.delete_signal.emit()
 
     def on_label_goto_profile_clicked(self):
         """Go to forgot password page"""

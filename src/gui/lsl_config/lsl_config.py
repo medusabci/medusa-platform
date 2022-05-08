@@ -21,7 +21,8 @@ ui_stream_config_dialog = \
 class LSLConfig(QtWidgets.QDialog, ui_main_dialog):
     """ Main dialog class of the LSL config panel
     """
-    def __init__(self, working_streams, theme_colors=None):
+    def __init__(self, working_streams, lsl_config_file_path,
+                 theme_colors=None):
         """ Class constructor
 
         Parameters
@@ -69,6 +70,7 @@ class LSLConfig(QtWidgets.QDialog, ui_main_dialog):
                 self.working_streams = []
             self.init_listwidget_working_streams()
             self.lsl_search(first_search=True)
+            self.lsl_config_file_path = lsl_config_file_path
             # Connect the buttons
             self.setModal(True)
             self.show()
@@ -275,7 +277,7 @@ class LSLConfig(QtWidgets.QDialog, ui_main_dialog):
         """
         try:
             super().accept()
-            with open(constants.LSL_CONFIG_FILE, 'w') as f:
+            with open(self.lsl_config_file_path, 'w') as f:
                 ser_obj = [stream.to_serializable_obj() for stream in
                            self.working_streams]
                 json.dump(ser_obj, f, indent=4)

@@ -693,7 +693,8 @@ class PlotsPanelConfigDialog(QDialog, ui_plots_panel_config):
     you have to change in order to add or change modules.
     """
 
-    def __init__(self, working_lsl_streams, config=None, theme_colors=None):
+    def __init__(self, working_lsl_streams, plots_config_file_path,
+                 config=None, theme_colors=None):
         try:
             self.notifications = NotificationStack(parent=self)
             super().__init__()
@@ -710,6 +711,7 @@ class PlotsPanelConfigDialog(QDialog, ui_plots_panel_config):
             self.gridLayout_grid.setSpacing(2)
             # Init variables
             self.working_lsl_streams = working_lsl_streams
+            self.plots_config_file_path = plots_config_file_path
             self.plots_info = real_time_plots.__plots_info__
             if config is None:
                 config = PanelConfig(n_rows=8, n_cols=8)
@@ -1110,7 +1112,7 @@ class PlotsPanelConfigDialog(QDialog, ui_plots_panel_config):
         try:
             if not self.config.are_all_plots_configured():
                 raise ValueError('All plots must be configured!')
-            self.config.save(constants.PLOTS_CONFIG_FILE)
+            self.config.save(self.plots_config_file_path)
             super().accept()
         except Exception as e:
             self.exception_handler(e)

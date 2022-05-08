@@ -26,7 +26,7 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
     error_signal = pyqtSignal(Exception)
 
     def __init__(self, apps_manager, working_lsl_streams, app_state, run_state,
-                 medusa_interface, theme_colors):
+                 medusa_interface, apps_folder, theme_colors):
         super().__init__()
         self.is_loaded = False
         self.setupUi(self)
@@ -37,13 +37,15 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
         self.app_state = app_state
         self.run_state = run_state
         self.medusa_interface = medusa_interface
+        self.apps_folder = apps_folder
         self.theme_colors = theme_colors
         self.app_process = None
         self.app_settings = None
         self.current_app_key = None
         # Set scroll area
         self.apps_panel_grid_widget = AppsPanelGridWidget(
-            min_app_widget_width=110, theme_colors=theme_colors)
+            min_app_widget_width=110, apps_folder=self.apps_folder,
+            theme_colors=theme_colors)
         self.fill_apps_panel()
         self.apps_panel_grid_widget.arrange_panel(568)
         self.scrollArea_apps = QScrollArea()
@@ -60,6 +62,11 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
         # Send exception to gui main
         # self.medusa_interface.error(ex)
         self.error_signal.emit(mds_ex)
+
+    def get_app_module(self, app_key, module):
+        app_module = '%s.%s.%s' % \
+                     (self.apps_folder.replace('/', '.'), app_key, module)
+        return app_module
 
     @exceptions.error_handler(scope='general')
     def wait_until_app_closed(self, interval=0.1, timeout=1):
@@ -191,10 +198,10 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
                 QIcon("%s/icons/stop_enabled_icon.png" %
                       constants.IMG_FOLDER))
             # Get selected app modules
-            app_process_mdl = importlib.import_module('apps.%s.main' %
-                                                      current_app_key)
-            app_settings_mdl = importlib.import_module('apps.%s.settings' %
-                                                       current_app_key)
+            app_process_mdl = importlib.import_module(
+                self.get_app_module(current_app_key, 'main'))
+            app_settings_mdl = importlib.import_module(
+                self.get_app_module(current_app_key, 'settings'))
             # Get app settings
             if self.app_settings is None or \
                     not isinstance(self.app_settings,
@@ -270,11 +277,11 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
         current_app_key = self.apps_panel_grid_widget.get_selected_app()
         if current_app_key is None:
             raise ValueError('Select an app to start!')
-        app_settings_mdl = importlib.import_module('apps.%s.settings' %
-                                                   current_app_key)
+        app_settings_mdl = importlib.import_module(
+            self.get_app_module(current_app_key, 'settings'))
         try:
-            app_config_mdl = importlib.import_module('apps.%s.config' %
-                                                     current_app_key)
+            app_config_mdl = importlib.import_module(
+                self.get_app_module(current_app_key, 'config'))
             conf_window = app_config_mdl.Config
         except ModuleNotFoundError as e:
             conf_window = resources.BasicConfigWindow
@@ -369,10 +376,11 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
 
 class AppsPanelGridWidget(QWidget):
 
-    def __init__(self, min_app_widget_width, theme_colors):
+    def __init__(self, min_app_widget_width, apps_folder, theme_colors):
         super().__init__()
         # Init attributes
         self.min_app_widget_width = min_app_widget_width
+        self.apps_folder = apps_folder
         self.theme_colors = theme_colors
         # Create Grid
         self.grid = QGridLayout()
@@ -406,7 +414,7 @@ class AppsPanelGridWidget(QWidget):
 
     def add_app_widget(self, app_key, app_params):
         widget = AppWidget(self.min_app_widget_width, app_key, app_params,
-                           self.theme_colors)
+                           self.apps_folder, self.theme_colors)
         widget.app_selected.connect(self.on_app_selected)
         self.items.append(widget)
         self.n_items = len(self.items)
@@ -485,12 +493,13 @@ class AppWidget(QFrame):
     app_package = pyqtSignal(str)
     app_uninstall = pyqtSignal(str)
 
-    def __init__(self, min_widget_width, app_key, app_params,
+    def __init__(self, min_widget_width, app_key, app_params, apps_folder,
                  theme_colors):
         super().__init__()
         self.min_widget_width = min_widget_width
         self.app_key = app_key
         self.app_params = app_params
+        self.apps_folder = apps_folder
         self.theme_colors = theme_colors
         self.pixmap_path = self.get_icon_path()
         self.main_layout = QVBoxLayout()
@@ -548,7 +557,7 @@ class AppWidget(QFrame):
                 self.addAction(self.uninstall_action)
 
     def get_icon_path(self):
-        return 'apps/%s/icon.png' % self.app_key
+        return '%s/%s/icon.png' % (self.apps_folder, self.app_key)
 
     def mousePressEvent(self, event):
         if event.button() == Qt.LeftButton:
