@@ -42,7 +42,7 @@ class AppGui(QtWidgets.QMainWindow):
         self.stl = gui_utils.set_css_and_theme(self, self.theme_colors)
         self.setWindowIcon(QtGui.QIcon('%s/medusa_favicon.png' %
                                        constants.IMG_FOLDER))
-        self.setWindowTitle('Default configuration window')
+        self.setWindowTitle('Template of Qt app')
 
         # Class attributes
         self.app_settings = app_settings
