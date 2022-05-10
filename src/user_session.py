@@ -67,6 +67,24 @@ class UserSession:
         else:
             raise Exception("\n\n" + resp.text)
 
+    def get_license_key(self, license_id):
+        # Parse URL
+        url = self.url_server + '/get-license-key/'
+        # Make request
+        params = {'license-id': license_id}
+        data = json.dumps(params)
+        try:
+            resp = self.session.get(url, json=data, verify=True)
+        except requests.exceptions.SSLError as e:
+            resp = self.session.get(url, json=data, verify=False)
+        # Response handling
+        if resp.status_code == 200:
+            return json.loads(resp.content)['license_key']
+        elif resp.status_code == 401:
+            raise AuthenticationError()
+        else:
+            raise Exception("\n\n" + resp.text)
+
 
 class AuthenticationError(Exception):
 
