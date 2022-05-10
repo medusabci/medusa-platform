@@ -60,8 +60,9 @@ class CreateAppDialog(QtWidgets.QDialog, create_app_dialog):
             app_id = self.lineEdit_app_id.text()
             if len(app_id) == 0:
                 raise ValueError('Please introduce the app id')
-            if os.path.isdir('apps/%s' % app_id):
+            if app_id in self.apps_manager.apps_dict:
                 raise ValueError('That app identifier already taken!')
+
             # Get app name
             app_name = self.lineEdit_app_name.text()
             if len(app_name) == 0:
