@@ -75,6 +75,10 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         # Instantiate accounts manager
         self.accounts_manager = accounts_manager.AccountsManager()
 
+        # Initialize important variables
+        self.working_lsl_streams = None
+        self.apps_manager = None
+
         # Reset panels
         self.reset_panels()
 
@@ -184,9 +188,7 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         self.working_lsl_streams = None
         self.set_up_lsl_config()
         # Apps panel
-        self.apps_manager = app_manager.AppManager(
-            self.accounts_manager.wrap_path(constants.APPS_CONFIG_FILE),
-            self.accounts_manager.wrap_path('apps'))
+        self.apps_manager = app_manager.AppManager(self.accounts_manager)
         self.apps_panel_widget = None
         self.set_up_apps_panel()
         # Plots dashboard

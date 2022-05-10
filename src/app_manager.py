@@ -10,10 +10,12 @@ import constants
 
 class AppManager:
 
-    def __init__(self, apps_config_file_path, apps_folder):
+    def __init__(self, accounts_manager):
         # Get installed apps
-        self.apps_config_file_path = apps_config_file_path
-        self.apps_folder = apps_folder
+        self.accounts_manager = accounts_manager
+        self.apps_config_file_path = self.accounts_manager.wrap_path(
+            constants.APPS_CONFIG_FILE)
+        self.apps_folder = self.accounts_manager.wrap_path('apps')
         self.apps_dict = None
         self.load_apps_file()
 
@@ -34,20 +36,24 @@ class AppManager:
     def install_app_bundle(self, bundle_path):
         # Install app (extract zip)
         with zipfile.ZipFile(bundle_path) as bundle:
-            with tempfile.TemporaryDirectory() as temp_dir:
-                # Extract app
-                bundle.extractall(temp_dir)
-                with open('%s/info' % temp_dir, 'r') as f:
-                    info = json.load(f)
-                if info['id'] in self.apps_dict:
-                    raise Exception('App %s is already installed' %
-                                    info['name'])
-                dest_dir = '%s/%s' % (self.apps_folder, info['id'])
-                shutil.move(temp_dir, dest_dir)
+            token = bundle.read('token').decode()
+            license_key = \
+                self.accounts_manager.current_session.get_license_key(token)
+            pass
+            # with tempfile.TemporaryDirectory() as temp_dir:
+            #     # Extract app
+            #     bundle.extractall(temp_dir)
+            #     with open('%s/info' % temp_dir, 'r') as f:
+            #         info = json.load(f)
+            #     if info['id'] in self.apps_dict:
+            #         raise Exception('App %s is already installed' %
+            #                         info['name'])
+            #     dest_dir = '%s/%s' % (self.apps_folder, info['id'])
+            #     shutil.move(temp_dir, dest_dir)
             # Update apps file
-            info['installation-date'] = self.get_date_today()
-            self.apps_dict[info['id']] = info
-            self.update_apps_file()
+            # info['installation-date'] = self.get_date_today()
+            # self.apps_dict[info['id']] = info
+            # self.update_apps_file()
 
     def install_app_template(self, app_id, app_name, app_extension,
                              app_template_path):
