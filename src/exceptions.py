@@ -353,3 +353,11 @@ class IncorrectLSLConfig(Exception):
         if msg is None:
             msg = 'The LSL configuration is incorrect.'
         super().__init__(msg)
+
+
+class AuthenticationError(Exception):
+
+    """Raise an authentication error when interacting with the online API"""
+
+    def __init__(self, msg=None):
+        super().__init__(msg)

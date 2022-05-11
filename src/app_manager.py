@@ -2,10 +2,12 @@
 import shutil, json, os, glob
 from datetime import datetime
 import zipfile, tempfile
+from io import BytesIO
 # EXTERNAL MODULES
 from jinja2 import Template
+from cryptography.fernet import Fernet
 # INTERNAL MODULES
-import constants
+import constants, exceptions
 
 
 class AppManager:
@@ -37,23 +39,31 @@ class AppManager:
         # Install app (extract zip)
         with zipfile.ZipFile(bundle_path) as bundle:
             token = bundle.read('token').decode()
-            license_key = \
-                self.accounts_manager.current_session.get_license_key(token)
-            pass
-            # with tempfile.TemporaryDirectory() as temp_dir:
-            #     # Extract app
-            #     bundle.extractall(temp_dir)
-            #     with open('%s/info' % temp_dir, 'r') as f:
-            #         info = json.load(f)
-            #     if info['id'] in self.apps_dict:
-            #         raise Exception('App %s is already installed' %
-            #                         info['name'])
-            #     dest_dir = '%s/%s' % (self.apps_folder, info['id'])
-            #     shutil.move(temp_dir, dest_dir)
+            try:
+                license_key = \
+                    self.accounts_manager.current_session.get_license_key(token)
+            except exceptions.AuthenticationError as e:
+                raise exceptions.AuthenticationError(
+                    'You do not have permission to install this app, '
+                    'the bundle was not meant for you. Download '
+                    'it from the website using your account!')
+            f = Fernet(license_key)
+            app = BytesIO(f.decrypt(bundle.read('app')))
+            with zipfile.ZipFile(app) as app_zf:
+                with tempfile.TemporaryDirectory() as temp_dir:
+                    # Extract app
+                    app_zf.extractall(temp_dir)
+                    with open('%s/info' % temp_dir, 'r') as f:
+                        info = json.load(f)
+                    if info['id'] in self.apps_dict:
+                        raise Exception('App %s is already installed' %
+                                        info['name'])
+                    dest_dir = '%s/%s' % (self.apps_folder, info['id'])
+                    shutil.move(temp_dir, dest_dir)
             # Update apps file
-            # info['installation-date'] = self.get_date_today()
-            # self.apps_dict[info['id']] = info
-            # self.update_apps_file()
+            info['installation-date'] = self.get_date_today()
+            self.apps_dict[info['id']] = info
+            self.update_apps_file()
 
     def install_app_template(self, app_id, app_name, app_extension,
                              app_template_path):

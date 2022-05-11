@@ -36,7 +36,7 @@ class UserSession:
         if resp.status_code == 200:
             return True
         elif resp.status_code == 401:
-            raise AuthenticationError()
+            raise exceptions.AuthenticationError()
         else:
             raise Exception("\n\n" + resp.text)
 
@@ -63,7 +63,7 @@ class UserSession:
         if resp.status_code == 200:
             self.user_info = json.loads(resp.content)
         elif resp.status_code == 401:
-            raise AuthenticationError()
+            raise exceptions.AuthenticationError()
         else:
             raise Exception("\n\n" + resp.text)
 
@@ -81,12 +81,6 @@ class UserSession:
         if resp.status_code == 200:
             return json.loads(resp.content)['license_key']
         elif resp.status_code == 401:
-            raise AuthenticationError()
+            raise exceptions.AuthenticationError()
         else:
             raise Exception("\n\n" + resp.text)
-
-
-class AuthenticationError(Exception):
-
-    def __init__(self):
-        super().__init__()
