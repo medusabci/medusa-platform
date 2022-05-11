@@ -81,6 +81,14 @@ class UserSession:
         if resp.status_code == 200:
             return json.loads(resp.content)['license_key']
         elif resp.status_code == 401:
-            raise exceptions.AuthenticationError()
+            raise exceptions.AuthenticationError(
+                'You do not have permission to install this app, '
+                'the bundle was not meant for you. Download '
+                'it from the website using your account!')
+        elif resp.status_code == 404:
+            raise exceptions.NotFoundError(
+                'This download is not licensed by MEDUSA. Please, '
+                'download the app from the official website.'
+            )
         else:
             raise Exception("\n\n" + resp.text)

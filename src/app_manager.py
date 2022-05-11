@@ -39,14 +39,8 @@ class AppManager:
         # Install app (extract zip)
         with zipfile.ZipFile(bundle_path) as bundle:
             token = bundle.read('token').decode()
-            try:
-                license_key = \
-                    self.accounts_manager.current_session.get_license_key(token)
-            except exceptions.AuthenticationError as e:
-                raise exceptions.AuthenticationError(
-                    'You do not have permission to install this app, '
-                    'the bundle was not meant for you. Download '
-                    'it from the website using your account!')
+            license_key = \
+                self.accounts_manager.current_session.get_license_key(token)
             f = Fernet(license_key)
             app = BytesIO(f.decrypt(bundle.read('app')))
             with zipfile.ZipFile(app) as app_zf:

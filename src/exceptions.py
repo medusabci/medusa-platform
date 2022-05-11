@@ -361,3 +361,11 @@ class AuthenticationError(Exception):
 
     def __init__(self, msg=None):
         super().__init__(msg)
+
+
+class NotFoundError(Exception):
+
+    """Raise this error when API returns 404 NotFoun HTTP error"""
+
+    def __init__(self, msg=None):
+        super().__init__(msg)
