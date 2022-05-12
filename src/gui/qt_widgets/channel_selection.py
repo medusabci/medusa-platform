@@ -61,10 +61,10 @@ class ChannelSelectionWidget(QWidget, ui_main_file):
         self.done_btn.clicked.connect(self.done)
 
         # Set Channel Labels
-        working_threads = list()
+        self.working_threads = list()
         Th1 = threading.Thread(target=self.set_labels_as_text)
         Th1.start()
-        working_threads.append(Th1)
+        self.working_threads.append(Th1)
 
         # Uncomment to debug
         # self.show()
