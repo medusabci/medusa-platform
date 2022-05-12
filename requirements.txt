@@ -11,3 +11,4 @@ six
 medusa-kernel
 jinja2
 requests
+cryptography

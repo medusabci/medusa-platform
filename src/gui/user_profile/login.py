@@ -101,7 +101,7 @@ class LoginDialog(QtWidgets.QDialog, ui_main_dialog):
             self.user_session.login(email, password)
             self.success = True
             self.close()
-        except user_session.AuthenticationError as e:
+        except exceptions.AuthenticationError as e:
             self.label_error_msg.setText('Incorrect email or password')
             self.success = False
         except requests.exceptions.ConnectionError as e:

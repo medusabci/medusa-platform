@@ -22,9 +22,6 @@ class AppGui(QtWidgets.QMainWindow):
         app_settings: settings.Settings
              instance of class Settings defined in settings.py in the app
              directory
-        app_extension: string,
-            Extension of the app to save files. It's a unique code which
-            differentiates the files from each app
         run_state: multiprocessing.Value
             Run state of medusa
         queue_from_manager: multiprocessing.Queue
@@ -86,29 +83,21 @@ class AppGui(QtWidgets.QMainWindow):
         self.show()
 
     def handle_exception(self, ex):
-        # Treat exception
-        if not isinstance(ex, exceptions.MedusaException):
-            ex = exceptions.MedusaException(
-                ex, importance=exceptions.EXCEPTION_UNKNOWN,
-                scope='app',
-                origin='dev_app_qt/AppGui/handle_exception')
         # Notify exception to gui main
         self.queue_to_manager.put({'event_type': 'error', 'exception': ex})
+        # Treat exception
+        if isinstance(ex, exceptions.MedusaException):
+            if ex.importance == 'critical':
+                self.is_close_forced = True
+                self.close()
 
     @pyqtSlot(int)
     def update_eeg_samples_signal_handler(self, eeg_samples):
-        try:
-            self.spin_box.setValue(eeg_samples)
-        except Exception as ex:
-            ex = exceptions.MedusaException(
-                ex, importance=exceptions.EXCEPTION_UNKNOWN,
-                scope='app',
-                origin='dev_app_qt/AppGui/update_eeg_samples_signal_handler')
-            self.handle_exception(ex)
+        self.spin_box.setValue(eeg_samples)
 
     def close_forced(self):
         self.is_close_forced = True
-        self.close()
+        return self.close()
 
     def closeEvent(self, event):
         """ This method is executed when the user wants to close the
@@ -131,9 +120,9 @@ class AppGui(QtWidgets.QMainWindow):
                 event.accept()
         except Exception as ex:
             ex = exceptions.MedusaException(
-                ex, importance=exceptions.EXCEPTION_UNKNOWN,
+                ex, importance='critical',
                 scope='app',
-                origin='dev_app_qt/AppGui/closeEvent')
+                origin='AppGui/closeEvent')
             self.handle_exception(ex)
 
 
@@ -151,14 +140,12 @@ class AppGuiWorker(QThread):
         self.stop = False
 
     def handle_exception(self, ex):
-        # Treat exception
-        if not isinstance(ex, exceptions.MedusaException):
-            ex = exceptions.MedusaException(
-                ex, importance=exceptions.EXCEPTION_UNKNOWN,
-                scope='app',
-                origin='dev_app_qt/AppGuiWorker/handle_exception')
         # Notify exception to gui main
         self.queue_to_manager.put({'event_type': 'error', 'exception': ex})
+        # Treat exception
+        if isinstance(ex, exceptions.MedusaException):
+            if ex.importance == 'critical':
+                self.stop = True
 
     def run(self):
         try:
@@ -174,7 +161,7 @@ class AppGuiWorker(QThread):
                             resp['data'])
         except Exception as ex:
             ex = exceptions.MedusaException(
-                ex, importance=exceptions.EXCEPTION_UNKNOWN,
+                ex, importance='critical',
                 scope='app',
-                origin='rec/AppGuiWorker/run')
+                origin='AppGuiWorker/run')
             self.handle_exception(ex)

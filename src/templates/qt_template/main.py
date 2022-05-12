@@ -34,6 +34,7 @@ class App(resources.AppSkeleton):
             # Take actions
             if ex.importance == 'critical':
                 self.close_app(force=True)
+                ex.set_handled(True)
 
     def check_lsl_config(self, working_lsl_streams_info):
         # Check LSL config (each app can have different LSL requirements)
@@ -69,6 +70,7 @@ class App(resources.AppSkeleton):
         # 3 - Change app state to power on
         self.medusa_interface.app_state_changed(
             mds_constants.APP_STATE_ON)
+        print('Hola')
         # 4 - Start app (blocking method)
         qt_app.exec()
         # 5 - Change app state to powering off
@@ -93,19 +95,24 @@ class App(resources.AppSkeleton):
                 'data': lsl_worker.data.shape[0]
             })
         elif event['event_type'] == 'error':
+            print('event_type')
             raise event['exception']
         else:
-            raise Exception('Unknown event: %s' % str(event))
+            raise ValueError('Unknown event: %s' % str(event))
 
     def close_app(self, force=False):
         # Trigger the close event in the Qt app. Returns True if it was
         # closed correctly, and False otherwise. If everything was
         # correct, stop the working threads
+        print('close_app-0')
         if self.app_gui is not None:
             if force:
                 self.app_gui.is_close_forced = True
             if self.app_gui.close():
+                print('close_app-1')
                 self.stop_working_threads()
+                print('close_app-2')
+            print('close_app-3')
 
     @exceptions.error_handler(scope='app')
     def on_save_rec_accepted(self):

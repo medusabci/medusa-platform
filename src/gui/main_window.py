@@ -521,19 +521,32 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         """Called by MedusaInterfaceListener when it receives an
         app_state_changed message
         """
-        self.app_state.value = app_state_value
-        if self.app_state.value == constants.APP_STATE_OFF:
+        if app_state_value == constants.APP_STATE_OFF:
+            # Check impossible transitions
+            if app_state_value == constants.APP_STATE_POWERING_OFF:
+                ex = ValueError('Impossible state transition from '
+                                'APP_STATE_OFF to APP_STATE_POWERING_OFF!')
+                raise exceptions.MedusaException(ex)
+            self.app_state.value = app_state_value
             self.apps_panel_widget.reset_tool_bar_app_buttons()
             self.on_run_state_changed(constants.RUN_STATE_READY)
             self.set_status('Ready')
             print('[GUiMain.on_app_state_changed]: APP_STATE_OFF')
-        elif self.app_state.value == constants.APP_STATE_POWERING_ON:
+        elif app_state_value == constants.APP_STATE_POWERING_ON:
+            print('Hola %i' % app_state_value)
+            self.app_state.value = app_state_value
             self.set_status('Powering on...')
             print('[GUiMain.on_app_state_changed]: APP_STATE_POWERING_ON')
-        elif self.app_state.value == constants.APP_STATE_POWERING_OFF:
+        elif app_state_value == constants.APP_STATE_POWERING_OFF:
+            self.app_state.value = app_state_value
             self.set_status('Powering off...')
             print('[GUiMain.on_app_state_changed]: APP_STATE_POWERING_OFF')
-        elif self.app_state.value == constants.APP_STATE_ON:
+        elif app_state_value == constants.APP_STATE_ON:
+            if app_state_value == constants.APP_STATE_POWERING_ON:
+                ex = ValueError('Impossible state transition from APP_STATE_ON '
+                                'to APP_STATE_POWERING_ON!')
+                raise exceptions.MedusaException(ex)
+            self.app_state.value = app_state_value
             self.set_status('Running')
             print('[GUiMain.on_app_state_changed]: APP_STATE_ON')
         else:
@@ -545,16 +558,20 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         """Called by MedusaInterfaceListener when it receives a
         run_state_changed message
         """
-        self.run_state.value = run_state_value
-        if self.run_state.value == constants.RUN_STATE_READY:
+        if run_state_value == constants.RUN_STATE_READY:
+            self.run_state.value = run_state_value
             print('[GUiMain.on_run_state_changed]: RUN_STATE_READY')
-        elif self.run_state.value == constants.RUN_STATE_RUNNING:
+        elif run_state_value == constants.RUN_STATE_RUNNING:
+            self.run_state.value = run_state_value
             print('[GUiMain.on_run_state_changed]: RUN_STATE_RUNNING')
-        elif self.run_state.value == constants.RUN_STATE_PAUSED:
+        elif run_state_value == constants.RUN_STATE_PAUSED:
+            self.run_state.value = run_state_value
             print('[GUiMain.on_run_state_changed]: RUN_STATE_PAUSED')
-        elif self.run_state.value == constants.RUN_STATE_STOP:
+        elif run_state_value == constants.RUN_STATE_STOP:
+            self.run_state.value = run_state_value
             print('[GUiMain.on_run_state_changed]: RUN_STATE_STOP')
-        elif self.run_state.value == constants.RUN_STATE_FINISHED:
+        elif run_state_value == constants.RUN_STATE_FINISHED:
+            self.run_state.value = run_state_value
             print('[GUiMain.on_run_state_changed]: RUN_STATE_FINISHED')
         else:
             raise ValueError('Unknown app state: %s' %
@@ -604,7 +621,7 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
             # Print exception in log panel
             self.print_log(ex.get_msg(verbose=True), style='error')
             # Take actions
-            if ex.importance == 'critical':
+            if ex.importance == 'critical' and not ex.handled:
                 if ex.scope == 'app':
                     self.apps_panel_widget.terminate_app_process(kill=True)
                     self.reset_apps_panel()
@@ -766,7 +783,7 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
 
             Parameters
             ----------
-            medusa_interface_queue : multiprocessing queue
+            medusa_interface_queue : multiprocessing.queue
                     Queue where the manager process puts the messages
             """
             QThread.__init__(self)

@@ -51,7 +51,7 @@ class AppSkeleton(mp.Process):
             List of the lsl streams connected to medusa
         """
         # Calling superclass constructor
-        app_process_name = '%sProcess' % app_info['name']
+        app_process_name = '%s-process' % app_info['id']
         super().__init__(name=app_process_name)
         # -------------------------- CHECK ERRORS ---------------------------- #
         # ---------------------------- SETTINGS ------------------------------ #
