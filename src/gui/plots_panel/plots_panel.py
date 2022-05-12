@@ -162,10 +162,22 @@ class PlotsPanelWidget(QWidget, ui_plots_panel_widget):
                             lsl_stream_info)
                         self.plots_handlers[plot_uid].init_plot()
                         self.plots_handlers[plot_uid].set_ready()
+                    except exceptions.LSLStreamNotFound as e:
+                        msg = 'Plot %i. %s' % \
+                              (plot_uid, 'LSL stream not available, '
+                                         'reconfigure')
+                        ex = exceptions.MedusaException(
+                            exceptions.LSLStreamNotFound(msg),
+                            importance='mild',
+                            scope='plots',
+                            origin='PlotsWidget/update_plots_panel'
+                        )
+                        self.medusa_interface.error(ex)
+                        continue
                     except Exception as e:
                         msg = 'Plot %i. %s' % (plot_uid, str(e))
                         ex = exceptions.MedusaException(
-                            e, importance=exceptions.EXCEPTION_HANDLED,
+                            e, importance='unknown',
                             scope='plots',
                             origin='PlotsWidget/update_plots_panel'
                         )
