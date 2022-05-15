@@ -70,7 +70,6 @@ class App(resources.AppSkeleton):
         # 3 - Change app state to power on
         self.medusa_interface.app_state_changed(
             mds_constants.APP_STATE_ON)
-        print('Hola')
         # 4 - Start app (blocking method)
         qt_app.exec()
         # 5 - Change app state to powering off
