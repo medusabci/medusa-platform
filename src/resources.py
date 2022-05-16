@@ -155,7 +155,7 @@ class AppSkeleton(mp.Process):
         ex : Exception
              Exception or subclasses
         """
-        raise NotImplemented
+        raise NotImplementedError
 
     @abstractmethod
     def check_lsl_config(self, working_lsl_streams_info):
@@ -174,7 +174,7 @@ class AppSkeleton(mp.Process):
         check: bool
             True if everything is correct, False otherwise
         """
-        raise NotImplemented
+        raise NotImplementedError
 
     @abstractmethod
     def check_settings_config(self, app_settings):
@@ -190,7 +190,7 @@ class AppSkeleton(mp.Process):
         check: bool
             True if everything is correct, False otherwise
         """
-        raise NotImplemented()
+        raise NotImplementedError
 
     @abstractmethod
     def manager_thread_worker(self):
@@ -213,7 +213,7 @@ class AppSkeleton(mp.Process):
                 # Do stuff here
                 pass
         """
-        raise NotImplemented
+        raise NotImplementedError
 
     @abstractmethod
     def main(self):
@@ -244,7 +244,7 @@ class AppSkeleton(mp.Process):
             self.medusa_interface.app_state_changed(
                 constants.APP_STATE_OFF)
         """
-        raise NotImplemented
+        raise NotImplementedError
 
     @abstractmethod
     def process_event(self, event):
@@ -284,7 +284,7 @@ class AppSkeleton(mp.Process):
         except Exception as e:
             self.handle_exception(e)
         """
-        raise NotImplemented
+        raise NotImplementedError
 
 
 class LSLStreamAppWorker(th.Thread):
