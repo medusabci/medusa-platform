@@ -174,10 +174,15 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
         """ This function starts the paradigm. Once the paradigm is powered, it
         can only be stopped with stop button
         """
-        # Check errors
+        # Check LSL streams
         if len(self.working_lsl_streams) == 0:
-            self.medusa_interface.log('No LSL streams available!')
-            return
+            resp = dialogs.confirmation_dialog(
+                message='No LSL streams available. Do you want to continue?',
+                title='No LSL streams',
+                theme_colors=self.theme_colors
+            )
+            if not resp:
+                return
         # Check app selected
         current_app_key = self.apps_panel_grid_widget.get_selected_app()
         if current_app_key is None:

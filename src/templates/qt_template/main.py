@@ -21,7 +21,6 @@ class App(resources.AppSkeleton):
         super().__init__(app_info, app_settings, medusa_interface,
                          app_state, run_state, working_lsl_streams_info)
         # Set attributes
-        self.qt_app = None
         self.app_gui = None
         # Queues to communicate with the AppGui class
         self.queue_to_gui = mp.Queue()
@@ -70,7 +69,6 @@ class App(resources.AppSkeleton):
         # 3 - Change app state to power on
         self.medusa_interface.app_state_changed(
             mds_constants.APP_STATE_ON)
-        print('Hola')
         # 4 - Start app (blocking method)
         qt_app.exec()
         # 5 - Change app state to powering off
@@ -104,15 +102,11 @@ class App(resources.AppSkeleton):
         # Trigger the close event in the Qt app. Returns True if it was
         # closed correctly, and False otherwise. If everything was
         # correct, stop the working threads
-        print('close_app-0')
         if self.app_gui is not None:
             if force:
                 self.app_gui.is_close_forced = True
             if self.app_gui.close():
-                print('close_app-1')
                 self.stop_working_threads()
-                print('close_app-2')
-            print('close_app-3')
 
     @exceptions.error_handler(scope='app')
     def on_save_rec_accepted(self):
