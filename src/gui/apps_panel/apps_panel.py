@@ -189,19 +189,6 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
             raise ValueError('Select an app to start!')
         # Start app
         if self.app_state.value is constants.APP_STATE_OFF:
-            # Enabling, disabling and changing the buttons in the toolbar
-            self.toolButton_app_power.setDisabled(True)
-            self.toolButton_app_power.setIcon(
-                QIcon("%s/icons/power_disabled_icon.png" %
-                      constants.IMG_FOLDER))
-            self.toolButton_app_play.setDisabled(False)
-            self.toolButton_app_play.setIcon(
-                QIcon("%s/icons/play_enabled_icon.png" %
-                      constants.IMG_FOLDER))
-            self.toolButton_app_stop.setDisabled(False)
-            self.toolButton_app_stop.setIcon(
-                QIcon("%s/icons/stop_enabled_icon.png" %
-                      constants.IMG_FOLDER))
             # Get selected app modules
             app_process_mdl = importlib.import_module(
                 self.get_app_module(current_app_key, 'main'))
@@ -225,6 +212,19 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
                 working_lsl_streams_info=ser_lsl_streams
             )
             self.app_process.start()
+            # Enabling, disabling and changing the buttons in the toolbar
+            self.toolButton_app_power.setDisabled(True)
+            self.toolButton_app_power.setIcon(
+                QIcon("%s/icons/power_disabled_icon.png" %
+                      constants.IMG_FOLDER))
+            self.toolButton_app_play.setDisabled(False)
+            self.toolButton_app_play.setIcon(
+                QIcon("%s/icons/play_enabled_icon.png" %
+                      constants.IMG_FOLDER))
+            self.toolButton_app_stop.setDisabled(False)
+            self.toolButton_app_stop.setIcon(
+                QIcon("%s/icons/stop_enabled_icon.png" %
+                      constants.IMG_FOLDER))
             self.run_state.value = constants.RUN_STATE_READY
             self.current_app_key = current_app_key
 
