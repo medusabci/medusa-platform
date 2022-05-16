@@ -1,6 +1,7 @@
 # BUILT-IN MODULES
 import multiprocessing as mp
 import time
+import os.path
 # EXTERNAL MODULES
 from PyQt5.QtWidgets import QApplication
 # MEDUSA-KERNEL MODULES
@@ -70,13 +71,21 @@ class App(resources.AppSkeleton):
             # Take actions
             if ex.importance == 'critical':
                 self.close_app(force=True)
+                ex.set_handled(True)
 
     def check_lsl_config(self, working_lsl_streams_info):
-        # Check LSL config (each app can have different LSL requirements)
-        if len(working_lsl_streams_info) > 1:
+        """Check LSL config (each app can have different LSL requirements)"""
+        if len(working_lsl_streams_info) == 0:
             return False
         else:
             return True
+
+    def check_settings_config(self, app_settings):
+        """Check settings config.
+        By default, this function check if unity path exits"""
+
+        if not os.path.exists(app_settings.path_to_exe):
+            raise exceptions.IncorrectSettingsConfig("Incorrect path of Unity file: " + app_settings.path_to_exe)
 
     def get_lsl_worker(self):
         """Returns the LSL worker"""
@@ -198,7 +207,11 @@ class App(resources.AppSkeleton):
         while self.app_controller.server_state.value == \
                 app_constants.SERVER_DOWN:
             time.sleep(0.1)
-        self.app_controller.start_application()
+        try:
+            self.app_controller.start_application()
+        except Exception as ex:
+            self.handle_exception(ex)
+            self.medusa_interface.error(ex)
         # 5 - Change app state to powering off
         self.medusa_interface.app_state_changed(
             mds_constants.APP_STATE_POWERING_OFF)
