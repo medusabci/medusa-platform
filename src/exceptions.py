@@ -354,6 +354,23 @@ class IncorrectLSLConfig(Exception):
             msg = 'The LSL configuration is incorrect.'
         super().__init__(msg)
 
+class IncorrectSettingsConfig(Exception):
+
+    """Raise to indicate that the current settings config is invalid for an app or
+    process
+    """
+    def __init__(self, msg=None):
+        """Class constructor
+
+        Parameters
+        ----------
+        msg: string or None
+            Custom message. This parameter avoids problems with pickle to
+            propagate the exception across processes using queues.
+        """
+        if msg is None:
+            msg = 'The settings configuration is incorrect.'
+        super().__init__(msg)
 
 class AuthenticationError(Exception):
 

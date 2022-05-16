@@ -57,6 +57,7 @@ class AppSkeleton(mp.Process):
         # ---------------------------- SETTINGS ------------------------------ #
         self.app_info = app_info
         self.app_settings = app_settings
+        self.check_settings_config(self.app_settings)
         # --------------------- COMMUNICATION GUI-MANAGER -------------------- #
         # Interface
         self.medusa_interface = medusa_interface
@@ -159,6 +160,25 @@ class AppSkeleton(mp.Process):
     @abstractmethod
     def check_lsl_config(self, working_lsl_streams_info):
         """This function has to check the LSL config. For example, some apps
+        may require an LSL stream with a specific name, or a minimum of 2 LSL
+        streams, etc. It must return True if the lsl config is correct and
+        the App can proceed, and False otherwise.
+
+        Parameters
+        ----------
+        working_lsl_streams_info: dict
+            Dict with the LSL streams information available on MEDUSA
+
+        Returns
+        -------
+        check: bool
+            True if everything is correct, False otherwise
+        """
+        raise NotImplemented
+
+    @abstractmethod
+    def check_settings_config(self, app_settings):
+        """This function has to check the settings config. For example, some apps
         may require an LSL stream with a specific name, or a minimum of 2 LSL
         streams, etc. It must return True if the lsl config is correct and
         the App can proceed, and False otherwise.
