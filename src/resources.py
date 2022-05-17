@@ -55,9 +55,9 @@ class AppSkeleton(mp.Process):
         super().__init__(name=app_process_name)
         # -------------------------- CHECK ERRORS ---------------------------- #
         # ---------------------------- SETTINGS ------------------------------ #
+        self.check_settings_config(app_settings)
         self.app_info = app_info
         self.app_settings = app_settings
-        self.check_settings_config(self.app_settings)
         # --------------------- COMMUNICATION GUI-MANAGER -------------------- #
         # Interface
         self.medusa_interface = medusa_interface
@@ -68,8 +68,7 @@ class AppSkeleton(mp.Process):
         self.app_state = app_state
         # --------------------------- LSL-STREAMS ---------------------------- #
         # Data receiver
-        if not self.check_lsl_config(working_lsl_streams_info):
-            raise exceptions.IncorrectLSLConfig()
+        self.check_lsl_config(working_lsl_streams_info)
         self.lsl_streams_info = working_lsl_streams_info
         self.lsl_workers = dict()
         # ----------------------------- MANAGER ------------------------------ #

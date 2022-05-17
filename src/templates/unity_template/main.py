@@ -74,18 +74,16 @@ class App(resources.AppSkeleton):
                 ex.set_handled(True)
 
     def check_lsl_config(self, working_lsl_streams_info):
-        """Check LSL config (each app can have different LSL requirements)"""
-        if len(working_lsl_streams_info) == 0:
-            return False
-        else:
-            return True
+        if len(working_lsl_streams_info) != 1:
+            raise exceptions.IncorrectLSLConfig()
 
     def check_settings_config(self, app_settings):
         """Check settings config.
         By default, this function check if unity path exits"""
 
         if not os.path.exists(app_settings.path_to_exe):
-            raise exceptions.IncorrectSettingsConfig("Incorrect path of Unity file: " + app_settings.path_to_exe)
+            raise exceptions.IncorrectSettingsConfig(
+                "Incorrect path of Unity file: " + app_settings.path_to_exe)
 
     def get_lsl_worker(self):
         """Returns the LSL worker"""
