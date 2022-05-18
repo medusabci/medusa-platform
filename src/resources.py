@@ -55,9 +55,9 @@ class AppSkeleton(mp.Process):
         super().__init__(name=app_process_name)
         # -------------------------- CHECK ERRORS ---------------------------- #
         # ---------------------------- SETTINGS ------------------------------ #
+        self.check_settings_config(app_settings)
         self.app_info = app_info
         self.app_settings = app_settings
-        self.check_settings_config(self.app_settings)
         # --------------------- COMMUNICATION GUI-MANAGER -------------------- #
         # Interface
         self.medusa_interface = medusa_interface
@@ -68,8 +68,7 @@ class AppSkeleton(mp.Process):
         self.app_state = app_state
         # --------------------------- LSL-STREAMS ---------------------------- #
         # Data receiver
-        if not self.check_lsl_config(working_lsl_streams_info):
-            raise exceptions.IncorrectLSLConfig()
+        self.check_lsl_config(working_lsl_streams_info)
         self.lsl_streams_info = working_lsl_streams_info
         self.lsl_workers = dict()
         # ----------------------------- MANAGER ------------------------------ #
@@ -155,7 +154,7 @@ class AppSkeleton(mp.Process):
         ex : Exception
              Exception or subclasses
         """
-        raise NotImplemented
+        raise NotImplementedError
 
     @abstractmethod
     def check_lsl_config(self, working_lsl_streams_info):
@@ -174,26 +173,23 @@ class AppSkeleton(mp.Process):
         check: bool
             True if everything is correct, False otherwise
         """
-        raise NotImplemented
+        raise NotImplementedError
 
     @abstractmethod
     def check_settings_config(self, app_settings):
-        """This function has to check the settings config. For example, some apps
-        may require an LSL stream with a specific name, or a minimum of 2 LSL
-        streams, etc. It must return True if the lsl config is correct and
-        the App can proceed, and False otherwise.
+        """This function has to check the run settings if needed.
 
         Parameters
         ----------
-        working_lsl_streams_info: dict
-            Dict with the LSL streams information available on MEDUSA
+        app_settings: settings.Settings
+            Class with the app settings for this run
 
         Returns
         -------
         check: bool
             True if everything is correct, False otherwise
         """
-        raise NotImplemented
+        raise NotImplementedError
 
     @abstractmethod
     def manager_thread_worker(self):
@@ -216,7 +212,7 @@ class AppSkeleton(mp.Process):
                 # Do stuff here
                 pass
         """
-        raise NotImplemented
+        raise NotImplementedError
 
     @abstractmethod
     def main(self):
@@ -247,7 +243,7 @@ class AppSkeleton(mp.Process):
             self.medusa_interface.app_state_changed(
                 constants.APP_STATE_OFF)
         """
-        raise NotImplemented
+        raise NotImplementedError
 
     @abstractmethod
     def process_event(self, event):
@@ -287,7 +283,7 @@ class AppSkeleton(mp.Process):
         except Exception as e:
             self.handle_exception(e)
         """
-        raise NotImplemented
+        raise NotImplementedError
 
 
 class LSLStreamAppWorker(th.Thread):
