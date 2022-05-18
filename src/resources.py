@@ -511,8 +511,12 @@ class SaveFileDialog(dialogs.MedusaDialog):
                          theme_colors=theme_colors, pos_x=300, pos_y=300,
                          width=400, heigh=200)
         # Paths
-        folder = os.path.abspath(
-            os.path.abspath(os.curdir) + '../../data/')
+        folder = os.path.abspath(os.getcwd() + '/../data/')
+        if not os.path.exists(folder):
+            # Create a new directory because it does not exist
+            os.makedirs(folder)
+            print('Created directory %s!' % folder)
+
         name = '%s.%s.bson' % \
                (time.strftime("%d-%m-%Y_%H%M%S", time.localtime()), app_ext)
         default_path = os.path.join(folder, name)

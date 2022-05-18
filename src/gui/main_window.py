@@ -20,9 +20,11 @@ from gui.apps_panel import apps_panel
 from gui.log_panel import log_panel
 from gui.user_profile import login
 from gui.user_profile import user_profile
+from gui.qt_widgets.dialogs import info_dialog
 
 # Load the .ui file
 gui_main_user_interface = uic.loadUiType("gui/ui_files/main_window.ui")[0]
+gui_about = uic.loadUiType(os.getcwd() + "/gui/ui_files/about.ui")[0]
 
 
 class GuiMainClass(QMainWindow, gui_main_user_interface):
@@ -307,7 +309,8 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         # TODO: menuAction_dev_tutorial, menuAction_dev_create_app,
         self.menuAction_dev_create_app.triggered.connect(
             self.create_app_config_window)
-        # Developer tools
+        # Help
+        self.menuAction_help_about.triggered.connect(self.open_help_about)
         # TODO: menuAction_help_support, menuAction_help_bug,
         #  menuAction_help_update, menuAction_help_about
 
@@ -436,6 +439,12 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
     @exceptions.error_handler(scope='general')
     def update_apps_panel(self):
         self.apps_panel_widget.update_apps_panel()
+
+    # ========================= HELP ============================== #
+    @exceptions.error_handler(scope='general')
+    def open_help_about(self, checked):
+        dialog = AboutDialog(alias=self.accounts_manager.current_session.user_info['alias'])
+        dialog.exec_()
 
     # ======================= PLOTS PANEL FUNCTIONS ========================== #
     @exceptions.error_handler(scope='general')
@@ -689,13 +698,15 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         if self.app_state.value != constants.APP_STATE_OFF or \
                 self.run_state.value != constants.RUN_STATE_READY:
             # Paradigm open. Not allowed to close Medusa
-            msg = QMessageBox()
-            msg.setIcon(QMessageBox.Information)
-            msg.setText("Please, finish the current run pressing the stop "
-                        "button before closing MEDUSA")
-            msg.setWindowTitle("Warning!")
-            msg.setStandardButtons(QMessageBox.Ok)
-            msg.exec_()
+            # msg = QMessageBox()
+            # msg.setIcon(QMessageBox.Information)
+            # msg.setText("Please, finish the current run pressing the stop "
+            #             "button before closing MEDUSA")
+            # msg.setWindowTitle("Warning!")
+            # msg.setStandardButtons(QMessageBox.Ok)
+            # msg.exec_()
+            info_dialog("Please, finish the current run pressing the stop "
+                        "button before closing MEDUSA", "Warning!")
             event.ignore()
         else:
             # Close current app
@@ -846,3 +857,20 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
             if not self.medusa_interface_queue.is_closed():
                 self.medusa_interface_queue.flush()
             self.wait()
+
+
+class AboutDialog(QDialog, gui_about):
+    def __init__(self, parent=None, alias =''):
+        QDialog.__init__(self, parent)
+        self.setupUi(self)
+        theme_colors = gui_utils.get_theme_colors('dark')
+        self.stl = gui_utils.set_css_and_theme(self, theme_colors)
+        self.setWindowIcon(QIcon('gui/images/medusa_icon.png'))
+        self.setWindowTitle('About MEDUSA')
+
+        # Details
+        self.label_date.setText('Built on ' + constants.MEDUSA_VERSION_DATE)
+        self.label_version.setText(constants.MEDUSA_VERSION + ' [' +
+                                   constants.MEDUSA_VERSION_NAME + ']')
+        self.label_license.setText('Licensed to ' + alias)
+
