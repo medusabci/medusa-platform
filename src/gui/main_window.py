@@ -873,4 +873,4 @@ class AboutDialog(QDialog, gui_about):
         self.label_version.setText(constants.MEDUSA_VERSION + ' [' +
                                    constants.MEDUSA_VERSION_NAME + ']')
         self.label_license.setText('Licensed to ' + alias)
-
+        self.textBrowser_details.setOpenExternalLinks(True)

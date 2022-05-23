@@ -112,7 +112,7 @@ color: white;
      </widget>
     </item>
     <item>
-     <widget class="QTextBrowser" name="textBrowser">
+     <widget class="QTextBrowser" name="textBrowser_details">
       <property name="styleSheet">
        <string notr="true">QTextBrowser {
 	background-color: transparent;
