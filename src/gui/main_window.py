@@ -11,7 +11,7 @@ from PyQt5.QtGui import *
 
 # MEDUSA general
 import constants, resources, exceptions, accounts_manager, app_manager
-from gui import gui_utils
+from gui import gui_utils as gu
 from acquisition import lsl_utils
 from gui.plots_panel import plots_panel
 from gui.lsl_config import lsl_config
@@ -35,6 +35,9 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
     def __init__(self):
         QMainWindow.__init__(self)
         self.setupUi(self)
+        # todo: get theme
+        self.theme = 'dark'
+
         # Initial sizes
         self.default_width = 1600
         self.default_height = 900
@@ -52,8 +55,8 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(medusaid)
 
         # Initialize the application
-        self.theme_colors = gui_utils.get_theme_colors('dark')
-        gui_utils.set_css_and_theme(self, self.theme_colors)
+        self.theme_colors = gu.get_theme_colors(self.theme)
+        gu.set_css_and_theme(self, self.theme_colors)
         self.setWindowIcon(QIcon('%s/medusa_icon.png' % constants.IMG_FOLDER))
         self.setWindowTitle('Medusa %s' % constants.MEDUSA_VERSION)
         self.setFocusPolicy(Qt.StrongFocus)
@@ -318,12 +321,16 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
     @exceptions.error_handler(scope='general')
     def reset_tool_bar_main(self):
         # Create QAction buttons
-        lsl_config_icon = QIcon("%s/icons/link_enabled_icon.png" %
-                                constants.IMG_FOLDER)
-        plots_icon = QIcon("%s/icons/signal_enabled_icon.png" %
-                           constants.IMG_FOLDER)
-        profile_icon = QIcon("%s/icons/user_enabled.png" %
-                             constants.IMG_FOLDER)
+        lsl_config_icon = gu.get_icon("link.svg", theme=self.theme)
+        plots_icon = gu.get_icon("waves.svg", theme=self.theme)
+        profile_icon = gu.get_icon("person.svg", theme=self.theme)
+
+        # lsl_config_icon = QIcon("%s/icons/link_enabled_icon.png" %
+        #                         constants.IMG_FOLDER)
+        # plots_icon = QIcon("%s/icons/signal_enabled_icon.png" %
+        #                    constants.IMG_FOLDER)
+        # profile_icon = QIcon("%s/icons/user_enabled.png" %
+        #                      constants.IMG_FOLDER)
         # Create QToolButton
         self.toolButton_lsl_config.setIcon(lsl_config_icon)
         self.toolButton_analyzer.setIcon(plots_icon)
@@ -860,13 +867,16 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
 
 
 class AboutDialog(QDialog, gui_about):
-    def __init__(self, parent=None, alias =''):
+    def __init__(self, parent=None, alias=''):
         QDialog.__init__(self, parent)
+        self.setWindowFlags(
+            self.windowFlags() & ~Qt.WindowContextHelpButtonHint)
         self.setupUi(self)
-        theme_colors = gui_utils.get_theme_colors('dark')
-        self.stl = gui_utils.set_css_and_theme(self, theme_colors)
+        theme_colors = gu.get_theme_colors('dark')
+        self.stl = gu.set_css_and_theme(self, theme_colors)
         self.setWindowIcon(QIcon('gui/images/medusa_icon.png'))
         self.setWindowTitle('About MEDUSA')
+
 
         # Details
         self.label_date.setText('Built on ' + constants.MEDUSA_VERSION_DATE)

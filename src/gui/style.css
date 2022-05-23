@@ -3,7 +3,7 @@ This css sheet contains the style of Medusa Qt elements. Index:
     1.  GENERAL STYLE
          1.1 General
          1.2 QComboBox
-         1.3 QSpinBox
+         1.3 QSpinBox, QDoubleSpinBox
          1.4 QPushButton
          1.5 QToolBox
          1.6 QMenuBar
@@ -142,100 +142,63 @@ QComboBox::drop-down {
 	subcontrol-origin: padding;
 	subcontrol-position: top right;
 	width: 20px;
-	border-top-right-radius: 0px;
-	border-bottom-right-radius: 0px;
+	border: 0px;
 	min-height: 1.5em;
 }
 QComboBox::down-arrow {
-    image: url(images/icons/down_arrow_bg_mid_shift.png);
+    image: url("gui/images/icons/down_arrow_bg_mid_shift.png");
 }
-QComboBox::down-arrow:on { /* shift the arrow when popup is open */
-    image: url(images/icons/down_arrow_bg_mid.png);
+QComboBox::down-arrow:on {
+    image: url("gui/images/icons/down_arrow_bg_mid.png");
 }
-QComboBox#function_list::down-arrow,
-#comboBox_p_spatial_method::down-arrow,
-#comboBox_p_freq_method::down-arrow,
-#comboBox_p_freq_type::down-arrow,
-#comboBox_p_notch_method::down-arrow,
-#comboBox_f_method::down-arrow,
-#comboBox_s_method::down-arrow,#comboBox_c_method::down-arrow,
-#comboBox_c_rlda_solver::down-arrow{
-    image: url(../../gui/images/icons/down_arrow_bg_mid_shift.png);
-}
-QComboBox#function_list::down-arrow:on,
-#comboBox_p_spatial_method::down-arrow:on,
-#comboBox_p_freq_method::down-arrow:on,
-#comboBox_p_freq_type::down-arrow:on,
-#comboBox_p_notch_method::down-arrow:on,
-#comboBox_f_method::down-arrow:on,
-#comboBox_s_method::down-arrow:on,
-#comboBox_c_method::down-arrow:on,
-#comboBox_c_rlda_solver::down-arrow:on{
-    image: url(../../gui/images/icons/down_arrow_bg_mid.png);
-}
-QComboBox QAbstractItemView{
+QComboBox QAbstractItemView {
 	background-color: @THEME_BG_MID;
 	color: @THEME_TEXT_LIGHT;
 	selection-background-color: @THEME_BG_MID;
 	selection-color: @THEME_TEXT_ACCENT;
-	selection-border: 0px solid white;
+	selection-border: 4px solid white;
     min-height: 1.5em;
+    outline: 0px;
 }
 
-/* 1.3 QTSpinBox ------------------------------------------------------------ */
+/* 1.3 QSpinBox, QDoubleSpinBox --------------------------------------------- */
 
-QSpinBox, QDoubleSpinBox{
-    background: @THEME_TEXT_LIGHT;
-	color: @THEME_BG_MID;
-}
-QSpinBox::up-arrow:on, QDoubleSpinBox::up-arrow:on{
-    image: url(../../gui/images/icons/small_arrow_up.png);
-}
-QSpinBox::down-arrow:on, QDoubleSpinBox::down-arrow:on{
-    image: url(../../gui/images/icons/small_arrow_down.png);
-}
-QDoubleSpinBox::up-button, QDoubleSpinBox::up-button:pressed,
-QDoubleSpinBox::down-button, QDoubleSpinBox::down-button:pressed{
-    background-color: @THEME_TEXT_LIGHT;
-}
-QSpinBox {
+QSpinBox, QDoubleSpinBox {
     padding-right: 15px; /* make room for the arrows */
     background: @THEME_TEXT_LIGHT;
 	color: @THEME_BG_MID;
 }
 
-QSpinBox::up-button {
+QSpinBox::up-arrow:on, QDoubleSpinBox::up-arrow:on{
+    image: url("gui/images/icons/small_arrow_up.png");
+}
+QSpinBox::down-arrow:on, QDoubleSpinBox::down-arrow:on{
+    image: url("gui/images/icons/small_arrow_down.png");
+}
+QDoubleSpinBox::up-button, QDoubleSpinBox::up-button:pressed,
+QDoubleSpinBox::down-button, QDoubleSpinBox::down-button:pressed{
+    background-color: @THEME_TEXT_LIGHT;
+}
+QSpinBox::up-button, QDoubleSpinBox::up-button {
     subcontrol-origin: border;
     subcontrol-position: top right; /* position at the top right corner */
-
     width: 16px; /* 16 + 2*1px border-width = 15px padding + 3px parent border */
     border-width: 1px;
 }
 
-QSpinBox::up-arrow {
-    image: url(images/icons/up_arrow_bg_mid.png);
-    width: 7px;
-    height: 7px;
-}
-
-QSpinBox::down-button {
+QSpinBox::down-button, QDoubleSpinBox::down-button {
     subcontrol-origin: border;
     subcontrol-position: bottom right; /* position at bottom right corner */
-
     width: 16px;
     border-width: 1px;
     border-top-width: 0;
 }
 
-QSpinBox::down-arrow {
-    image: url(images/icons/down_arrow_bg_mid.png);
-    width: 7px;
-    height: 7px;
-}
-
 QSpinBox::down-arrow:disabled,
-QSpinBox::down-arrow:off { /* off state when value in min */
-   image: url(images/icons/down_arrow_disabled.png);
+QSpinBox::down-arrow:off,
+QDoubleSpinBox::down-arrow:disabled,
+QDoubleSpinBox::down-arrow:off{ /* off state when value in min */
+   image: url("gui/images/icons/down_arrow_disabled.png");
 }
 
 /* 1.4 QPushButton ---------------------------------------------------------- */

@@ -331,3 +331,39 @@ def get_theme_colors(theme='dark'):
     """
     theme_colors = themes[theme]
     return theme_colors
+
+
+def get_icon(icon_name, theme='dark', enabled=True):
+    # Does it exist?
+    rel_path = "%s/icons/svg/%s" % (constants.IMG_FOLDER, icon_name)
+    if not os.path.isfile(rel_path):
+        print('[get_icon()] Icon %s not found!' % rel_path)
+        return None
+
+    # Get the icon color
+    theme_colors = get_theme_colors(theme)
+    if enabled:
+        color = theme_colors['THEME_ICON_COLOR']
+    else:
+        color = theme_colors['THEME_ICON_COLOR_DISABLED']
+
+    # Read the SVG data
+    fin = open(rel_path, "rt")
+    data = fin.read()
+    fin.close()
+
+    # Modify the data to fill the icon
+    if data.count('fill=') > 0:
+        import re
+        for match in re.findall('fill="(.*?)\"', data):
+            data = data.replace('fill="%s"' % match, 'fill="%s"' % color)
+    else:
+        data = data.replace('<path ', '<path fill="%s" ' % color)
+
+    # Write it in the file
+    fin = open(rel_path, "wt")
+    fin.write(data)
+    fin.close()
+
+    # Return the icon
+    return QIcon(rel_path)
