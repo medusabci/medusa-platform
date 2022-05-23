@@ -3,7 +3,7 @@ import sys, os, json, traceback
 # External imports
 from PyQt5 import QtCore, QtGui, QtWidgets, uic
 # Medusa imports
-from gui import gui_utils
+from gui import gui_utils as gu
 from gui.qt_widgets import dialogs
 from gui.qt_widgets.notifications import NotificationStack
 from acquisition import lsl_utils
@@ -37,11 +37,13 @@ class LSLConfig(QtWidgets.QDialog, ui_main_dialog):
             self.setupUi(self)
             self.notifications = NotificationStack(parent=self)
             self.resize(600, 400)
+            # todo: theme
+            self.theme = 'dark'
             # Initialize the gui application
             self.dir = os.path.dirname(__file__)
-            self.theme_colors = gui_utils.get_theme_colors('dark') if \
+            self.theme_colors = gu.get_theme_colors('dark') if \
                 theme_colors is None else theme_colors
-            self.stl = gui_utils.set_css_and_theme(self, self.theme_colors)
+            self.stl = gu.set_css_and_theme(self, self.theme_colors)
             self.setWindowIcon(QtGui.QIcon('%s/medusa_favicon.png' %
                                constants.IMG_FOLDER))
             self.setWindowTitle('Lab streaming layer (LSL) settings')
@@ -104,19 +106,23 @@ class LSLConfig(QtWidgets.QDialog, ui_main_dialog):
     def set_up_tool_buttons(self):
         try:
             # Search button
-            icon = QtGui.QIcon("%s/icons/reload.png" % constants.IMG_FOLDER)
+            icon = gu.get_icon("refresh.svg", theme=self.theme)
+            # icon = QtGui.QIcon("%s/icons/reload.png" % constants.IMG_FOLDER)
             self.toolButton_search.setIcon(icon)
             self.toolButton_search.clicked.connect(self.lsl_search)
             # Add button
-            icon = QtGui.QIcon("%s/icons/plus.png" % constants.IMG_FOLDER)
+            icon = gu.get_icon("add.svg", theme=self.theme)
+            # icon = QtGui.QIcon("%s/icons/plus.png" % constants.IMG_FOLDER)
             self.toolButton_add.setIcon(icon)
             self.toolButton_add.clicked.connect(self.add_lsl_stream)
             # Edit button
-            icon = QtGui.QIcon("%s/icons/edit.png" % constants.IMG_FOLDER)
+            icon = gu.get_icon("edit.svg", theme=self.theme)
+            # icon = QtGui.QIcon("%s/icons/edit.png" % constants.IMG_FOLDER)
             self.toolButton_edit.setIcon(icon)
             self.toolButton_edit.clicked.connect(self.edit_lsl_stream)
             # Remove button
-            icon = QtGui.QIcon("%s/icons/minus.png" % constants.IMG_FOLDER)
+            icon = gu.get_icon("remove.svg", theme=self.theme)
+            # icon = QtGui.QIcon("%s/icons/minus.png" % constants.IMG_FOLDER)
             self.toolButton_remove.setIcon(icon)
             self.toolButton_remove.clicked.connect(self.remove_lsl_stream)
         except Exception as e:
@@ -304,9 +310,9 @@ class EditStreamDialog(QtWidgets.QDialog, ui_stream_config_dialog):
             self.setupUi(self)
             self.notifications = NotificationStack(parent=self)
             # Set style
-            self.theme_colors = gui_utils.get_theme_colors('dark') if \
+            self.theme_colors = gu.get_theme_colors('dark') if \
                 theme_colors is None else theme_colors
-            self.stl = gui_utils.set_css_and_theme(self, self.theme_colors)
+            self.stl = gu.set_css_and_theme(self, self.theme_colors)
             self.setWindowIcon(QtGui.QIcon('%s/medusa_icon.png' %
                                            constants.IMG_FOLDER))
             self.setWindowTitle('Stream settings')
@@ -348,21 +354,21 @@ class EditStreamDialog(QtWidgets.QDialog, ui_stream_config_dialog):
         # Init params
         if self.lsl_stream_info.medusa_params_initialized:
             self.lineEdit_medusa_uid.setText(self.lsl_stream_info.medusa_uid)
-            gui_utils.select_entry_combobox(
+            gu.select_entry_combobox(
                 self.comboBox_medusa_type,
                 self.lsl_stream_info.medusa_type,
                 force_selection=False)
-            gui_utils.select_entry_combobox(
+            gu.select_entry_combobox(
                 self.comboBox_desc_channels_field,
                 self.lsl_stream_info.desc_channels_field)
-            gui_utils.select_entry_combobox(
+            gu.select_entry_combobox(
                 self.comboBox_channel_label_field,
                 self.lsl_stream_info.channel_label_field)
             self.set_checked_channels(
                 self.lsl_stream_info.selected_channels_idx)
         else:
             self.lineEdit_medusa_uid.setText(self.lsl_stream_info.lsl_name)
-            gui_utils.select_entry_combobox(self.comboBox_medusa_type,
+            gu.select_entry_combobox(self.comboBox_medusa_type,
                                             self.lsl_stream_info.lsl_type,
                                             force_selection=False)
 
@@ -388,7 +394,7 @@ class EditStreamDialog(QtWidgets.QDialog, ui_stream_config_dialog):
         if len(desc_fields) > 0:
             for field in desc_fields:
                 self.comboBox_desc_channels_field.addItem(field, True)
-            gui_utils.select_entry_combobox(self.comboBox_desc_channels_field,
+            gu.select_entry_combobox(self.comboBox_desc_channels_field,
                                             'channels', force_selection=False)
         else:
             self.comboBox_desc_channels_field.addItem('channels', False)
@@ -412,7 +418,7 @@ class EditStreamDialog(QtWidgets.QDialog, ui_stream_config_dialog):
         cha_fields = list(self.cha_info[0].keys())
         for field in cha_fields:
             self.comboBox_channel_label_field.addItem(field)
-        gui_utils.select_entry_combobox(self.comboBox_channel_label_field,
+        gu.select_entry_combobox(self.comboBox_channel_label_field,
                                         'label')
 
     def on_desc_channels_field_changed(self):

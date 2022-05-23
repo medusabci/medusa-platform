@@ -256,10 +256,12 @@ class PlotsPanelWidget(QWidget, ui_plots_panel_widget):
                     plot_undock_icon)
                 self.toolButton_plot_undock.setDisabled(True)
                 self.toolButton_plot_config.setIcon(
-                    QIcon("%s/icons/gear_disabled.png" % constants.IMG_FOLDER))
+                    gu.get_icon("settings.svg", theme=self.theme, enabled=False)
+                )
                 self.toolButton_plot_config.setDisabled(True)
                 self.toolButton_plot_start.setIcon(
-                    QIcon("%s/icons/notplot_icon.png" % constants.IMG_FOLDER))
+                    gu.get_icon("visibility_off.svg", theme=self.theme)
+                )
             else:
                 if self.plot_state.value == constants.PLOT_STATE_ON:
                     # The change of state will notify the action directly
@@ -278,10 +280,10 @@ class PlotsPanelWidget(QWidget, ui_plots_panel_widget):
                         plot_undock_icon)
                     self.toolButton_plot_undock.setDisabled(False)
                     self.toolButton_plot_config.setIcon(
-                        QIcon("%s/icons/gear.png" % constants.IMG_FOLDER))
+                        gu.get_icon("settings.svg", theme=self.theme))
                     self.toolButton_plot_config.setDisabled(False)
                     self.toolButton_plot_start.setIcon(
-                        QIcon("%s/icons/plot_icon.png" % constants.IMG_FOLDER))
+                        gu.get_icon("visibility.svg", theme=self.theme))
         except Exception as e:
             self.handle_exception(e)
 

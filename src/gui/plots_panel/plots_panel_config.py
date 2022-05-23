@@ -16,7 +16,7 @@ from acquisition import lsl_utils
 import exceptions, constants
 
 # MEDUSA
-from gui import gui_utils
+from gui import gui_utils as gu
 from gui.plots_panel import real_time_plots
 from gui.qt_widgets.notifications import NotificationStack
 
@@ -212,7 +212,7 @@ class PlotFrame(QLabel):
     def set_configured(self, background_color):
         try:
             self.configured = True
-            gui_utils.modify_property(self, "background-color",
+            gu.modify_property(self, "background-color",
                                       background_color)
         except Exception as e:
             print('Exception: %s' % str(e))
@@ -221,7 +221,7 @@ class PlotFrame(QLabel):
     def set_non_configured(self, background_color):
         try:
             self.configured = False
-            gui_utils.modify_property(self, "background-color",
+            gu.modify_property(self, "background-color",
                                       background_color)
         except Exception as e:
             print('Exception: %s' % str(e))
@@ -540,9 +540,9 @@ class ConfigPlotFrameDialog(QDialog, ui_plot_config_dialog):
             self.notifications = NotificationStack(parent=self)
             # Set style
             self.dir = os.path.dirname(__file__)
-            self.theme_colors = gui_utils.get_theme_colors('dark') if \
+            self.theme_colors = gu.get_theme_colors('dark') if \
                 theme_colors is None else theme_colors
-            self.stl = gui_utils.set_css_and_theme(self, self.theme_colors)
+            self.stl = gu.set_css_and_theme(self, self.theme_colors)
             self.setWindowIcon(QIcon('%s/medusa_icon.png' %
                                      constants.IMG_FOLDER))
             self.setWindowTitle('Plot configuration')
@@ -698,11 +698,13 @@ class PlotsPanelConfigDialog(QDialog, ui_plots_panel_config):
             self.notifications = NotificationStack(parent=self)
             super().__init__()
             self.setupUi(self)
+            # todo: theme
+            self.theme = 'dark'
             # Initialize the application
             self.dir = os.path.dirname(__file__)
-            self.theme_colors = gui_utils.get_theme_colors('dark') if \
+            self.theme_colors = gu.get_theme_colors('dark') if \
                 theme_colors is None else theme_colors
-            self.stl = gui_utils.set_css_and_theme(self, self.theme_colors)
+            self.stl = gu.set_css_and_theme(self, self.theme_colors)
             self.setWindowIcon(QIcon('%s/medusa_icon.png' %
                                      constants.IMG_FOLDER))
             self.setWindowTitle('Real time plots panel configuration')
@@ -728,13 +730,16 @@ class PlotsPanelConfigDialog(QDialog, ui_plots_panel_config):
             self.spinBox_grid_rows.valueChanged.connect(self.on_rows_changed)
             self.spinBox_grid_cols.valueChanged.connect(self.on_cols_changed)
             # Add plot button
-            icon = QIcon("%s/icons/plus.png" % constants.IMG_FOLDER)
+            icon = gu.get_icon("add.svg", theme=self.theme)
+            # icon = QIcon("%s/icons/plus.png" % constants.IMG_FOLDER)
             self.toolButton_add_plot.setIcon(icon)
             self.toolButton_add_plot.clicked.connect(self.on_add_plot_clicked)
             # Delete plot button
             self.toolButton_delete_plot = DropToolButton(self)
+            self.toolButton_delete_plot.setIconSize(QSize(20, 20))
             self.horizontalLayout.addWidget(self.toolButton_delete_plot)
-            icon = QIcon("%s/icons/delete.png" % constants.IMG_FOLDER)
+            icon = gu.get_icon("delete_forever.svg", theme=self.theme)
+            # icon = QIcon("%s/icons/delete.png" % constants.IMG_FOLDER)
             self.toolButton_delete_plot.setIcon(icon)
             self.toolButton_delete_plot.delete_plot_frame.connect(
                 self.on_delete_plot_drop)

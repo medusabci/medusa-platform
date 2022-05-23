@@ -14,7 +14,7 @@ from medusa.plots import optimal_subplots
 
 # Load the .ui files
 ui_main_dialog = \
-    uic.loadUiType('gui/ui_files/user_profile_dialog_new.ui')[0]
+    uic.loadUiType('gui/ui_files/user_profile_dialog.ui')[0]
 
 
 class UserProfileDialog(QtWidgets.QDialog, ui_main_dialog):

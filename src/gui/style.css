@@ -402,6 +402,7 @@ QToolButton{
     background-color: transparent;
     color: @THEME_TEXT_LIGHT;
     font-weight: bold;
+    min-height: 20px;
 }
 
 QToolButton:hover{
