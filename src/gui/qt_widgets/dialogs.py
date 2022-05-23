@@ -55,7 +55,7 @@ def confirmation_dialog(message, title, theme_colors=None):
     msg.setText(message)
     msg.setWindowTitle(title)
     msg.setStandardButtons(QMessageBox.Yes|QMessageBox.No)
-    msg.setWindowIcon(QIcon('images/medusa_icon.png'))
+    msg.setWindowIcon(QIcon(os.getcwd() + '/gui/images/medusa_icon.png'))
     msg.setWindowFlags(msg.windowFlags() | Qt.WindowStaysOnTopHint)
     theme_colors = gui_utils.get_theme_colors('dark') if \
         theme_colors is None else theme_colors

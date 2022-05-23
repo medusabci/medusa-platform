@@ -14,7 +14,7 @@ from medusa.plots import optimal_subplots
 
 # Load the .ui files
 ui_main_dialog = \
-    uic.loadUiType('gui/ui_files/user_profile_dialog.ui')[0]
+    uic.loadUiType('gui/ui_files/user_profile_dialog_new.ui')[0]
 
 
 class UserProfileDialog(QtWidgets.QDialog, ui_main_dialog):
@@ -35,9 +35,12 @@ class UserProfileDialog(QtWidgets.QDialog, ui_main_dialog):
         """
         try:
             super().__init__()
+            self.setWindowFlags(
+                self.windowFlags() & ~Qt.WindowContextHelpButtonHint)
             self.setupUi(self)
+
             self.notifications = NotificationStack(parent=self)
-            self.resize(640, 256)
+
             # Initialize the gui application
             self.dir = os.path.dirname(__file__)
             self.theme_colors = gui_utils.get_theme_colors('dark') if \
@@ -46,38 +49,26 @@ class UserProfileDialog(QtWidgets.QDialog, ui_main_dialog):
             medusa_icon = QtGui.QIcon('%s/medusa_favicon.png' %
                                       constants.IMG_FOLDER)
             self.setWindowIcon(medusa_icon)
-            self.setWindowTitle('PROFILE')
+            self.setWindowTitle('User profile')
             # Variables
             self.user_session = user_session
-            # Icon and title
-            self.label_alias.setObjectName('profile-label-title')
-            self.label_icon.setPixmap(medusa_icon.pixmap(
-                QtCore.QSize(256, 256)))
-            self.label_alias.setText(
-                'Welcome %s!' % self.user_session.user_info['alias'])
+            self.label_alias.setText('Logged as <a '
+                                     'href="www.medusabci.com/home" '
+                                     'style="color:#ff1ae0;">@%s</a>' %
+                                     self.user_session.user_info['alias'])
             # User info
-            self.label_name.setProperty("class", "profile-label")
             self.label_name.setText(self.user_session.user_info['name'])
-            self.label_email.setProperty("class", "profile-label")
             self.label_email.setText(self.user_session.user_info['email'])
-            # Forgot password
-            self.label_goto_profile = WebsiteProfileQLabel(
-                'Go to profile')
-            self.label_goto_profile.setObjectName('login-forgot-password')
-            self.label_goto_profile.setAlignment(Qt.AlignRight)
-            self.label_goto_profile.clicked.connect(
-                self.on_label_goto_profile_clicked)
-            self.verticalLayout_form.addWidget(self.label_goto_profile)
-            self.verticalLayout_form.addSpacerItem(
-                QtWidgets.QSpacerItem(
-                    0, 0, QtWidgets.QSizePolicy.Expanding,
-                    QtWidgets.QSizePolicy.Expanding)
-            )
+            # Delete account
+            self.label_delete_account = \
+                WebsiteProfileQLabel('Delete my account from this computer')
+            self.label_delete_account.setProperty("class", "profile-link")
+            self.label_delete_account.setAlignment(Qt.AlignCenter)
+            self.label_delete_account.clicked.connect(self.on_delete_clicked)
+            self.login_container_layout.addWidget(self.label_delete_account)
             # Buttons
             self.pushButton_logout.clicked.connect(
                 self.on_button_logout_clicked)
-            self.pushButton_delete.clicked.connect(
-                self.on_button_delete_clicked)
             # Connect the buttons
             self.setModal(True)
             self.show()
@@ -93,7 +84,7 @@ class UserProfileDialog(QtWidgets.QDialog, ui_main_dialog):
         self.close()
         self.logout_signal.emit()
 
-    def on_button_delete_clicked(self):
+    def on_delete_clicked(self):
         """Go to sign up page"""
         resp = dialogs.confirmation_dialog(
             message='This will delete all user files and apps from '
@@ -104,10 +95,6 @@ class UserProfileDialog(QtWidgets.QDialog, ui_main_dialog):
         if resp:
             self.close()
             self.delete_signal.emit()
-
-    def on_label_goto_profile_clicked(self):
-        """Go to forgot password page"""
-        webbrowser.open_new("http://www.medusabci.com/")
 
 
 class WebsiteProfileQLabel(QtWidgets.QLabel):

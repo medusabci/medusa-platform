@@ -51,14 +51,15 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         # Tell windows that this application is not pythonw.exe so it can
         # have its own icon
         import ctypes
-        medusaid = u'neuralia.medusa.' + constants.MEDUSA_VERSION
+        medusaid = u'gib.medusa.' + constants.MEDUSA_VERSION
         ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(medusaid)
 
         # Initialize the application
         self.theme_colors = gu.get_theme_colors(self.theme)
         gu.set_css_and_theme(self, self.theme_colors)
         self.setWindowIcon(QIcon('%s/medusa_icon.png' % constants.IMG_FOLDER))
-        self.setWindowTitle('Medusa %s' % constants.MEDUSA_VERSION)
+        self.setWindowTitle('MEDUSA %s [%s]' % (constants.MEDUSA_VERSION,
+                                                constants.MEDUSA_VERSION_NAME))
         self.setFocusPolicy(Qt.StrongFocus)
         # self.setWindowFlags(Qt.FramelessWindowHint)
 
@@ -877,10 +878,8 @@ class AboutDialog(QDialog, gui_about):
         self.setWindowIcon(QIcon('gui/images/medusa_icon.png'))
         self.setWindowTitle('About MEDUSA')
 
-
         # Details
         self.label_date.setText('Built on ' + constants.MEDUSA_VERSION_DATE)
         self.label_version.setText(constants.MEDUSA_VERSION + ' [' +
                                    constants.MEDUSA_VERSION_NAME + ']')
         self.label_license.setText('Licensed to ' + alias)
-        self.textBrowser_details.setOpenExternalLinks(True)

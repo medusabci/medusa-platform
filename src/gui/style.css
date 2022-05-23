@@ -620,29 +620,37 @@ QHeaderView::section {
 /* ============================================================================
 11. USER PROFILE
 
-Style of the apps panel
+Style of the user login and profile
 ============================================================================= */
 
-#login-label-title{
+#qdialog_login {
+    border-image: url("gui/images/medusa_platform_login.png");
+}
+
+#login_container {
+    background-color: transparent;
+}
+
+#login_container QRadioButton {
+    background-color: transparent;
+}
+
+#login-label-title {
     font-size: 22px;
     font-weight: bold;
+}
+
+#label_error_msg {
+    color: @THEME_RED;
 }
 
 .login-entry{
-    min-height: 35px;
+    min-height: 30px;
 }
 
-#login-forgot-password{
-    color: @THEME_TEXT_ACCENT;
-    text-align: right;
-}
-
-#profile-label-title{
-    font-size: 22px;
-    font-weight: bold;
-    margin-bottom: 15px;
-}
-
-.profile-label{
-    font-size: 16px;
+.profile-link {
+    color: #ff1ae0!important;
+    font-family: "Roboto Mono";
+    font-size: 9pt;
+    text-decoration: underline;
 }
