@@ -252,8 +252,8 @@ class App(resources.AppSkeleton):
             self.close_app()
 
     def check_forced_closure(self):
-        """Called in case of forced closure from Unity app. This function sets to
-                None the app_controller and changes other attributes needed by the application"""
+        """Called in case of forced closure from Unity app. It closes correctly the
+        app controller"""
         if self.app_controller is not None:
             self.close_app(force=True)
 
