@@ -83,7 +83,7 @@ class App(resources.AppSkeleton):
 
         if not os.path.exists(app_settings.path_to_exe):
             raise exceptions.IncorrectSettingsConfig(
-                "Incorrect path of Unity file: " + app_settings.path_to_exe)
+                f"Incorrect path of Unity file: {app_settings.path_to_exe}")
 
     def get_lsl_worker(self):
         """Returns the LSL worker"""
@@ -251,7 +251,7 @@ class App(resources.AppSkeleton):
         elif event["event_type"] == 'close':
             self.close_app()
 
-    def forced_closure(self):
+    def check_forced_closure(self):
         """Called in case of forced closure from Unity app. This function sets to
                 None the app_controller and changes other attributes needed by the application"""
         if self.app_controller is not None:
