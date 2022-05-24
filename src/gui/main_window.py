@@ -336,6 +336,9 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         self.toolButton_lsl_config.setIcon(lsl_config_icon)
         self.toolButton_analyzer.setIcon(plots_icon)
         self.toolButton_profile.setIcon(profile_icon)
+        self.toolButton_lsl_config.setToolTip('Configure LSL streams')
+        self.toolButton_analyzer.setToolTip('MEDUSA Analyzer')
+        self.toolButton_profile.setToolTip('User profile')
 
     @exceptions.error_handler(scope='general')
     def set_up_tool_bar_main(self):

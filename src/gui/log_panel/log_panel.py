@@ -68,9 +68,13 @@ class LogPanelWidget(QWidget, ui_plots_panel_widget):
 
             # Set icons in buttons
             self.toolButton_log_save.setIcon(log_save_icon)
+            self.toolButton_log_save.setToolTip('Save to file')
             self.toolButton_log_clean.setIcon(log_config_clean)
+            self.toolButton_log_clean.setToolTip('Clear log')
             self.toolButton_log_config.setIcon(log_config_icon)
+            self.toolButton_log_config.setToolTip('Log settings')
             self.toolButton_log_undock.setIcon(log_undock_icon)
+            self.toolButton_log_undock.setToolTip('Undock')
         except Exception as e:
             self.handle_exception(e)
 

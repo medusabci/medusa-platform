@@ -82,6 +82,9 @@ class PlotsPanelWidget(QWidget, ui_plots_panel_widget):
         self.toolButton_plot_start.setIcon(plot_start_icon)
         self.toolButton_plot_config.setIcon(plot_config_icon)
         self.toolButton_plot_undock.setIcon(plot_undock_icon)
+        self.toolButton_plot_start.setToolTip('Start plotting')
+        self.toolButton_plot_config.setToolTip('Configure plots')
+        self.toolButton_plot_undock.setToolTip('Undock')
 
     def set_up_tool_bar_plot(self):
         """ This method creates the QAction buttons displayed in the toolbar

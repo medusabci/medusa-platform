@@ -156,9 +156,12 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
         self.toolButton_app_search.setIcon(search_icon)
         self.toolButton_app_install.setIcon(install_icon)
 
-        self.toolButton_app_power.setToolTip('Start app run')
-        self.toolButton_app_config.setToolTip('Config app run')
-        self.toolButton_app_install.setToolTip('Install new app')
+        self.toolButton_app_search.setToolTip('Search apps')
+        self.toolButton_app_play.setToolTip('Play')
+        self.toolButton_app_stop.setToolTip('Stop')
+        self.toolButton_app_power.setToolTip('Start selected app')
+        self.toolButton_app_config.setToolTip('Configure selected app')
+        self.toolButton_app_install.setToolTip('Install a new app')
 
         # Set button states
         self.toolButton_app_power.setDisabled(False)
@@ -227,10 +230,10 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
                 gu.get_icon("power.svg", theme=self.theme, enabled=False))
             self.toolButton_app_play.setDisabled(False)
             self.toolButton_app_play.setIcon(
-                gu.get_icon("play.svg", theme=self.theme, enabled=False))
+                gu.get_icon("play.svg", theme=self.theme, enabled=True))
             self.toolButton_app_stop.setDisabled(False)
             self.toolButton_app_stop.setIcon(
-                gu.get_icon("stop.svg", theme=self.theme, enabled=False))
+                gu.get_icon("stop.svg", theme=self.theme, enabled=True))
             self.run_state.value = constants.RUN_STATE_READY
             self.current_app_key = current_app_key
 

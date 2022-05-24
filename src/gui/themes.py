@@ -17,7 +17,8 @@ themes = {
         'THEME_GREEN': '#00a05f',
         'THEME_SIGNAL_OFFSET': '#bbbbbb',
         'THEME_SIGNAL_CURVE': '#64FFDA',
-        'THEME_ICON_COLOR': '#DFFF00',
+        'THEME_ICON_COLOR_START': '#d6fb2a',
+        'THEME_ICON_COLOR_END': '#e4ff00',
         'THEME_ICON_COLOR_DISABLED': '#686868'
     },
     'light': {
@@ -38,7 +39,8 @@ themes = {
         'THEME_GREEN': '#00a05f',
         'THEME_SIGNAL_OFFSET': '#bbbbbb',
         'THEME_SIGNAL_CURVE': '#64FFDA',
-        'THEME_ICON_COLOR': '#f6412d',
+        'THEME_ICON_COLOR_START': '#06beb6',
+        'THEME_ICON_COLOR_END': '#48b1bf',
         'THEME_ICON_COLOR_DISABLED': '#686868'
     }
 }
