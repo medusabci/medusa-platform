@@ -2,6 +2,7 @@
 import os, sys, time
 import multiprocessing as mp
 import json, traceback
+import ctypes
 
 # EXTERNAL MODULES
 from PyQt5 import uic
@@ -35,8 +36,13 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
     def __init__(self):
         QMainWindow.__init__(self)
         self.setupUi(self)
-        # todo: get theme
-        self.theme = 'dark'
+
+        # Qt parameters
+        self.setWindowIcon(QIcon('%s/medusa_icon.png' % constants.IMG_FOLDER))
+        self.setWindowTitle('MEDUSA %s [%s]' % (constants.MEDUSA_VERSION,
+                                                constants.MEDUSA_VERSION_NAME))
+        self.setFocusPolicy(Qt.StrongFocus)
+        # self.setWindowFlags(Qt.FramelessWindowHint)
 
         # Initial sizes
         self.default_width = 1600
@@ -45,23 +51,22 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         self.default_splitter_2_ratio = 0.28
         self.reset_sizes()
 
-        # Splash screen
-        # splash_screen = self.set_splash_screen()
-
         # Tell windows that this application is not pythonw.exe so it can
         # have its own icon
-        import ctypes
         medusaid = u'gib.medusa.' + constants.MEDUSA_VERSION
         ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(medusaid)
 
-        # Initialize the application
-        self.theme_colors = gu.get_theme_colors(self.theme)
-        gu.set_css_and_theme(self, self.theme_colors)
-        self.setWindowIcon(QIcon('%s/medusa_icon.png' % constants.IMG_FOLDER))
-        self.setWindowTitle('MEDUSA %s [%s]' % (constants.MEDUSA_VERSION,
-                                                constants.MEDUSA_VERSION_NAME))
-        self.setFocusPolicy(Qt.StrongFocus)
-        # self.setWindowFlags(Qt.FramelessWindowHint)
+        # Splash screen
+        # splash_screen = self.set_splash_screen()
+
+        # Instantiate accounts manager
+        self.accounts_manager = accounts_manager.AccountsManager()
+
+        # Get gui settings of the user
+        self.gui_config = None
+        self.theme = None
+        self.theme_colors = None
+        self.set_theme()
 
         # Menu and toolbar action initializing
         self.set_up_menu_bar_main()
@@ -77,9 +82,6 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         self.medusa_interface_listener = None
         self.set_up_medusa_interface_listener(self.interface_queue)
         self.medusa_interface = resources.MedusaInterface(self.interface_queue)
-
-        # Instantiate accounts manager
-        self.accounts_manager = accounts_manager.AccountsManager()
 
         # Initialize important variables
         self.working_lsl_streams = None
@@ -184,6 +186,23 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         self.statusBar().showMessage(msg)
 
     # ================================ SET UP ================================ #
+    @exceptions.error_handler(scope='general')
+    def set_theme(self):
+        # Load user theme
+        gui_config_file_path = self.accounts_manager.wrap_path(
+            constants.GUI_CONFIG_FILE)
+        if os.path.isfile(gui_config_file_path):
+            with open(gui_config_file_path, 'r') as f:
+                self.gui_config = json.load(f)
+        else:
+            self.gui_config = dict()
+            self.gui_config['theme'] = 'dark'
+
+        # Set theme
+        self.theme = self.gui_config['theme']
+        self.theme_colors = gu.get_theme_colors(self.theme)
+        gu.set_css_and_theme(self, self.theme_colors)
+
     @exceptions.error_handler(scope='general')
     def reset_panels(self):
         # Log panel (set up first in case any exception is raised in other
@@ -305,6 +324,10 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         # Preferences
         # TODO: menuAction_view_integrated, menuAction_view_split,
         #  menuAction_color_dark, menuAction_color_light
+        self.menuAction_color_dark.triggered.connect(
+            self.set_dark_theme)
+        self.menuAction_color_light.triggered.connect(
+            self.set_light_theme)
         # Lab streaming layer
         # TODO: menuAction_lsl_doc, menuAction_lsl_repo, menuAction_lsl_about
         self.menuAction_lsl_settings.triggered.connect(
@@ -317,6 +340,23 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         self.menuAction_help_about.triggered.connect(self.open_help_about)
         # TODO: menuAction_help_support, menuAction_help_bug,
         #  menuAction_help_update, menuAction_help_about
+
+    # ============================== PREFERENCES ============================= #
+    def set_dark_theme(self):
+        self.gui_config['theme'] = 'dark'
+        gui_config_file_path = self.accounts_manager.wrap_path(
+            constants.GUI_CONFIG_FILE)
+        with open(gui_config_file_path, 'w') as f:
+            json.dump(self.gui_config, f)
+        self.set_theme()
+
+    def set_light_theme(self):
+        self.gui_config['theme'] = 'light'
+        gui_config_file_path = self.accounts_manager.wrap_path(
+            constants.GUI_CONFIG_FILE)
+        with open(gui_config_file_path, 'w') as f:
+            json.dump(self.gui_config, f)
+        self.set_theme()
 
     # =============================== TOOL BAR =============================== #
     @exceptions.error_handler(scope='general')
