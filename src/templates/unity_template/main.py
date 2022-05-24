@@ -82,7 +82,7 @@ class App(resources.AppSkeleton):
 
     def check_settings_config(self, app_settings):
         """Check settings config.
-        By default, this function check if unity path exits"""
+        By default, this function check if unity path exits."""
 
         if not os.path.exists(app_settings.path_to_exe):
             raise exceptions.IncorrectSettingsConfig("Incorrect path of Unity file: " + app_settings.path_to_exe)
@@ -212,17 +212,19 @@ class App(resources.AppSkeleton):
         except Exception as ex:
             self.handle_exception(ex)
             self.medusa_interface.error(ex)
-        # 5 - Change app state to powering off
+        # 5 - Check for a forced closure from Unity
+        self.check_forced_closure()
+        # 6 - Change app state to powering off
         self.medusa_interface.app_state_changed(
             mds_constants.APP_STATE_POWERING_OFF)
-        # 6 - Save recording
+        # 7 - Save recording
         qt_app = QApplication([])
         self.save_file_dialog = resources.SaveFileDialog(
             self.app_info['extension'])
         self.save_file_dialog.accepted.connect(self.on_save_rec_accepted)
         self.save_file_dialog.rejected.connect(self.on_save_rec_rejected)
         qt_app.exec()
-        # 7 - Change app state to power off
+        # 8 - Change app state to power off
         self.medusa_interface.app_state_changed(
             mds_constants.APP_STATE_OFF)
 
@@ -250,6 +252,12 @@ class App(resources.AppSkeleton):
                                               "no_samples": no_samples})
         elif event["event_type"] == 'close':
             self.close_app()
+
+    def forced_closure(self):
+        """Called in case of forced closure from Unity app. This function sets to
+                None the app_controller and changes other attributes needed by the application"""
+        if self.app_controller is not None:
+            self.close_app(force=True)
 
     def close_app(self, force=False):
         """ Closes the ``AppController`` and working threads.
