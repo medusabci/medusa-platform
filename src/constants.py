@@ -42,7 +42,8 @@ RUN_STATE_FINISHED: int
 """
 # ============================== MEDUSA VERSION ============================== #
 MEDUSA_VERSION = 'v2022.0'
-
+MEDUSA_VERSION_NAME = 'CHAOS'
+MEDUSA_VERSION_DATE = '18 May, 2022'
 # =============================== DEFAULT PATHS ============================== #
 # Config files
 LSL_CONFIG_FILE = 'lsl_config.json'

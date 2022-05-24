@@ -9,7 +9,7 @@ from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
 from PyQt5.QtGui import *
 # MEDUSA MODULES
-from gui import gui_utils
+from gui import gui_utils as gu
 import constants, exceptions
 
 
@@ -46,23 +46,35 @@ class LogPanelWidget(QWidget, ui_plots_panel_widget):
 
     def reset_tool_bar_log_buttons(self):
         try:
+            # TODO: current theme
+            theme = 'dark'
+
             # Creates QIcons for the app tool bar
-            log_save_icon = QIcon("%s/icons/save_text.png" %
-                                  constants.IMG_FOLDER)
-            log_config_clean = QIcon("%s/icons/rubber.png" %
-                                     constants.IMG_FOLDER)
-            log_config_icon = QIcon("%s/icons/gear.png" %
-                                    constants.IMG_FOLDER)
-            undock_button_image = "dock_enabled_icon.png" if self.undocked else \
-                "undock_enabled_icon.png"
-            log_undock_icon = QIcon("%s/icons/%s" % (constants.IMG_FOLDER,
-                                                     undock_button_image))
+            log_save_icon = gu.get_icon("save_as.svg", theme=theme)
+            log_config_clean = gu.get_icon("delete_sweep.svg", theme=theme)
+            log_config_icon = gu.get_icon("settings.svg", theme=theme)
+            log_undock_icon = gu.get_icon("open_in_new.svg", theme=theme)
+
+            # log_save_icon = QIcon("%s/icons/svg/save_as.svg" %
+            #                       constants.IMG_FOLDER)
+            # log_config_clean = QIcon("%s/icons/rubber.png" %
+            #                          constants.IMG_FOLDER)
+            # log_config_icon = QIcon("%s/icons/gear.png" %
+            #                         constants.IMG_FOLDER)
+            # undock_button_image = "dock_enabled_icon.png" if self.undocked else \
+            #     "undock_enabled_icon.png"
+            # log_undock_icon = QIcon("%s/icons/%s" % (constants.IMG_FOLDER,
+            #                                          undock_button_image))
 
             # Set icons in buttons
             self.toolButton_log_save.setIcon(log_save_icon)
+            self.toolButton_log_save.setToolTip('Save to file')
             self.toolButton_log_clean.setIcon(log_config_clean)
+            self.toolButton_log_clean.setToolTip('Clear log')
             self.toolButton_log_config.setIcon(log_config_icon)
+            self.toolButton_log_config.setToolTip('Log settings')
             self.toolButton_log_undock.setIcon(log_undock_icon)
+            self.toolButton_log_undock.setToolTip('Undock')
         except Exception as e:
             self.handle_exception(e)
 
@@ -151,7 +163,7 @@ class LogPanelWindow(QMainWindow):
         # self.plots_panel_widget = plots_panel_widget
         self.theme_colors = theme_colors
         self.setCentralWidget(log_panel_widget)
-        gui_utils.set_css_and_theme(self, self.theme_colors)
+        gu.set_css_and_theme(self, self.theme_colors)
         # Resize plots window
         self.resize(width, height)
         self.show()

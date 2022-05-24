@@ -10,7 +10,7 @@ from PyQt5.QtGui import *
 from gui.plots_panel import plots_panel_config, real_time_plots
 import constants, exceptions
 from acquisition import lsl_utils
-from gui import gui_utils
+from gui import gui_utils as gu
 
 
 ui_plots_panel_widget = \
@@ -23,6 +23,10 @@ class PlotsPanelWidget(QWidget, ui_plots_panel_widget):
                  plots_config_file_path, theme_colors):
         super().__init__()
         self.setupUi(self)
+
+        # TODO: Get current theme
+        self.theme = 'dark'
+
         # Attributes
         self.working_lsl_streams = working_lsl_streams
         self.plot_state = plot_state
@@ -45,6 +49,8 @@ class PlotsPanelWidget(QWidget, ui_plots_panel_widget):
                       'The plots config could not be loaded'
                 self.medusa_interface.log(msg)
 
+
+
     def handle_exception(self, ex):
         # Treat exception
         if not isinstance(ex, exceptions.MedusaException):
@@ -60,17 +66,25 @@ class PlotsPanelWidget(QWidget, ui_plots_panel_widget):
         self.reset_tool_bar_plot_buttons()
 
     def reset_tool_bar_plot_buttons(self):
-        plot_start_icon = QIcon("%s/icons/plot_icon.png" % constants.IMG_FOLDER)
-        plot_config_icon = QIcon("%s/icons/gear.png" % constants.IMG_FOLDER)
-        undock_button_image = "dock_enabled_icon.png" if self.undocked else \
-            "undock_enabled_icon.png"
-        plot_undock_icon = QIcon("%s/icons/%s" %
-                                 (constants.IMG_FOLDER, undock_button_image))
+        # Creates QIcons for the app tool bar
+        plot_start_icon = gu.get_icon("visibility.svg", theme=self.theme)
+        plot_config_icon = gu.get_icon("settings.svg", theme=self.theme)
+        plot_undock_icon = gu.get_icon("open_in_new.svg", theme=self.theme)
+
+        # plot_start_icon = QIcon("%s/icons/plot_icon.png" % constants.IMG_FOLDER)
+        # plot_config_icon = QIcon("%s/icons/gear.png" % constants.IMG_FOLDER)
+        # undock_button_image = "dock_enabled_icon.png" if self.undocked else \
+        #     "undock_enabled_icon.png"
+        # plot_undock_icon = QIcon("%s/icons/%s" %
+        #                          (constants.IMG_FOLDER, undock_button_image))
 
         # Set icons in buttons
         self.toolButton_plot_start.setIcon(plot_start_icon)
         self.toolButton_plot_config.setIcon(plot_config_icon)
         self.toolButton_plot_undock.setIcon(plot_undock_icon)
+        self.toolButton_plot_start.setToolTip('Start plotting')
+        self.toolButton_plot_config.setToolTip('Configure plots')
+        self.toolButton_plot_undock.setToolTip('Undock')
 
     def set_up_tool_bar_plot(self):
         """ This method creates the QAction buttons displayed in the toolbar
@@ -234,19 +248,23 @@ class PlotsPanelWidget(QWidget, ui_plots_panel_widget):
                 if n_ready_plots == 0:
                     return
                 # Update gui
-                undock_button_image = "dock_disabled_icon.png" \
-                    if self.undocked else "undock_disabled_icon.png"
-                plot_undock_icon = QIcon(
-                    "%s/icons/%s" %
-                    (constants.IMG_FOLDER, undock_button_image))
+                # undock_button_image = "dock_disabled_icon.png" \
+                #     if self.undocked else "undock_disabled_icon.png"
+                # plot_undock_icon = QIcon(
+                #     "%s/icons/%s" %
+                #     (constants.IMG_FOLDER, undock_button_image))
+                icon_dock = "open_in_new.svg" if self.undocked else "close.svg"
+                plot_undock_icon = gu.get_icon(icon_dock, theme=self.theme)
                 self.toolButton_plot_undock.setIcon(
                     plot_undock_icon)
                 self.toolButton_plot_undock.setDisabled(True)
                 self.toolButton_plot_config.setIcon(
-                    QIcon("%s/icons/gear_disabled.png" % constants.IMG_FOLDER))
+                    gu.get_icon("settings.svg", theme=self.theme, enabled=False)
+                )
                 self.toolButton_plot_config.setDisabled(True)
                 self.toolButton_plot_start.setIcon(
-                    QIcon("%s/icons/notplot_icon.png" % constants.IMG_FOLDER))
+                    gu.get_icon("visibility_off.svg", theme=self.theme)
+                )
             else:
                 if self.plot_state.value == constants.PLOT_STATE_ON:
                     # The change of state will notify the action directly
@@ -254,19 +272,21 @@ class PlotsPanelWidget(QWidget, ui_plots_panel_widget):
                     self.plot_state.value = constants.PLOT_STATE_OFF
                     self.reset_plots()
                     # Update gui
-                    undock_button_image = "dock_enabled_icon.png" \
-                        if self.undocked else "undock_enabled_icon.png"
-                    plot_undock_icon = QIcon("%s/icons/%s" %
-                                             (constants.IMG_FOLDER,
-                                              undock_button_image))
+                    # undock_button_image = "dock_enabled_icon.png" \
+                    #     if self.undocked else "undock_enabled_icon.png"
+                    # plot_undock_icon = QIcon("%s/icons/%s" %
+                    #                          (constants.IMG_FOLDER,
+                    #                           undock_button_image))
+                    icon_dock = "open_in_new.svg" if self.undocked else "close.svg"
+                    plot_undock_icon = gu.get_icon(icon_dock, theme=self.theme)
                     self.toolButton_plot_undock.setIcon(
                         plot_undock_icon)
                     self.toolButton_plot_undock.setDisabled(False)
                     self.toolButton_plot_config.setIcon(
-                        QIcon("%s/icons/gear.png" % constants.IMG_FOLDER))
+                        gu.get_icon("settings.svg", theme=self.theme))
                     self.toolButton_plot_config.setDisabled(False)
                     self.toolButton_plot_start.setIcon(
-                        QIcon("%s/icons/plot_icon.png" % constants.IMG_FOLDER))
+                        gu.get_icon("visibility.svg", theme=self.theme))
         except Exception as e:
             self.handle_exception(e)
 
@@ -286,7 +306,7 @@ class PlotsPanelWindow(QMainWindow):
         # self.plots_panel_widget = plots_panel_widget
         self.theme_colors = theme_colors
         self.setCentralWidget(plots_panel_widget)
-        gui_utils.set_css_and_theme(self, self.theme_colors)
+        gu.set_css_and_theme(self, self.theme_colors)
         # Resize plots window
         self.resize(width, height)
         self.show()

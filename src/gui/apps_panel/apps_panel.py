@@ -12,7 +12,7 @@ from PyQt5.QtCore import *
 from PyQt5.QtGui import *
 # MEDUSA MODULES
 import resources
-from gui import gui_utils
+from gui import gui_utils as gu
 from gui.qt_widgets import dialogs
 import constants, exceptions
 
@@ -30,6 +30,8 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
         super().__init__()
         self.is_loaded = False
         self.setupUi(self)
+        # todo: theme
+        self.theme = 'dark'
         self.set_up_tool_bar_app()
         # Attributes
         self.apps_manager = apps_manager
@@ -129,15 +131,22 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
 
     def reset_tool_bar_app_buttons(self):
         # Creates QIcons for the app tool bar
-        power_icon = QIcon("%s/icons/power_enabled_icon.png" %
-                           constants.IMG_FOLDER)
-        play_icon = QIcon("%s/icons/play_disabled_icon.png" %
-                          constants.IMG_FOLDER)
-        stop_icon = QIcon("%s/icons/stop_disabled_icon.png" %
-                          constants.IMG_FOLDER)
-        config_icon = QIcon("%s/icons/gear.png" % constants.IMG_FOLDER)
-        search_icon = QIcon("%s/icons/search.png" % constants.IMG_FOLDER)
-        install_icon = QIcon("%s/icons/plus.png" % constants.IMG_FOLDER)
+        power_icon = gu.get_icon("power.svg", theme=self.theme)
+        play_icon = gu.get_icon("play.svg", theme=self.theme)
+        stop_icon = gu.get_icon("stop.svg", theme=self.theme)
+        config_icon = gu.get_icon("settings.svg", theme=self.theme)
+        search_icon = gu.get_icon("search.svg", theme=self.theme)
+        install_icon = gu.get_icon("add.svg", theme=self.theme)
+
+        # power_icon = QIcon("%s/icons/power_enabled_icon.png" %
+        #                    constants.IMG_FOLDER)
+        # play_icon = QIcon("%s/icons/play_disabled_icon.png" %
+        #                   constants.IMG_FOLDER)
+        # stop_icon = QIcon("%s/icons/stop_disabled_icon.png" %
+        #                   constants.IMG_FOLDER)
+        # config_icon = QIcon("%s/icons/gear.png" % constants.IMG_FOLDER)
+        # search_icon = QIcon("%s/icons/search.png" % constants.IMG_FOLDER)
+        # install_icon = QIcon("%s/icons/plus.png" % constants.IMG_FOLDER)
 
         # Set icons in buttons
         self.toolButton_app_power.setIcon(power_icon)
@@ -147,9 +156,12 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
         self.toolButton_app_search.setIcon(search_icon)
         self.toolButton_app_install.setIcon(install_icon)
 
-        self.toolButton_app_power.setToolTip('Start app run')
-        self.toolButton_app_config.setToolTip('Config app run')
-        self.toolButton_app_install.setToolTip('Install new app')
+        self.toolButton_app_search.setToolTip('Search apps')
+        self.toolButton_app_play.setToolTip('Play')
+        self.toolButton_app_stop.setToolTip('Stop')
+        self.toolButton_app_power.setToolTip('Start selected app')
+        self.toolButton_app_config.setToolTip('Configure selected app')
+        self.toolButton_app_install.setToolTip('Install a new app')
 
         # Set button states
         self.toolButton_app_power.setDisabled(False)
@@ -215,16 +227,13 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
             # Enabling, disabling and changing the buttons in the toolbar
             self.toolButton_app_power.setDisabled(True)
             self.toolButton_app_power.setIcon(
-                QIcon("%s/icons/power_disabled_icon.png" %
-                      constants.IMG_FOLDER))
+                gu.get_icon("power.svg", theme=self.theme, enabled=False))
             self.toolButton_app_play.setDisabled(False)
             self.toolButton_app_play.setIcon(
-                QIcon("%s/icons/play_enabled_icon.png" %
-                      constants.IMG_FOLDER))
+                gu.get_icon("play.svg", theme=self.theme, enabled=True))
             self.toolButton_app_stop.setDisabled(False)
             self.toolButton_app_stop.setIcon(
-                QIcon("%s/icons/stop_enabled_icon.png" %
-                      constants.IMG_FOLDER))
+                gu.get_icon("stop.svg", theme=self.theme, enabled=True))
             self.run_state.value = constants.RUN_STATE_READY
             self.current_app_key = current_app_key
 
@@ -236,20 +245,19 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
             if self.run_state.value is constants.RUN_STATE_READY:
                 self.run_state.value = constants.RUN_STATE_RUNNING
                 self.toolButton_app_play.setIcon(
-                    QIcon("%s/icons/pause_icon.png" % constants.IMG_FOLDER))
+                    gu.get_icon("pause.svg", theme=self.theme, enabled=True))
                 # Feedback
                 self.medusa_interface.log("Run started")
             elif self.run_state.value is constants.RUN_STATE_RUNNING:
                 self.run_state.value = constants.RUN_STATE_PAUSED
                 self.toolButton_app_play.setIcon(
-                    QIcon("%s/icons/play_enabled_icon.png" %
-                          constants.IMG_FOLDER))
+                    gu.get_icon("play.svg", theme=self.theme, enabled=True))
                 # Feedback
                 self.medusa_interface.log("Run paused")
             elif self.run_state.value is constants.RUN_STATE_PAUSED:
                 self.run_state.value = constants.RUN_STATE_RUNNING
                 self.toolButton_app_play.setIcon(
-                    QIcon("%s/icons/pause_icon.png" % constants.IMG_FOLDER))
+                    gu.get_icon("pause.svg", theme=self.theme, enabled=True))
                 # Feedback
                 self.medusa_interface.log("Run resumed")
 
@@ -264,16 +272,13 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
             # Enabling, disabling and changing the buttons in the toolbar
             self.toolButton_app_power.setDisabled(False)
             self.toolButton_app_power.setIcon(
-                QIcon("%s/icons/power_enabled_icon.png" %
-                      constants.IMG_FOLDER))
+                gu.get_icon("power.svg", theme=self.theme, enabled=True))
             self.toolButton_app_play.setDisabled(True)
             self.toolButton_app_play.setIcon(
-                QIcon("%s/icons/play_disabled_icon.png" %
-                      constants.IMG_FOLDER))
+                gu.get_icon("play.svg", theme=self.theme, enabled=False))
             self.toolButton_app_stop.setDisabled(True)
             self.toolButton_app_stop.setIcon(
-                QIcon("%s/icons/stop_disabled_icon.png" %
-                      constants.IMG_FOLDER))
+                gu.get_icon("stop.svg", theme=self.theme, enabled=False))
 
     @exceptions.error_handler(scope='general')
     def app_config(self, checked):
@@ -428,11 +433,11 @@ class AppsPanelGridWidget(QWidget):
     def on_app_selected(self, app_key):
         for item in self.items:
             if item.app_key == app_key:
-                gui_utils.modify_property(
+                gu.modify_property(
                     item, "background-color",
                     self.theme_colors['THEME_MENU_SELECTED'])
             else:
-                gui_utils.modify_property(
+                gu.modify_property(
                     item, "background-color",
                     self.theme_colors['THEME_BG_DARK'])
         self.selected_app_key = app_key
@@ -534,7 +539,7 @@ class AppWidget(QFrame):
             QSpacerItem(0, 0, QSizePolicy.Ignored, QSizePolicy.Expanding))
         self.setProperty("class", "app-widget")
         # self.setCursor(QCursor(Qt.PointingHandCursor))
-        # gui_utils.modify_property(self, "background-color", '#00a05f')
+        # gu.modify_property(self, "background-color", '#00a05f')
         self.setLayout(self.main_layout)
 
     class AppMenu(QMenu):

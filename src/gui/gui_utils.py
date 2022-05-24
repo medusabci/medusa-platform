@@ -1,5 +1,5 @@
 # Built-in modules
-import os, pathlib
+import os, pathlib, re
 # External imports
 from PIL import Image, ImageQt
 from PyQt5.QtGui import *
@@ -8,7 +8,6 @@ import numpy as np
 # Medusa imports
 import constants
 from gui.themes import themes
-
 
 # ------------------------------- QT UTILS ----------------------------------- #
 def select_entry_combobox(combobox, entry_text, force_selection=False,
@@ -331,3 +330,57 @@ def get_theme_colors(theme='dark'):
     """
     theme_colors = themes[theme]
     return theme_colors
+
+
+def get_icon(icon_name, theme='dark', enabled=True):
+    # Does it exist?
+    rel_path = "%s/icons/svg/%s" % (constants.IMG_FOLDER, icon_name)
+    if not os.path.isfile(rel_path):
+        print('[get_icon()] Icon %s not found!' % rel_path)
+        return None
+
+    # Get the icon colors (gradient)
+    theme_colors = get_theme_colors(theme)
+    if enabled:
+        color_start = theme_colors['THEME_ICON_COLOR_START']
+        color_end = theme_colors['THEME_ICON_COLOR_END']
+    else:
+        color_start = theme_colors['THEME_ICON_COLOR_DISABLED']
+        color_end = theme_colors['THEME_ICON_COLOR_DISABLED']
+
+    # Read the SVG data
+    fin = open(rel_path, "rt")
+    data = fin.read()
+    fin.close()
+
+    # Detect if gradient is there
+    gradient = '<linearGradient id="grad1" x1="0%%" y1="100%%" x2="100%%" ' \
+               'y2="0%%"> <stop offset="0%%" ' \
+               'style="stop-color:%s;stop-opacity:1"/> <stop ' \
+               'offset="100%%" style="stop-color:%s;stop-opacity:1" />' \
+               '</linearGradient>' % (color_start, color_end)
+    if '"grad1"' not in data:
+        # Not there, so create it
+        idx = data.find('<path')
+        data = data[:idx] + ('<defs>%s</defs>' % gradient) + data[idx:]
+    else:
+        # It's there, so we need to update it
+        for match in re.findall('<defs>(.*?)</defs>', data):
+            data = data.replace('<defs>%s</defs>' % match, '<defs>%s</defs>'
+                                % gradient)
+
+    # Modify the SVG data to insert the gradient
+    fill_str = 'url(#grad1)'
+    if data.count('fill=') > 0:
+        for match in re.findall('fill="(.*?)\"', data):
+            data = data.replace('fill="%s"' % match, 'fill="%s"' % fill_str)
+    else:
+        data = data.replace('<path ', '<path fill="%s" ' % fill_str)
+
+    # Write it in the file
+    fin = open(rel_path, "wt")
+    fin.write(data)
+    fin.close()
+
+    # Return the icon
+    return QIcon(rel_path)

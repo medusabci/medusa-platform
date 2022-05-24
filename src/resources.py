@@ -55,9 +55,9 @@ class AppSkeleton(mp.Process):
         super().__init__(name=app_process_name)
         # -------------------------- CHECK ERRORS ---------------------------- #
         # ---------------------------- SETTINGS ------------------------------ #
+        self.check_settings_config(app_settings)
         self.app_info = app_info
         self.app_settings = app_settings
-        self.check_settings_config(self.app_settings)
         # --------------------- COMMUNICATION GUI-MANAGER -------------------- #
         # Interface
         self.medusa_interface = medusa_interface
@@ -68,8 +68,7 @@ class AppSkeleton(mp.Process):
         self.app_state = app_state
         # --------------------------- LSL-STREAMS ---------------------------- #
         # Data receiver
-        if not self.check_lsl_config(working_lsl_streams_info):
-            raise exceptions.IncorrectLSLConfig()
+        self.check_lsl_config(working_lsl_streams_info)
         self.lsl_streams_info = working_lsl_streams_info
         self.lsl_workers = dict()
         # ----------------------------- MANAGER ------------------------------ #
@@ -508,8 +507,12 @@ class SaveFileDialog(dialogs.MedusaDialog):
                          theme_colors=theme_colors, pos_x=300, pos_y=300,
                          width=400, heigh=200)
         # Paths
-        folder = os.path.abspath(
-            os.path.abspath(os.curdir) + '../../data/')
+        folder = os.path.abspath(os.getcwd() + '/../data/')
+        if not os.path.exists(folder):
+            # Create a new directory because it does not exist
+            os.makedirs(folder)
+            print('Created directory %s!' % folder)
+
         name = '%s.%s.bson' % \
                (time.strftime("%d-%m-%Y_%H%M%S", time.localtime()), app_ext)
         default_path = os.path.join(folder, name)

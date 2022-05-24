@@ -64,6 +64,12 @@
    <property name="windowTitle">
     <string>toolBar</string>
    </property>
+   <property name="iconSize">
+    <size>
+     <width>26</width>
+     <height>26</height>
+    </size>
+   </property>
    <property name="floatable">
     <bool>true</bool>
    </property>
@@ -98,7 +104,7 @@
      <property name="title">
       <string>View</string>
      </property>
-     <addaction name="menuAction_view_intergated"/>
+     <addaction name="menuAction_view_integrated"/>
      <addaction name="menuAction_view_split"/>
     </widget>
     <widget class="QMenu" name="menu_color_theme">
@@ -241,9 +247,9 @@
     <string>Settings</string>
    </property>
   </action>
-  <action name="menuAction_view_intergated">
+  <action name="menuAction_view_integrated">
    <property name="text">
-    <string>Intergated</string>
+    <string>Integrated</string>
    </property>
   </action>
   <action name="menuAction_view_split">
