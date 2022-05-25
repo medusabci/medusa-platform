@@ -323,7 +323,6 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
     def set_up_menu_bar_main(self):
         # Preferences
         # TODO: menuAction_view_integrated, menuAction_view_split,
-        #  menuAction_color_dark, menuAction_color_light
         self.menuAction_color_dark.triggered.connect(
             self.set_dark_theme)
         self.menuAction_color_light.triggered.connect(
