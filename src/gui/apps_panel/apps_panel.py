@@ -182,7 +182,7 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
         self.toolButton_app_install.clicked.connect(self.install_app)
 
     @exceptions.error_handler(scope='general')
-    def app_power(self, checked):
+    def app_power(self, checked=None):
         """ This function starts the paradigm. Once the paradigm is powered, it
         can only be stopped with stop button
         """
@@ -238,7 +238,7 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
             self.current_app_key = current_app_key
 
     @exceptions.error_handler(scope='general')
-    def app_play(self, checked):
+    def app_play(self, checked=None):
         """ Starts a run with specified settings. The run will be recorded"""
         if self.app_state.value is constants.APP_STATE_ON and \
                 self.run_state.value is not constants.RUN_STATE_FINISHED:
@@ -262,7 +262,7 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
                 self.medusa_interface.log("Run resumed")
 
     @exceptions.error_handler(scope='general')
-    def app_stop(self, checked):
+    def app_stop(self, checked=None):
         """ Stops the run"""
         if self.app_state.value is constants.APP_STATE_ON:
             # Change state
@@ -281,7 +281,7 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
                 gu.get_icon("stop.svg", theme=self.theme, enabled=False))
 
     @exceptions.error_handler(scope='general')
-    def app_config(self, checked):
+    def app_config(self, checked=None):
         """ Launches the config UI for the selected run """
         # Check app selected
         current_app_key = self.apps_panel_grid_widget.get_selected_app()
@@ -315,12 +315,12 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
             self.app_settings = settings
 
     @exceptions.error_handler(scope='general')
-    def app_search(self):
+    def app_search(self, checked=None):
         curr_text = self.lineEdit_app_search.text()
         self.apps_panel_grid_widget.find_app(curr_text)
 
     @exceptions.error_handler(scope='general')
-    def install_app(self, checked):
+    def install_app(self, checked=None):
         # Get app file
         filt = "MEDUSA app (*.app)"
         directory = "../"

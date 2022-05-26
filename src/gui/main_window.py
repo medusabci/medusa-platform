@@ -42,6 +42,7 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         self.setWindowTitle('MEDUSA %s [%s]' % (constants.MEDUSA_VERSION,
                                                 constants.MEDUSA_VERSION_NAME))
         self.setFocusPolicy(Qt.StrongFocus)
+        self.setAttribute(Qt.WA_DeleteOnClose)
         # self.setWindowFlags(Qt.FramelessWindowHint)
 
         # Initial sizes
@@ -451,7 +452,7 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
 
     # ======================== LAB-STREAMING LAYER =========================== #
     @exceptions.error_handler(scope='general')
-    def open_lsl_config_window(self, checked):
+    def open_lsl_config_window(self, checked=None):
         self.lsl_config_window = \
             lsl_config.LSLConfig(
                 self.working_lsl_streams,
@@ -480,7 +481,7 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
 
     # ========================= DEVELOPER TOOLS ============================== #
     @exceptions.error_handler(scope='general')
-    def create_app_config_window(self, checked):
+    def create_app_config_window(self, checked=None):
         self.create_app_window = \
             create_app.CreateAppDialog(self.apps_manager,
                                        theme_colors=self.theme_colors)
@@ -492,13 +493,13 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
 
     # ========================= HELP ============================== #
     @exceptions.error_handler(scope='general')
-    def open_help_about(self, checked):
+    def open_help_about(self, checked=None):
         dialog = AboutDialog(alias=self.accounts_manager.current_session.user_info['alias'])
         dialog.exec_()
 
     # ======================= PLOTS PANEL FUNCTIONS ========================== #
     @exceptions.error_handler(scope='general')
-    def undock_plots_panel(self):
+    def undock_plots_panel(self, checked=None):
         if not self.plots_panel_widget.undocked:
             # Get current dimensions
             window_height = self.height()
@@ -520,7 +521,7 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
             self.plots_panel_window.close()
 
     @exceptions.error_handler(scope='general')
-    def dock_plots_panel(self, checked):
+    def dock_plots_panel(self, checked=None):
         # Get current dimensions
         window_height = self.height()
         window_width = self.width()
@@ -540,7 +541,7 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
 
     # ======================== LOG PANEL FUNCTIONS =========================== #
     @exceptions.error_handler(scope='general')
-    def undock_log_panel(self, checked):
+    def undock_log_panel(self, checked=None):
         if not self.log_panel_widget.undocked:
             # Get current dimensions
             window_height = self.height()
@@ -559,7 +560,7 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
             self.log_panel_window.close()
 
     @exceptions.error_handler(scope='general')
-    def dock_log_panel(self, checked):
+    def dock_log_panel(self, checked=None):
         # Get current dimensions
         window_height = self.height()
         # Update state
