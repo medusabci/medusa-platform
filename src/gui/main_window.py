@@ -911,6 +911,7 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
 
 
 class AboutDialog(QDialog, gui_about):
+
     def __init__(self, parent=None, alias=''):
         QDialog.__init__(self, parent)
         self.setWindowFlags(
