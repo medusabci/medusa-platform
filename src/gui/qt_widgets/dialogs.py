@@ -41,20 +41,22 @@ class MedusaDialog(QDialog):
         return layout
 
 
-def confirmation_dialog(message, title, theme_colors=None):
+def confirmation_dialog(text, title, informative_text=None, theme_colors=None):
     """ Shows a confirmation dialog with 2 buttons that displays the input
     message.
 
-    :param message: string
+    :param text: string
         Message to display
     :param title: string
         Window title
     """
     msg = QMessageBox()
     msg.setIcon(QMessageBox.Information)
-    msg.setText(message)
+    msg.setText(text)
+    if informative_text is not None:
+        msg.setInformativeText(informative_text)
     msg.setWindowTitle(title)
-    msg.setStandardButtons(QMessageBox.Yes|QMessageBox.No)
+    msg.setStandardButtons(QMessageBox.Yes| QMessageBox.No)
     msg.setWindowIcon(QIcon(os.getcwd() + '/gui/images/medusa_icon.png'))
     msg.setWindowFlags(msg.windowFlags() | Qt.WindowStaysOnTopHint)
     theme_colors = gui_utils.get_theme_colors('dark') if \

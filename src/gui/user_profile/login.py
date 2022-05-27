@@ -96,7 +96,7 @@ class LoginDialog(QtWidgets.QDialog, ui_main_dialog):
     def closeEvent(self, event):
         if self.user_session is None:
             resp = dialogs.confirmation_dialog(
-                message='Login is required. If you close this window, '
+                text='Login is required. If you close this window, '
                         'MEDUSA will exit. Do you want to continue?',
                 title='Login required',
                 theme_colors=self.theme_colors

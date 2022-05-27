@@ -610,8 +610,8 @@ class SaveFileDialog(dialogs.MedusaDialog):
             self.file_path_lineEdit.setText(os.path.basename(path))
 
 
-class BasicConfigWindow(dialogs.MedusaDialog):
-    """ This class provides graphical configuration for an app
+class BasicConfigWindow(QDialog):
+    """ This class provides a basic graphical configuration for an app
     """
 
     close_signal = pyqtSignal(object)
@@ -627,8 +627,14 @@ class BasicConfigWindow(dialogs.MedusaDialog):
             Instance of class Settings defined in settings.py in the app
             directory
         """
-        super().__init__('Default configuration window',
-                         theme_colors=theme_colors, heigh=400)
+        super().__init__()
+
+        # Set style
+        self.theme_colors = theme_colors
+        self.stl = gui_utils.set_css_and_theme(self, self.theme_colors)
+        self.setWindowIcon(QIcon('gui/images/medusa_icon.png'))
+        self.setWindowTitle('Default configuration window')
+        # self.setGeometry(390, 300, 400, 400)
 
         # Attributes
         self.medusa_interface = medusa_interface
@@ -636,6 +642,10 @@ class BasicConfigWindow(dialogs.MedusaDialog):
         self.original_settings = sett
         self.settings = sett
         self.changes_made = False
+
+        # Set layout
+        layout = self.create_layout()
+        self.setLayout(layout)
 
         # Set text
         self.text_edit.setText(
@@ -714,26 +724,22 @@ class BasicConfigWindow(dialogs.MedusaDialog):
 
         Returns
         -------
-        output value: QtWidgets.QMessageBox.No or QtWidgets.QMessageBox.Yes
-            If the user do not want to close the window, and
-            QtWidgets.QMessageBox.Yes otherwise.
+        output value: boolean
+            False the user do not want to close the window, and True otherwise.
         """
-        msg = QMessageBox()
-        msg.setIcon(QMessageBox.Warning)
-        msg.setWindowIcon(QIcon(os.path.join(
-            os.path.dirname(__file__), '../gui/images/medusa_favicon.png')))
-        msg.setText("Do you want to leave this window?")
-        msg.setInformativeText("Non-saved changes will be discarded.")
-        msg.setWindowTitle("Row-Col Paradigm")
-        msg.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
-        return msg.exec_()
+        res = dialogs.confirmation_dialog(
+            text='Do you want to leave this window?',
+            title='Row-Col Paradigm',
+            informative_text='Non-saved changes will be discarded.'
+        )
+        return res
 
     def closeEvent(self, event):
         """ Overrides the closeEvent in order to show the confirmation dialog.
         """
         if self.changes_made:
             retval = self.close_dialog()
-            if retval == QMessageBox.Yes:
+            if retval:
                 self.close_signal.emit(None)
                 event.accept()
             else:

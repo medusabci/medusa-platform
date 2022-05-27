@@ -189,7 +189,7 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
         # Check LSL streams
         if len(self.working_lsl_streams) == 0:
             resp = dialogs.confirmation_dialog(
-                message='No LSL streams available. Do you want to continue?',
+                text='No LSL streams available. Do you want to continue?',
                 title='No LSL streams',
                 theme_colors=self.theme_colors
             )
@@ -301,7 +301,8 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
         self.app_config_window = conf_window(
             self.app_settings,
             medusa_interface=self.medusa_interface,
-            working_lsl_streams_info=self.working_lsl_streams
+            working_lsl_streams_info=self.working_lsl_streams,
+            theme_colors=self.theme_colors
         )
         self.app_config_window.close_signal.connect(
             self.on_config_window_close_event)
