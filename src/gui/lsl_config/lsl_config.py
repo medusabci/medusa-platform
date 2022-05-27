@@ -37,12 +37,11 @@ class LSLConfig(QtWidgets.QDialog, ui_main_dialog):
             self.setupUi(self)
             self.notifications = NotificationStack(parent=self)
             self.resize(600, 400)
-            # todo: theme
-            self.theme = 'dark'
             # Initialize the gui application
             self.dir = os.path.dirname(__file__)
-            self.theme_colors = gu.get_theme_colors('dark') if \
-                theme_colors is None else theme_colors
+            # TODO: Fix theme
+            self.theme = 'dark'
+            self.theme_colors = theme_colors
             self.stl = gu.set_css_and_theme(self, self.theme_colors)
             self.setWindowIcon(QtGui.QIcon('%s/medusa_favicon.png' %
                                constants.IMG_FOLDER))
@@ -136,17 +135,15 @@ class LSLConfig(QtWidgets.QDialog, ui_main_dialog):
             self.tableWidget_available_streams.setRowCount(0)
             # Search streams
             streams = lsl_utils.get_lsl_streams()
-            # No streams
-            if not first_search and len(streams) == 0:
-                dialogs.warning_dialog(
-                    "LSL search", "No LSL streams could be found.")
-                return
             # There are streams available
             self.available_streams = []
             for s, lsl_stream in enumerate(streams):
                 lsl_stream_wrapper = lsl_utils.LSLStreamWrapper(lsl_stream)
                 self.insert_available_stream_in_table(lsl_stream_wrapper)
                 self.available_streams.append(lsl_stream_wrapper)
+        except exceptions.LSLStreamNotFound as e:
+            if not first_search:
+                self.handle_exception(e)
         except Exception as e:
             self.handle_exception(e)
 

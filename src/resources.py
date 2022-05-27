@@ -610,7 +610,7 @@ class SaveFileDialog(dialogs.MedusaDialog):
             self.file_path_lineEdit.setText(os.path.basename(path))
 
 
-class BasicConfigWindow(QMainWindow):
+class BasicConfigWindow(dialogs.MedusaDialog):
     """ This class provides graphical configuration for an app
     """
 
@@ -627,18 +627,25 @@ class BasicConfigWindow(QMainWindow):
             Instance of class Settings defined in settings.py in the app
             directory
         """
-        super().__init__()
+        super().__init__('Default configuration window',
+                         theme_colors=theme_colors, heigh=400)
+
+        # Attributes
+        self.medusa_interface = medusa_interface
+        self.working_lsl_streams_info = working_lsl_streams_info
         self.original_settings = sett
         self.settings = sett
-
-        # Initialize the gui application
-        self.theme_colors = gui_utils.get_theme_colors('dark') if \
-            theme_colors is None else theme_colors
-        self.stl = gui_utils.set_css_and_theme(self, self.theme_colors)
-        self.setWindowIcon(QIcon('gui/images/medusa_favicon.png'))
-        self.setWindowTitle('Default configuration window')
         self.changes_made = False
 
+        # Set text
+        self.text_edit.setText(
+            json.dumps(self.settings.to_serializable_obj(), indent=4))
+
+        # Show application
+        self.setModal(True)
+        self.show()
+
+    def create_layout(self):
         # Create layout
         self.main_layout = QVBoxLayout()
 
@@ -658,34 +665,25 @@ class BasicConfigWindow(QMainWindow):
         self.buttons_layout.addWidget(self.button_done)
         self.main_layout.addLayout(self.buttons_layout)
 
-        # Add central widget
-        self.central_widget = QWidget()
-        self.central_widget.setLayout(self.main_layout)
-        self.setCentralWidget(self.central_widget)
-
         # % IMPORTANT % Connect signals
-        self.button_reset.clicked.connect(self.reset)
-        self.button_save.clicked.connect(self.save)
-        self.button_load.clicked.connect(self.load)
-        self.button_done.clicked.connect(self.done)
+        self.button_reset.clicked.connect(self.btn_reset)
+        self.button_save.clicked.connect(self.btn_save)
+        self.button_load.clicked.connect(self.btn_load)
+        self.button_done.clicked.connect(self.btn_done)
         self.text_edit.textChanged.connect(self.on_text_changed)
 
-        # Set text
-        self.text_edit.setText(json.dumps(sett.to_serializable_obj(), indent=4))
-
-        # % IMPORTANT % Show application
-        self.show()
+        return self.main_layout
 
     def on_text_changed(self):
         self.changes_made = True
 
-    def reset(self):
+    def btn_reset(self):
         # Set default settings
         self.settings = self.original_settings
         self.text_edit.setText(json.dumps(
             self.settings.to_serializable_obj(), indent=4))
 
-    def save(self):
+    def btn_save(self):
         fdialog = QFileDialog()
         fname = fdialog.getSaveFileName(
             fdialog, 'Save settings', '../../../config/', 'JSON (*.json)')
@@ -694,7 +692,7 @@ class BasicConfigWindow(QMainWindow):
                 self.text_edit.toPlainText()))
             self.settings.save(path=fname[0])
 
-    def load(self):
+    def btn_load(self):
         """ Opens a dialog to load a configuration file. """
         fdialog = QFileDialog()
         fname = fdialog.getOpenFileName(
@@ -704,7 +702,7 @@ class BasicConfigWindow(QMainWindow):
             self.text_edit.setText(json.dumps(
                 self.settings.to_serializable_obj(), indent=4))
 
-    def done(self):
+    def btn_done(self):
         """ Shows a confirmation dialog if non-saved changes has been made. """
         self.changes_made = False
         self.close()
