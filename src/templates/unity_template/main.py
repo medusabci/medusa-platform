@@ -70,6 +70,8 @@ class App(resources.AppSkeleton):
         if isinstance(ex, exceptions.MedusaException):
             # Take actions
             if ex.importance == 'critical':
+                if self.app_controller.unity_state != app_constants.UNITY_DOWN:
+                    self.app_controller.send_command({"event_type": "exception"})
                 self.close_app(force=True)
                 ex.set_handled(True)
 
