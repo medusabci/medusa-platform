@@ -1,6 +1,7 @@
 # Folders
 accounts/
 apps/
+lsl/
 
 # Config files
 apps_config.json

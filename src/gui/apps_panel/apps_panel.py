@@ -377,7 +377,7 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
         if not dialogs.confirmation_dialog(
                 'Are you sure you want to uninstall %s? ' %
                 self.apps_manager.apps_dict[app_key]['name'],
-                'Uninstall', self.theme_colors):
+                'Uninstall', theme_colors=self.theme_colors):
             return
         # Uninstall directory
         self.apps_manager.uninstall_app(app_key)
