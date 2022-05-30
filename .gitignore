@@ -140,5 +140,6 @@ config/*
 art
 art/*
 apps/*
+lsl/
 
 
