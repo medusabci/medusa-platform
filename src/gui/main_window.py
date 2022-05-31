@@ -595,7 +595,6 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
             self.set_status('Ready')
             print('[GUiMain.on_app_state_changed]: APP_STATE_OFF')
         elif app_state_value == constants.APP_STATE_POWERING_ON:
-            print('Hola %i' % app_state_value)
             self.app_state.value = app_state_value
             self.set_status('Powering on...')
             print('[GUiMain.on_app_state_changed]: APP_STATE_POWERING_ON')
