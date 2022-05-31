@@ -140,11 +140,11 @@ class LSLStreamWrapper(components.SerializableComponent):
     def get_description_fields(self):
         return self.lsl_stream_info_json_format['desc'].keys()
 
-    def get_all_channels_info(self, desc_channels_field):
-        """Returns the info of all the channels of the lsl inlet. These
-        channels can be different from the channels selected for Medusa use!"""
+    def get_desc_field_value(self, desc_field):
+        """Returns a field of the description in the lsl inlet. Usually used to
+        retrieve channel information"""
         # Get all channels
-        return self.lsl_stream_info_json_format['desc'][desc_channels_field]
+        return self.lsl_stream_info_json_format['desc'][desc_field]
 
     def set_medusa_parameters(self, medusa_uid, medusa_type,
                               desc_channels_field,
@@ -171,7 +171,7 @@ class LSLStreamWrapper(components.SerializableComponent):
             automatically from the lsl_stream.
         """
         # Get all channels
-        cha_info = self.get_all_channels_info(desc_channels_field) \
+        cha_info = self.get_desc_field_value(desc_channels_field) \
             if cha_info is None else cha_info
         # Set medusa parameters
         self.medusa_uid = medusa_uid
