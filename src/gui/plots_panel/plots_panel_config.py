@@ -929,7 +929,7 @@ class PlotsPanelConfigDialog(QDialog, ui_plots_panel_config):
     def find_place_for_plot_frame(self, span):
         try:
             for item in self.config.grid_cells:
-                coordinates, span = self.avoid_overflow(item.coordinates, span)
+                coordinates, span = self.avoid_overflow_drop(item.coordinates, span)
                 check_cells_uids = self.get_grid_cells_from_coord_and_span(
                     coordinates, span)
                 if check_cells_uids is None:
@@ -1003,12 +1003,29 @@ class PlotsPanelConfigDialog(QDialog, ui_plots_panel_config):
         except Exception as e:
             self.exception_handler(e)
 
-    def avoid_overflow(self, coordinates, span):
+    def avoid_overflow_drop(self, coordinates, span):
         try:
             if coordinates[0] + span[0] > self.config.n_rows:
                 coordinates[0] -= coordinates[0] + span[0] - self.config.n_rows
             if coordinates[1] + span[1] > self.config.n_cols:
                 coordinates[1] -= coordinates[1] + span[1] - self.config.n_cols
+            return coordinates, span
+        except Exception as e:
+            self.exception_handler(e)
+
+    def avoid_overflow_grip(self, coordinates, span):
+        try:
+            # Fix rows
+            if coordinates[0] + span[0] > self.config.n_rows:
+                span[0] = self.config.n_rows - coordinates[0]
+            # Fix columns
+            if coordinates[1] + span[1] > self.config.n_cols:
+                span[1] = self.config.n_cols - coordinates[1]
+            # Fix span
+            if span[0] <= 0:
+                span[0] = 1
+            if span[1] <= 0:
+                span[1] = 1
             return coordinates, span
         except Exception as e:
             self.exception_handler(e)
@@ -1038,7 +1055,7 @@ class PlotsPanelConfigDialog(QDialog, ui_plots_panel_config):
             span = [event_coord[0] - coordinates[0] + 1,
                         event_coord[1] - coordinates[1] + 1]
             # Check that the resize is correct
-            coordinates, span = self.avoid_overflow(coordinates, span)
+            coordinates, span = self.avoid_overflow_grip(coordinates, span)
             check_cells_uids = self.get_grid_cells_from_coord_and_span(
                 coordinates, span)
             if check_cells_uids is None:
@@ -1061,7 +1078,7 @@ class PlotsPanelConfigDialog(QDialog, ui_plots_panel_config):
             # Avoid overload
             index, item = self.config.get_plot_frame_by_uid(uid)
             span = item['plot_frame_item'].span
-            coordinates, span = self.avoid_overflow(coordinates, span)
+            coordinates, span = self.avoid_overflow_drop(coordinates, span)
             # Check if the space is available
             cells_uids = self.get_grid_cells_from_coord_and_span(
                 coordinates, span)
