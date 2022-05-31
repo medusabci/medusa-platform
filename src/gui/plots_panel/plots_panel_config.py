@@ -730,7 +730,7 @@ class PlotsPanelConfigDialog(QDialog, ui_plots_panel_config):
             self.spinBox_grid_rows.valueChanged.connect(self.on_rows_changed)
             self.spinBox_grid_cols.valueChanged.connect(self.on_cols_changed)
             # Add plot button
-            icon = gu.get_icon("add.svg", theme=self.theme)
+            icon = gu.get_icon("add.svg", theme_colors=self.theme_colors)
             # icon = QIcon("%s/icons/plus.png" % constants.IMG_FOLDER)
             self.toolButton_add_plot.setIcon(icon)
             self.toolButton_add_plot.clicked.connect(self.on_add_plot_clicked)
@@ -738,7 +738,7 @@ class PlotsPanelConfigDialog(QDialog, ui_plots_panel_config):
             self.toolButton_delete_plot = DropToolButton(self)
             self.toolButton_delete_plot.setIconSize(QSize(20, 20))
             self.horizontalLayout.addWidget(self.toolButton_delete_plot)
-            icon = gu.get_icon("delete_forever.svg", theme=self.theme)
+            icon = gu.get_icon("delete_forever.svg",  theme_colors=self.theme_colors)
             # icon = QIcon("%s/icons/delete.png" % constants.IMG_FOLDER)
             self.toolButton_delete_plot.setIcon(icon)
             self.toolButton_delete_plot.delete_plot_frame.connect(
