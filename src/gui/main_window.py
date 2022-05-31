@@ -408,8 +408,8 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         self.reset_tool_bar_main()
 
     @exceptions.error_handler(scope='general')
-    def open_analyzer_window(self):
-        pass
+    def open_analyzer_window(self, checked):
+        raise NotImplementedError('This functionality is still under development!')
 
     @exceptions.error_handler(scope='general')
     def open_account_window(self, event):

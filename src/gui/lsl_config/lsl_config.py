@@ -105,22 +105,22 @@ class LSLConfig(QtWidgets.QDialog, ui_main_dialog):
     def set_up_tool_buttons(self):
         try:
             # Search button
-            icon = gu.get_icon("refresh.svg", theme=self.theme)
+            icon = gu.get_icon("refresh.svg", theme_colors=self.theme_colors)
             # icon = QtGui.QIcon("%s/icons/reload.png" % constants.IMG_FOLDER)
             self.toolButton_search.setIcon(icon)
             self.toolButton_search.clicked.connect(self.lsl_search)
             # Add button
-            icon = gu.get_icon("add.svg", theme=self.theme)
+            icon = gu.get_icon("add.svg", theme_colors=self.theme_colors)
             # icon = QtGui.QIcon("%s/icons/plus.png" % constants.IMG_FOLDER)
             self.toolButton_add.setIcon(icon)
             self.toolButton_add.clicked.connect(self.add_lsl_stream)
             # Edit button
-            icon = gu.get_icon("edit.svg", theme=self.theme)
+            icon = gu.get_icon("edit.svg", theme_colors=self.theme_colors)
             # icon = QtGui.QIcon("%s/icons/edit.png" % constants.IMG_FOLDER)
             self.toolButton_edit.setIcon(icon)
             self.toolButton_edit.clicked.connect(self.edit_lsl_stream)
             # Remove button
-            icon = gu.get_icon("remove.svg", theme=self.theme)
+            icon = gu.get_icon("remove.svg", theme_colors=self.theme_colors)
             # icon = QtGui.QIcon("%s/icons/minus.png" % constants.IMG_FOLDER)
             self.toolButton_remove.setIcon(icon)
             self.toolButton_remove.clicked.connect(self.remove_lsl_stream)
