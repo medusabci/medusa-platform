@@ -46,25 +46,11 @@ class LogPanelWidget(QWidget, ui_plots_panel_widget):
 
     def reset_tool_bar_log_buttons(self):
         try:
-            # TODO: current theme
-            theme = 'dark'
-
             # Creates QIcons for the app tool bar
-            log_save_icon = gu.get_icon("save_as.svg", theme=theme)
-            log_config_clean = gu.get_icon("delete_sweep.svg", theme=theme)
-            log_config_icon = gu.get_icon("settings.svg", theme=theme)
-            log_undock_icon = gu.get_icon("open_in_new.svg", theme=theme)
-
-            # log_save_icon = QIcon("%s/icons/svg/save_as.svg" %
-            #                       constants.IMG_FOLDER)
-            # log_config_clean = QIcon("%s/icons/rubber.png" %
-            #                          constants.IMG_FOLDER)
-            # log_config_icon = QIcon("%s/icons/gear.png" %
-            #                         constants.IMG_FOLDER)
-            # undock_button_image = "dock_enabled_icon.png" if self.undocked else \
-            #     "undock_enabled_icon.png"
-            # log_undock_icon = QIcon("%s/icons/%s" % (constants.IMG_FOLDER,
-            #                                          undock_button_image))
+            log_save_icon = gu.get_icon("save_as.svg", self.theme_colors)
+            log_config_clean = gu.get_icon("delete_sweep.svg", self.theme_colors)
+            log_config_icon = gu.get_icon("settings.svg", self.theme_colors)
+            log_undock_icon = gu.get_icon("open_in_new.svg", self.theme_colors)
 
             # Set icons in buttons
             self.toolButton_log_save.setIcon(log_save_icon)

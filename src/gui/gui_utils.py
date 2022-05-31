@@ -332,7 +332,10 @@ def get_theme_colors(theme='dark'):
     return theme_colors
 
 
-def get_icon(icon_name, theme='dark', enabled=True):
+def get_icon(icon_name, theme_colors=None, enabled=True, custom_color=None):
+    if theme_colors is None:
+        theme_colors = get_theme_colors('dark')
+
     # Does it exist?
     rel_path = "%s/icons/svg/%s" % (constants.IMG_FOLDER, icon_name)
     if not os.path.isfile(rel_path):
@@ -340,13 +343,17 @@ def get_icon(icon_name, theme='dark', enabled=True):
         return None
 
     # Get the icon colors (gradient)
-    theme_colors = get_theme_colors(theme)
     if enabled:
         color_start = theme_colors['THEME_ICON_COLOR_START']
         color_end = theme_colors['THEME_ICON_COLOR_END']
     else:
         color_start = theme_colors['THEME_ICON_COLOR_DISABLED']
         color_end = theme_colors['THEME_ICON_COLOR_DISABLED']
+
+    # Custom color?
+    if custom_color is not None:
+        color_start = custom_color
+        color_end = custom_color
 
     # Read the SVG data
     fin = open(rel_path, "rt")

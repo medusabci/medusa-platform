@@ -8,6 +8,7 @@ import numpy as np
 import pyqtgraph as pg
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
+from PyQt5.QtGui import QFont
 from scipy import signal as scp_signal
 # MEDUSA-CORE MODULES
 from acquisition import lsl_utils, real_time_preprocessing
@@ -101,6 +102,10 @@ class RealTimePlot(ABC):
                              units=x_axis_title[1])
         self.widget.setLabel('left', text=y_axis_title[0],
                              units=y_axis_title[1])
+        fn = QFont()
+        fn.setBold(True)
+        self.widget.getAxis("bottom").setTickFont(fn)
+        self.widget.getAxis("left").setTickFont(fn)
 
     def set_settings(self, signal_settings, plot_settings):
         """Set settings dicts"""

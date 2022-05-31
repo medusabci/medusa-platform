@@ -349,6 +349,7 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         with open(gui_config_file_path, 'w') as f:
             json.dump(self.gui_config, f)
         self.set_theme()
+        self.reset_panels()
 
     def set_light_theme(self):
         self.gui_config['theme'] = 'light'
@@ -357,14 +358,15 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         with open(gui_config_file_path, 'w') as f:
             json.dump(self.gui_config, f)
         self.set_theme()
+        self.reset_panels()
 
     # =============================== TOOL BAR =============================== #
     @exceptions.error_handler(scope='general')
     def reset_tool_bar_main(self):
         # Create QAction buttons
-        lsl_config_icon = gu.get_icon("link.svg", theme=self.theme)
-        plots_icon = gu.get_icon("waves.svg", theme=self.theme)
-        profile_icon = gu.get_icon("person.svg", theme=self.theme)
+        lsl_config_icon = gu.get_icon("link.svg", self.theme_colors)
+        plots_icon = gu.get_icon("waves.svg", self.theme_colors)
+        profile_icon = gu.get_icon("person.svg", self.theme_colors)
 
         # lsl_config_icon = QIcon("%s/icons/link_enabled_icon.png" %
         #                         constants.IMG_FOLDER)
