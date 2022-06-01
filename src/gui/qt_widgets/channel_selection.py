@@ -22,12 +22,12 @@ matplotlib.use('Qt5Agg')
 ui_main_file = uic.loadUiType(os.path.dirname(__file__) + "/channel_selection.ui")[0]
 
 
-class ChannelSelectionWidget(QWidget, ui_main_file):
+class ChannelSelectionWidget(QtWidgets.QDialog, ui_main_file):
     """This class allows you to control the GUI of the EEG channel selection widget."""
     close_signal = QtCore.pyqtSignal(object)
 
     def __init__(self, standard='10-20', ch_labels=None):
-        QWidget.__init__(self)
+        QtWidgets.QDialog.__init__(self)
         self.setupUi(self)
         self.TAG = '[widget/EEG Channel Selection]'
 
@@ -45,6 +45,7 @@ class ChannelSelectionWidget(QWidget, ui_main_file):
         self.ground_btn.setStyleSheet('QPushButton {background-color: #fff44f; color: #000000;}')
         self.reference_btn.setStyleSheet('QPushButton {background-color: #00bdfe; color: #000000;}')
         self.notifications = NotificationStack(parent=self, timer_ms=500)
+        self.changes_made = False
 
         # Initialize the plot
         self.interactive_selection = EEGChannelSelectionPlot(standard=standard, ch_labels=ch_labels)
@@ -67,6 +68,7 @@ class ChannelSelectionWidget(QWidget, ui_main_file):
         self.working_threads.append(Th1)
 
         # Uncomment to debug
+        self.setModal(True)
         # self.show()
 
     def activate_mode_used(self):
@@ -80,9 +82,11 @@ class ChannelSelectionWidget(QWidget, ui_main_file):
 
     def activate_select_all(self):
         self.interactive_selection.select_all()
+        self.changes_made = True
 
     def activate_unselect_all(self):
         self.interactive_selection.unselect_all()
+        self.changes_made = True
 
     def set_labels_as_text(self):
         """ Reads continuously the channels selected and prints it in Line text edit object"""
@@ -92,12 +96,14 @@ class ChannelSelectionWidget(QWidget, ui_main_file):
             ground_idx = np.where(self.interactive_selection.channels_selected['Ground'])[0]
             if len(ground_idx) != 0:
                 self.groundText.setText(self.interactive_selection.l_cha[int(ground_idx)])
+                self.changes_made = True
             else:
                 self.groundText.setText('')
             # Set Reference Label
             reference_idx = np.where(self.interactive_selection.channels_selected['Reference'])[0]
             if len(reference_idx) != 0:
                 self.referenceText.setText(self.interactive_selection.l_cha[int(reference_idx)])
+                self.changes_made = True
             else:
                 self.referenceText.setText('')
             # Set Used Channels Labels
@@ -108,6 +114,7 @@ class ChannelSelectionWidget(QWidget, ui_main_file):
                               channels_selected['Used']])
                 # labels = [self.interactive_selection.l_cha[idx] for idx in used_idx]
                 self.usedText.setText(",".join(labels))
+                self.changes_made = True
             else:
                 self.usedText.setText("")
 
@@ -142,6 +149,8 @@ class ChannelSelectionWidget(QWidget, ui_main_file):
 
     def done(self):
         """ Shows a confirmation dialog if non-saved changes has been made. """
+        self.interactive_selection.get_channels_selection_from_gui()
+        self.changes_made = False
         self.close()
 
     @staticmethod
@@ -161,6 +170,7 @@ class ChannelSelectionWidget(QWidget, ui_main_file):
         msg.setWindowIcon(QtGui.QIcon(os.path.join(
             os.path.dirname(__file__), '../../gui/images/medusa_icon.png')))
         msg.setText("Do you want to leave this window?")
+        msg.setInformativeText("Non-saved changes will be discarded.")
         msg.setStandardButtons(
             QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No)
         return msg.exec_()
@@ -168,16 +178,18 @@ class ChannelSelectionWidget(QWidget, ui_main_file):
     def closeEvent(self, event):
         """ Overrides the closeEvent in order to show the confirmation dialog.
         """
-        retval = self.close_dialog()
-        if retval == QtWidgets.QMessageBox.Yes:
+        if self.changes_made:
+            retval = self.close_dialog()
+            if retval == QtWidgets.QMessageBox.Yes:
+                self.close_signal.emit(None)
+                event.accept()
+            else:
+                event.ignore()
+        else:
             self.interactive_selection.get_channels_selection_from_gui()
             self.close_signal.emit(None)
             event.accept()
-        else:
-            event.ignore()
-            # self.get_settings_from_gui()
-            # self.close_signal.emit(self.settings)
-            # event.accept()
+
 
 
 class EEGChannelSelectionPlot(SerializableComponent):
