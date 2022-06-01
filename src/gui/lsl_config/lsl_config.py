@@ -1,5 +1,5 @@
 # Built-in imports
-import sys, os, json, traceback
+import sys, os, json, traceback, math
 # External imports
 from PyQt5 import QtCore, QtGui, QtWidgets, uic
 # Medusa imports
@@ -404,30 +404,42 @@ class EditStreamDialog(QtWidgets.QDialog, ui_stream_config_dialog):
             self.comboBox_desc_channels_field.currentData()
         current_desc_field = \
             self.comboBox_desc_channels_field.currentText()
-        self.cha_info = \
-            self.lsl_stream_info.get_all_channels_info(current_desc_field) \
-                if current_desc_field_validity else list()
-        if len(self.cha_info) == 0:
+        self.cha_info = self.lsl_stream_info.get_desc_field_value(
+            current_desc_field)
+        # Check errors
+        if not isinstance(self.cha_info, list) or len(self.cha_info) == 0:
+            dialogs.error_dialog(
+                message='Malformed channels field "%s"' % current_desc_field,
+                title='Error',
+                theme_colors=self.theme_colors
+            )
+            self.cha_info = list()
+            self.comboBox_channel_label_field.setVisible(False)
+            self.label_channels_label_field.setVisible(False)
             for i in range(self.lsl_stream_info.lsl_n_cha):
                 self.cha_info.append({'label': str(i)})
+        else:
+            self.comboBox_channel_label_field.setVisible(True)
+            self.label_channels_label_field.setVisible(True)
         # Update combobox
         self.comboBox_channel_label_field.clear()
         cha_fields = list(self.cha_info[0].keys())
         for field in cha_fields:
             self.comboBox_channel_label_field.addItem(field)
-        gu.select_entry_combobox(self.comboBox_channel_label_field,
-                                        'label')
+        gu.select_entry_combobox(self.comboBox_channel_label_field, 'label')
 
     def on_desc_channels_field_changed(self):
         self.update_channel_fields()
 
     def on_channel_label_field_changed(self):
         self.tableWidget_channels.clear()
-        if len(self.cha_info) > 0:
-            max_n_cols = 4
+        curr_label_field = self.comboBox_channel_label_field.currentText()
+        max_n_cols = 4  # Max number of columns of the table
+        if isinstance(self.cha_info, list) and \
+            len(self.cha_info) > 0 and \
+            curr_label_field in self.cha_info[0]:
             row_idx = 0
             col_idx = 0
-            curr_label_field = self.comboBox_channel_label_field.currentText()
             for cha in self.cha_info:
                 # Insert column and row if necessary
                 if self.tableWidget_channels.rowCount() < row_idx + 1:
@@ -446,20 +458,7 @@ class EditStreamDialog(QtWidgets.QDialog, ui_stream_config_dialog):
                     col_idx = 0
                     row_idx += 1
         else:
-            n_row, n_col = optimal_subplots.optimal_subplot_row_col(
-                self.lsl_stream_info.lsl_n_cha)
-            count = 0
-            for row in range(n_row):
-                self.tableWidget_channels.insertRow(
-                    self.tableWidget_channels.rowCount())
-                for col in range(n_col):
-                    self.tableWidget_channels.insertColumn(
-                        self.tableWidget_channels.columnCount())
-                    widget = QtWidgets.QCheckBox(str(count))
-                    widget.setChecked(True)
-                    self.tableWidget_channels.setCellWidget(
-                        row, col, widget)
-                    count += 1
+            self.tableWidget_channels.clear()
 
     def set_checked_channels(self, cha_idx):
         idx = 0

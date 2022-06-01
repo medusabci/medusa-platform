@@ -361,11 +361,12 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
         app_file = QFileDialog.getSaveFileName(caption="Make app bundle",
                                                directory=directory,
                                                filter=filt)[0]
-        dir_name = os.path.dirname(app_file)
-        base_name = os.path.basename(app_file).split('.zip')[0]
-        output_path = '%s/%s' % (dir_name, base_name)
-        # Package app
-        self.apps_manager.package_app(app_key, output_path)
+        if len(app_file) > 0:
+            dir_name = os.path.dirname(app_file)
+            base_name = os.path.basename(app_file).split('.zip')[0]
+            output_path = '%s/%s' % (dir_name, base_name)
+            # Package app
+            self.apps_manager.package_app(app_key, output_path)
 
     @exceptions.error_handler(scope='general')
     def uninstall_app(self, app_key):
