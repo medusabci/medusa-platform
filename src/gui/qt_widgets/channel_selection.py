@@ -117,7 +117,6 @@ class ChannelSelectionWidget(QtWidgets.QDialog, ui_main_file):
                 self.changes_made = True
             else:
                 self.usedText.setText("")
-
     # ------------------- BASIC BUTTONS --------------------------------------
 
     def save(self):
