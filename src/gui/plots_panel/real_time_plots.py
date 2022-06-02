@@ -724,9 +724,9 @@ class TimePlot(RealTimePlot):
                         self.visualization_settings['y_axis_label'])
         # Update variables
         self.win_t = self.visualization_settings['seconds_displayed']
-        self.win_s = int(self.win_t * self.receiver.fs)
-        self.y_range = self.visualization_settings['scaling']['initial_y_range']
         self.subsample_factor = self.visualization_settings['subsample_factor']
+        self.win_s = int(self.win_t * self.receiver.fs / self.subsample_factor)
+        self.y_range = self.visualization_settings['scaling']['initial_y_range']
         # Update view box menu
         self.plot_item_view_box.menu.set_channel_list()
         init_cha_label = self.visualization_settings['init_channel_label']
