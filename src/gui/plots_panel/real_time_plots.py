@@ -263,8 +263,8 @@ class TimePlotMultichannel(RealTimePlot):
         self.cha_separation = \
             self.visualization_settings['scaling']['initial_channel_separation']
         self.win_t = self.visualization_settings['seconds_displayed']
-        self.win_s = int(self.win_t * self.receiver.fs)
         self.subsample_factor = self.visualization_settings['subsample_factor']
+        self.win_s = int(self.win_t * self.receiver.fs / self.subsample_factor)
         # Place curves in plot
         self.curves = []
         self.offsets = []
@@ -322,7 +322,8 @@ class TimePlotMultichannel(RealTimePlot):
         if len(self.sig_in_graph) >= self.win_s:
             self.sig_in_graph = self.sig_in_graph[-self.win_s:]
 
-        return self.time_in_graph.copy(), self.sig_in_graph.copy()
+        # return self.time_in_graph.copy(), self.sig_in_graph.copy()
+        return self.time_in_graph, self.sig_in_graph
 
     def subsample(self, x_in_graph, sig_in_graph):
         if self.subsample_factor > 1:

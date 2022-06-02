@@ -476,9 +476,10 @@ class EditStreamDialog(QtWidgets.QDialog, ui_stream_config_dialog):
         idx = 0
         for i in range(self.tableWidget_channels.rowCount()):
             for j in range(self.tableWidget_channels.columnCount()):
-                if self.tableWidget_channels.cellWidget(i, j).checkState():
-                    cha_idx.append(idx)
-                idx += 1
+                if self.tableWidget_channels.cellWidget(i, j) is not None:
+                    if self.tableWidget_channels.cellWidget(i, j).checkState():
+                        cha_idx.append(idx)
+                    idx += 1
         return cha_idx
 
     def get_lsl_stream_info(self):
