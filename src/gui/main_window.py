@@ -38,9 +38,10 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         self.setupUi(self)
 
         # Qt parameters
-        self.setWindowIcon(QIcon('%s/medusa_icon.png' % constants.IMG_FOLDER))
-        self.setWindowTitle('MEDUSA %s [%s]' % (constants.MEDUSA_VERSION,
-                                                constants.MEDUSA_VERSION_NAME))
+        self.setWindowIcon(QIcon('%s/medusa_task_icon.png' % constants.IMG_FOLDER))
+        self.setWindowTitle('MEDUSA© Platform %s [%s]' %
+                            (constants.MEDUSA_VERSION,
+                             constants.MEDUSA_VERSION_NAME))
         self.setFocusPolicy(Qt.StrongFocus)
         self.setAttribute(Qt.WA_DeleteOnClose)
         # self.setWindowFlags(Qt.FramelessWindowHint)
@@ -920,7 +921,7 @@ class AboutDialog(QDialog, gui_about):
         self.setupUi(self)
         theme_colors = gu.get_theme_colors('dark')
         self.stl = gu.set_css_and_theme(self, theme_colors)
-        self.setWindowIcon(QIcon('gui/images/medusa_icon.png'))
+        self.setWindowIcon(QIcon('gui/images/medusa_task_icon.png'))
         self.setWindowTitle('About MEDUSA')
 
         # Details
@@ -928,3 +929,28 @@ class AboutDialog(QDialog, gui_about):
         self.label_version.setText(constants.MEDUSA_VERSION + ' [' +
                                    constants.MEDUSA_VERSION_NAME + ']')
         self.label_license.setText('Licensed to ' + alias)
+
+        # Textbrowser
+        TEXT_BROWSER_TEMPLATE = \
+            '<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0//EN" ' \
+            '"http://www.w3.org/TR/REC-html40/strict.dtd"><html><head> <meta ' \
+            'name="qrichtext" content="1" /><meta charset="utf-8"/> ' \
+            '<style>%s</style></head><body>%s</body></html>'
+        style = 'p, li { white-space: pre-wrap; } p { font-family: "Roboto ' \
+                'Mono"; font-size:8pt; color: white;} a {text-decoration: ' \
+                'none; color:#ff1ae0;}'
+        body_ = '<p>Developed by (MSc) Eduardo Santamaría-Vázquez & (PhD) ' \
+                'Víctor Martínez-Cagigal.<br><br>' \
+                'Please cite us:<br>Eduardo Santamaría-Vázquez, Víctor ' \
+                'Martínez-Cagigal, Diego Marcos-Martínez, Víctor ' \
+                'Rodríguez-González, Sergio Pérez-Velasco, Selene ' \
+                'Moreno-Calderón, Roberto Hornero, "MEDUSA: A Novel ' \
+                'Brain-Computer Interface Platform based on Python", ' \
+                'Computer Methods & Programs in Biomedicine, 2022.<br><br>' \
+                'More information at <a ' \
+                'href="https://medusabci.com/">www.medusabci.com</a><br><br' \
+                '></p>' \
+                '<p align="center">Powered by <a ' \
+                'href="http://gib.tel.uva.es/">Grupo de ' \
+                'Ingeniería Biomédica</a>, University of Valladolid, Spain.</p>'
+        self.textBrowser_details.setText(TEXT_BROWSER_TEMPLATE % (style, body_))

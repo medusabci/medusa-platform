@@ -54,7 +54,6 @@ color: white;
       </property>
       <property name="font">
        <font>
-        <family>Roboto Mono</family>
         <pointsize>14</pointsize>
         <bold>true</bold>
        </font>
@@ -77,7 +76,6 @@ color: white;
       </property>
       <property name="font">
        <font>
-        <family>Roboto Mono</family>
         <pointsize>12</pointsize>
        </font>
       </property>
@@ -92,9 +90,7 @@ color: white;
     <item>
      <widget class="QLabel" name="label_date">
       <property name="font">
-       <font>
-        <family>Roboto Mono</family>
-       </font>
+       <font/>
       </property>
       <property name="text">
        <string>built on date</string>
@@ -132,6 +128,9 @@ border: none;
 color: white;
 }</string>
       </property>
+      <property name="readOnly">
+       <bool>true</bool>
+      </property>
       <property name="html">
        <string>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
 &lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;meta charset=&quot;utf-8&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
@@ -143,9 +142,9 @@ p, li { white-space: pre-wrap; }
 &lt;p align=&quot;justify&quot; style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-family:'Roboto Mono'; font-size:8pt;&quot;&gt;Please cite us:&lt;/span&gt;&lt;/p&gt;
 &lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-family:'Roboto Mono'; font-size:8pt;&quot;&gt;Eduardo Santamaría-Vázquez, Víctor Martínez-Cagigal, Diego Marcos-Martínez, Víctor Rodríguez-González, Sergio Pérez-Velasco, Selene Moreno-Calderón, Roberto Hornero, &amp;quot;MEDUSA: A Novel Brain-Computer Interface Platform based on Python&amp;quot;, Computer Methods &amp;amp; Programs in Biomedicine, 2022.&lt;/span&gt;&lt;/p&gt;
 &lt;p align=&quot;justify&quot; style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px; font-family:'Roboto Mono'; font-size:8pt;&quot;&gt;&lt;br /&gt;&lt;/p&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-family:'Roboto Mono'; font-size:8pt;&quot;&gt;More information at &lt;/span&gt;&lt;a href=&quot;www.medusabci.com&quot;&gt;&lt;span style=&quot; font-family:'Roboto Mono'; font-size:8pt; text-decoration: underline; color:#ff1ae0;&quot;&gt;www.medusabci.com&lt;/span&gt;&lt;/a&gt;&lt;/p&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-family:'Roboto Mono'; font-size:8pt;&quot;&gt;More information at &lt;/span&gt;&lt;a href=&quot;https://medusabci.com/&quot;&gt;&lt;span style=&quot; text-decoration: underline; color:#0000ff;&quot;&gt;www.medusabci.com&lt;/span&gt;&lt;/a&gt;&lt;/p&gt;
 &lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px; font-family:'Roboto Mono'; font-size:8pt;&quot;&gt;&lt;br /&gt;&lt;/p&gt;
-&lt;p align=&quot;center&quot; style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-family:'Roboto Mono'; font-size:8pt;&quot;&gt;Powered by &lt;/span&gt;&lt;a href=&quot;www.gib.tel.uva.es&quot;&gt;&lt;span style=&quot; font-family:'Roboto Mono'; font-size:8pt; text-decoration: underline; color:#ff1ae0;&quot;&gt;Grupo de Ingeniería Biomédica&lt;/span&gt;&lt;/a&gt;&lt;span style=&quot; font-family:'Roboto Mono'; font-size:8pt;&quot;&gt;, University of Valladolid, Spain.&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+&lt;p align=&quot;center&quot; style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-family:'Roboto Mono'; font-size:8pt;&quot;&gt;Powered by &lt;/span&gt;&lt;a href=&quot;http://www.gib.tel.uva.es/&quot;&gt;&lt;span style=&quot; text-decoration: underline; color:#0000ff;&quot;&gt;Grupo de Ingeniería Biomédica&lt;/span&gt;&lt;/a&gt;&lt;span style=&quot; font-family:'Roboto Mono'; font-size:8pt;&quot;&gt;, University of Valladolid, Spain.&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
       </property>
       <property name="openExternalLinks">
        <bool>true</bool>

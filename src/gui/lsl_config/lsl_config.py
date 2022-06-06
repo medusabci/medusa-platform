@@ -310,7 +310,7 @@ class EditStreamDialog(QtWidgets.QDialog, ui_stream_config_dialog):
             self.theme_colors = gu.get_theme_colors('dark') if \
                 theme_colors is None else theme_colors
             self.stl = gu.set_css_and_theme(self, self.theme_colors)
-            self.setWindowIcon(QtGui.QIcon('%s/medusa_icon.png' %
+            self.setWindowIcon(QtGui.QIcon('%s/medusa_task_icon.png' %
                                            constants.IMG_FOLDER))
             self.setWindowTitle('Stream settings')
             self.resize(400, 400)

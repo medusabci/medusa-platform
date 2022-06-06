@@ -44,10 +44,10 @@ class LoginDialog(QtWidgets.QDialog, ui_main_dialog):
             theme_colors is None else theme_colors
         self.stl = gui_utils.set_css_and_theme(self, self.theme_colors)
 
-        medusa_icon = QtGui.QIcon('%s/medusa_favicon.png' %
+        medusa_task_icon = QtGui.QIcon('%s/medusa_favicon.png' %
                                   constants.IMG_FOLDER)
-        self.setWindowIcon(medusa_icon)
-        self.setWindowTitle('Login in to MEDUSA')
+        self.setWindowIcon(medusa_task_icon)
+        self.setWindowTitle('Login in to MEDUSA©')
 
         # Form entries
         self.lineEdit_email.setProperty("class", "login-entry")
@@ -96,8 +96,8 @@ class LoginDialog(QtWidgets.QDialog, ui_main_dialog):
     def closeEvent(self, event):
         if self.user_session is None:
             resp = dialogs.confirmation_dialog(
-                text='Login is required. If you close this window, '
-                        'MEDUSA will exit. Do you want to continue?',
+                text='Login is required. If you close this window, MEDUSA©  '
+                     'Platform will exit. Do you want to continue?',
                 title='Login required',
                 theme_colors=self.theme_colors
             )

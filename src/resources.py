@@ -632,7 +632,7 @@ class BasicConfigWindow(QDialog):
         # Set style
         self.theme_colors = theme_colors
         self.stl = gui_utils.set_css_and_theme(self, self.theme_colors)
-        self.setWindowIcon(QIcon('gui/images/medusa_icon.png'))
+        self.setWindowIcon(QIcon('gui/images/medusa_task_icon.png'))
         self.setWindowTitle('Default configuration window')
         # self.setGeometry(390, 300, 400, 400)
 

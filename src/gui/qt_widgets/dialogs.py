@@ -20,7 +20,7 @@ class MedusaDialog(QDialog):
             self.theme_colors = gui_utils.get_theme_colors('dark') if \
                 theme_colors is None else theme_colors
             self.stl = gui_utils.set_css_and_theme(self, self.theme_colors)
-            self.setWindowIcon(QIcon('gui/images/medusa_icon.png'))
+            self.setWindowIcon(QIcon('gui/images/medusa_task_icon.png'))
             self.setWindowTitle(window_title)
             self.setGeometry(pos_x, pos_y, width, heigh)
 
@@ -57,7 +57,7 @@ def confirmation_dialog(text, title, informative_text=None, theme_colors=None):
         msg.setInformativeText(informative_text)
     msg.setWindowTitle(title)
     msg.setStandardButtons(QMessageBox.Yes| QMessageBox.No)
-    msg.setWindowIcon(QIcon(os.getcwd() + '/gui/images/medusa_icon.png'))
+    msg.setWindowIcon(QIcon(os.getcwd() + '/gui/images/medusa_task_icon.png'))
     msg.setWindowFlags(msg.windowFlags() | Qt.WindowStaysOnTopHint)
     theme_colors = gui_utils.get_theme_colors('dark') if \
         theme_colors is None else theme_colors
@@ -83,7 +83,7 @@ def info_dialog(message, title, theme_colors=None):
     msg.setText(message)
     msg.setWindowTitle(title)
     msg.setStandardButtons(QMessageBox.Ok)
-    msg.setWindowIcon(QIcon(os.getcwd() + '/gui/images/medusa_icon.png'))
+    msg.setWindowIcon(QIcon(os.getcwd() + '/gui/images/medusa_task_icon.png'))
     msg.setWindowFlags(msg.windowFlags() | Qt.WindowStaysOnTopHint)
     theme_colors = gui_utils.get_theme_colors('dark') if \
         theme_colors is None else theme_colors
@@ -105,7 +105,7 @@ def error_dialog(message, title, theme_colors=None):
     msg.setText(message)
     msg.setWindowTitle(title)
     msg.setStandardButtons(QMessageBox.Ok)
-    msg.setWindowIcon(QIcon(os.getcwd() + '/gui/images/medusa_icon.png'))
+    msg.setWindowIcon(QIcon(os.getcwd() + '/gui/images/medusa_task_icon.png'))
     msg.setWindowFlags(msg.windowFlags() | Qt.WindowStaysOnTopHint)
     theme_colors = gui_utils.get_theme_colors('dark') if \
         theme_colors is None else theme_colors
@@ -127,7 +127,7 @@ def warning_dialog(message, title, theme_colors=None):
     msg.setText(message)
     msg.setWindowTitle(title)
     msg.setStandardButtons(QMessageBox.Ok)
-    msg.setWindowIcon(QIcon(os.getcwd() + '/gui/images/medusa_icon.png'))
+    msg.setWindowIcon(QIcon(os.getcwd() + '/gui/images/medusa_task_icon.png'))
     msg.setWindowFlags(msg.windowFlags() | Qt.WindowStaysOnTopHint)
     theme_colors = gui_utils.get_theme_colors('dark') if \
         theme_colors is None else theme_colors
