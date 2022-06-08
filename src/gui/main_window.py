@@ -454,8 +454,7 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
             self.accounts_manager.on_delete_account()
         except PermissionError as e:
             error_dialog(message='MEDUSA does not have permission to perform '
-                                 'this operation, try to run it in as '
-                                 'administrator',
+                                 'this operation. Try to run as administrator',
                          title='Permission error!',
                          theme_colors=self.theme_colors)
         self.open_login_window()

@@ -377,7 +377,14 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
                 'Uninstall', theme_colors=self.theme_colors):
             return
         # Uninstall directory
-        self.apps_manager.uninstall_app(app_key)
+        try:
+            self.apps_manager.uninstall_app(app_key)
+        except PermissionError as e:
+            dialogs.error_dialog(
+                message='MEDUSA does not have permission to perform '
+                        'this operation. Try to run as administrator',
+                title='Permission error!',
+                theme_colors=self.theme_colors)
         # Update apps panel
         self.update_apps_panel()
 
