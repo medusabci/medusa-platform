@@ -473,7 +473,7 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
 
     @exceptions.error_handler(scope='general')
     def set_lsl_streams(self):
-        # Set working streams
+        # Set working streamsicon.png
         self.working_lsl_streams = self.lsl_config_window.working_streams
         # Update the working streams within the panels
         self.plots_panel_widget.update_working_lsl_streams(
