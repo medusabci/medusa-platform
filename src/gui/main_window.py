@@ -21,7 +21,7 @@ from gui.apps_panel import apps_panel
 from gui.log_panel import log_panel
 from gui.user_profile import login
 from gui.user_profile import user_profile
-from gui.qt_widgets.dialogs import info_dialog
+from gui.qt_widgets.dialogs import info_dialog, error_dialog
 
 # Load the .ui file
 gui_main_user_interface = uic.loadUiType("gui/ui_files/main_window.ui")[0]
@@ -450,7 +450,14 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         self.open_login_window()
 
     def on_user_delete(self):
-        self.accounts_manager.on_delete_account()
+        try:
+            self.accounts_manager.on_delete_account()
+        except PermissionError as e:
+            error_dialog(message='MEDUSA does not have permission to perform '
+                                 'this operation, try to run it in as '
+                                 'administrator',
+                         title='Permission error!',
+                         theme_colors=self.theme_colors)
         self.open_login_window()
 
     # ======================== LAB-STREAMING LAYER =========================== #

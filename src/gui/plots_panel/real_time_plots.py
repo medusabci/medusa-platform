@@ -264,7 +264,7 @@ class TimePlotMultichannel(RealTimePlot):
             self.visualization_settings['scaling']['initial_channel_separation']
         self.win_t = self.visualization_settings['seconds_displayed']
         self.subsample_factor = self.visualization_settings['subsample_factor']
-        self.win_s = int(self.win_t * self.receiver.fs / self.subsample_factor)
+        self.win_s = int(self.win_t * self.receiver.fs)
         # Place curves in plot
         self.curves = []
         self.offsets = []
@@ -725,7 +725,7 @@ class TimePlot(RealTimePlot):
         # Update variables
         self.win_t = self.visualization_settings['seconds_displayed']
         self.subsample_factor = self.visualization_settings['subsample_factor']
-        self.win_s = int(self.win_t * self.receiver.fs / self.subsample_factor)
+        self.win_s = int(self.win_t * self.receiver.fs)
         self.y_range = self.visualization_settings['scaling']['initial_y_range']
         # Update view box menu
         self.plot_item_view_box.menu.set_channel_list()
