@@ -56,6 +56,17 @@ class LoginDialog(QtWidgets.QDialog, ui_main_dialog):
 
         # Buttons
         self.pushButton_login.clicked.connect(self.on_button_login_clicked)
+            # Show_password
+        self.visibleIcon = QtGui.QIcon(
+            '%s/icons/svg/visibility.svg' %constants.IMG_FOLDER)
+        self.hiddenIcon = QtGui.QIcon(
+            '%s/icons/svg/visibility_off.svg' %constants.IMG_FOLDER)
+        self.togglepasswordAction = self.lineEdit_password.addAction(
+            self.visibleIcon, QtWidgets.QLineEdit.TrailingPosition)
+        # self.showPassAction.setCheckable(True)
+        self.togglepasswordAction.triggered.connect(
+            self.on_toggle_password_Action)
+        self.password_shown = False
 
         # TODO: remember me button
         # self.radioButton_remember
@@ -67,6 +78,17 @@ class LoginDialog(QtWidgets.QDialog, ui_main_dialog):
         # Show
         self.setModal(True)
         self.show()
+
+    @exceptions.error_handler(scope='general')
+    def on_toggle_password_Action(self, show):
+        if not self.password_shown:
+            self.lineEdit_password.setEchoMode(QtWidgets.QLineEdit.Normal)
+            self.password_shown = True
+            self.togglepasswordAction.setIcon(self.hiddenIcon)
+        else:
+            self.lineEdit_password.setEchoMode(QtWidgets.QLineEdit.Password)
+            self.password_shown = False
+            self.togglepasswordAction.setIcon(self.visibleIcon)
 
     def handle_exception(self, mds_ex):
         # Send exception to gui main
