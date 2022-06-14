@@ -346,6 +346,7 @@ class EEGChannelSelectionPlot(SerializableComponent):
             self.channels_selected[self.selection_mode][idx] = True
         else:
             self.channels_selected['Plot line'][idx].remove()
+            self.channels_selected['Plot line'][idx] = None
             plt.setp(self.axes.texts[idx], fontweight='normal', color='w')
             self.channels_selected['Used'][idx] = False
             self.channels_selected['Ground'][idx] = False
@@ -376,6 +377,7 @@ class EEGChannelSelectionPlot(SerializableComponent):
         plots = list(np.where(self.channels_selected['Plot line'])[0])
         for marker_idx in plots:
             self.channels_selected['Plot line'][int(marker_idx)].remove()
+            self.channels_selected['Plot line'][int(marker_idx)] = None
         plt.setp(self.axes.texts, fontweight='normal', color='w')
         self.set_channel_selection_dict()
         self.fig.canvas.draw()
