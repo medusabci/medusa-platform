@@ -359,7 +359,7 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
             'Update', self.theme_colors)
 
     @exceptions.error_handler(scope='general')
-    def progress_package_app(self, app_id, output_path, listener):
+    def progress_package_app(self, app_id, listener):
         # Copy tree
         app_path = os.path.join(os.getcwd(), '%s/%s' %
                                 (self.apps_manager.apps_folder, app_id))
@@ -367,9 +367,7 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
         n_files = sum(len(files) for _, _, files in os.walk(app_path))
         n_files += sum(len(dirnames) for _, dirnames, _ in os.walk(app_path))
         # Initialize progress dialog
-        self.progress_dialog = resources.PackageProgressDialog(n_files,
-                                                               output_path,
-                                                               listener)
+        self.progress_dialog = PackageProgressDialog(n_files,listener)
 
     @exceptions.error_handler(scope='general')
     def package_app(self, app_key):
@@ -399,7 +397,7 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
             working_threads.append(T1)
 
             # Progress dialog
-            self.progress_package_app(app_key, output_path, log_queue)
+            self.progress_package_app(app_key, log_queue)
 
             for t in working_threads:
                 t.join()
@@ -420,6 +418,96 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
         self.apps_manager.uninstall_app(app_key)
         # Update apps panel
         self.update_apps_panel()
+
+
+ui_packaging = uic.loadUiType("gui/ui_files/packaging.ui")[0]
+
+
+class PackageProgressDialog(QDialog, ui_packaging):
+    close_signal = pyqtSignal(object)
+
+    def __init__(self, n_files, log_queue, theme_colors=None):
+        """Class constructor
+
+        Parameters
+        ----------
+        n_files: int
+            Number of files in app folder
+        log_queue: queue
+            Queue to which the logger sends information on the progress
+             of the packing.
+        theme_colors: dict or None
+            Theme colors
+        """
+
+        QDialog.__init__(self)
+        self.setWindowFlags(self.windowFlags() &
+                            ~Qt.WindowContextHelpButtonHint)
+        self.setupUi(self)
+
+        # Initialize the gui dialog
+        self.theme_colors = gu.get_theme_colors('dark') if \
+            theme_colors is None else theme_colors
+        self.stl = gu.set_css_and_theme(self, self.theme_colors)
+        medusa_task_icon = QIcon('%s/medusa_favicon.png' %
+                                 constants.IMG_FOLDER)
+        self.setWindowIcon(medusa_task_icon)
+        self.setWindowTitle("MEDUSA©")
+
+        # Attributes
+        self.n_files = n_files
+        self.packaging_finished = False
+        self.log_queue = log_queue
+        self.changes_made = True
+
+        # Connections
+        self.pbar.setRange(0, self.n_files)
+        QTimer.singleShot(100, self.check_packaging_progress)
+
+        # Show
+        self.setWindowFlags(self.windowFlags() | Qt.WindowStaysOnTopHint)
+        self.setModal(True)
+        self.exec_()
+
+    def check_packaging_progress(self):
+        try:
+            num_files_packaged = 0
+            while not self.packaging_finished:
+                time.sleep(0.1)
+                num_files_packaged = self.log_queue.qsize() - 1
+                self.pbar.setValue(num_files_packaged)
+                if num_files_packaged >= self.n_files:
+                    self.packaging_finished = True
+            self.close()
+        except Exception as ex:
+            raise ex
+
+    def closeEvent(self, event):
+        """ Overrides the closeEvent in order to show the confirmation dialog.
+        """
+        if self.changes_made:
+            retval = self.close_dialog()
+            if retval:
+                self.close_signal.emit(None)
+                event.accept()
+            else:
+                event.ignore()
+
+    @staticmethod
+    def close_dialog():
+        """ Shows a confirmation dialog that notifies the user that the
+        packaging process has finished
+
+        Returns
+        -------
+        output value: boolean
+            True when user click OK button.
+        """
+        res = dialogs.info_dialog(
+            message="MEDUSA App packaged!",
+            title='MEDUSA',
+        )
+        return res
 
 
 class AppsPanelGridWidget(QWidget):
@@ -503,7 +591,7 @@ class AppsPanelGridWidget(QWidget):
         for item in self.items:
             self.grid.addWidget(item, row, col)
             row, col = (row + 1, 0) if col >= self.n_cols - 1 else (
-            row, col + 1)
+                row, col + 1)
 
     def find_app(self, text):
         text = text.lower()
