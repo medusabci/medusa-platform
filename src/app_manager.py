@@ -93,9 +93,12 @@ class AppManager:
         self.apps_dict[info['id']] = info
         self.update_apps_file()
 
-    def package_app(self, app_key, output_path):
+    def package_app(self, app_key, output_path,logger):
         input_dir = '%s/%s' % (self.apps_folder, app_key)
-        shutil.make_archive(output_path, 'zip', input_dir)
+        shutil.make_archive(base_name=output_path,
+                            format='zip',
+                            root_dir=input_dir,
+                            logger=logger)
 
     def uninstall_app(self, app_key):
         # Remove directory

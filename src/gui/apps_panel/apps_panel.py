@@ -2,10 +2,16 @@
 import sys
 import json
 import importlib
+import threading
 import time
 import warnings
 import os
+import queue
+import logging
+from logging.handlers import QueueHandler
 # EXTERNAL MODULES
+import zipfile
+
 from PyQt5 import uic
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
@@ -16,13 +22,11 @@ from gui import gui_utils as gu
 from gui.qt_widgets import dialogs
 import constants, exceptions
 
-
 ui_plots_panel_widget = \
     uic.loadUiType('gui/ui_files/apps_panel_widget.ui')[0]
 
 
 class AppsPanelWidget(QWidget, ui_plots_panel_widget):
-
     error_signal = pyqtSignal(Exception)
 
     def __init__(self, apps_manager, working_lsl_streams, app_state, run_state,
@@ -41,6 +45,7 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
         self.app_process = None
         self.app_settings = None
         self.current_app_key = None
+        self.progress_dialog = None
 
         self.set_up_tool_bar_app()
         # Set scroll area
@@ -222,7 +227,7 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
             self.toolButton_app_play.setDisabled(False)
             self.toolButton_app_play.setIcon(
                 gu.get_icon("play.svg", custom_color=self.theme_colors[
-            'THEME_GREEN']))
+                    'THEME_GREEN']))
             self.toolButton_app_stop.setDisabled(False)
             self.toolButton_app_stop.setIcon(
                 gu.get_icon("stop.svg", custom_color=self.theme_colors[
@@ -245,7 +250,7 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
                 self.run_state.value = constants.RUN_STATE_PAUSED
                 self.toolButton_app_play.setIcon(
                     gu.get_icon("play.svg", custom_color=self.theme_colors[
-            'THEME_GREEN']))
+                        'THEME_GREEN']))
                 # Feedback
                 self.medusa_interface.log("Run paused")
             elif self.run_state.value is constants.RUN_STATE_PAUSED:
@@ -354,6 +359,19 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
             'Update', self.theme_colors)
 
     @exceptions.error_handler(scope='general')
+    def progress_package_app(self, app_id, output_path, listener):
+        # Copy tree
+        app_path = os.path.join(os.getcwd(), '%s/%s' %
+                                (self.apps_manager.apps_folder, app_id))
+        # Get number of files in directory and subdirectories
+        n_files = sum(len(files) for _, _, files in os.walk(app_path))
+        n_files += sum(len(dirnames) for _, dirnames, _ in os.walk(app_path))
+        # Initialize progress dialog
+        self.progress_dialog = resources.PackageProgressDialog(n_files,
+                                                               output_path,
+                                                               listener)
+
+    @exceptions.error_handler(scope='general')
     def package_app(self, app_key):
         # Choose path
         filt = "MEDUSA app (*.zip)"
@@ -365,8 +383,30 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
             dir_name = os.path.dirname(app_file)
             base_name = os.path.basename(app_file).split('.zip')[0]
             output_path = '%s/%s' % (dir_name, base_name)
-            # Package app
-            self.apps_manager.package_app(app_key, output_path)
+
+            # Prepare queue logger
+            log_queue = queue.Queue(-1)
+            queue_handler = QueueHandler(log_queue)
+            logger = logging.getLogger("package_app")
+            logger.setLevel(logging.INFO)
+            logger.addHandler(queue_handler)
+
+            # Package function
+            working_threads = []
+            T1 = threading.Thread(target=self.apps_manager.package_app,
+                                  args=(app_key, output_path, logger))
+            T1.start()
+            working_threads.append(T1)
+
+            # Progress dialog
+            self.progress_package_app(app_key, output_path, log_queue)
+
+            for t in working_threads:
+                t.join()
+                # log_queue.join()
+            # self.progress_package_app(app_key,output_path)
+            # # Package app
+            # self.apps_manager.package_app(app_key, output_path)
 
     @exceptions.error_handler(scope='general')
     def uninstall_app(self, app_key):
@@ -469,7 +509,8 @@ class AppsPanelGridWidget(QWidget):
         row, col = 0, 0
         for item in self.items:
             self.grid.addWidget(item, row, col)
-            row, col = (row + 1, 0) if col >= self.n_cols-1 else (row, col + 1)
+            row, col = (row + 1, 0) if col >= self.n_cols - 1 else (
+            row, col + 1)
 
     def find_app(self, text):
         text = text.lower()
@@ -500,7 +541,6 @@ class AppsPanelGridWidget(QWidget):
 
 
 class AppWidget(QFrame):
-
     app_selected = pyqtSignal(str)
     app_about = pyqtSignal(str)
     app_doc = pyqtSignal(str)
