@@ -367,7 +367,8 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
         n_files = sum(len(files) for _, _, files in os.walk(app_path))
         n_files += sum(len(dirnames) for _, dirnames, _ in os.walk(app_path))
         # Initialize progress dialog
-        self.progress_dialog = PackageProgressDialog(n_files,listener)
+        self.progress_dialog = PackageProgressDialog(n_files, listener,
+                                                     self.theme_colors)
 
     @exceptions.error_handler(scope='general')
     def package_app(self, app_key):

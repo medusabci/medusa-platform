@@ -86,7 +86,7 @@
      <x>0</x>
      <y>0</y>
      <width>1037</width>
-     <height>21</height>
+     <height>26</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuInfo_2">
@@ -121,10 +121,11 @@
     <property name="title">
      <string>Help</string>
     </property>
-    <addaction name="menuAction_help_support"/>
-    <addaction name="menuAction_help_bug"/>
+    <addaction name="menuAction_help_tutorials"/>
+    <addaction name="menuAction_help_forum"/>
+    <addaction name="menuAction_help_bugs"/>
     <addaction name="separator"/>
-    <addaction name="menuAction_help_update"/>
+    <addaction name="menuAction_help_updates"/>
     <addaction name="menuAction_help_about"/>
    </widget>
    <widget class="QMenu" name="menuLab_Streaming_Layer">
@@ -133,7 +134,6 @@
     </property>
     <addaction name="menuAction_lsl_doc"/>
     <addaction name="menuAction_lsl_repo"/>
-    <addaction name="menuAction_lsl_about"/>
     <addaction name="separator"/>
     <addaction name="menuAction_lsl_settings"/>
    </widget>
@@ -189,7 +189,7 @@
   </action>
   <action name="menuAction_dev_tutorial">
    <property name="text">
-    <string>Tutorials</string>
+    <string>Developer tutorial</string>
    </property>
   </action>
   <action name="menuAction_dev_new_qt_app">
@@ -207,17 +207,17 @@
     <string>New app from ...</string>
    </property>
   </action>
-  <action name="menuAction_help_support">
+  <action name="menuAction_help_forum">
    <property name="text">
-    <string>Contact support</string>
+    <string>Forum</string>
    </property>
   </action>
-  <action name="menuAction_help_bug">
+  <action name="menuAction_help_bugs">
    <property name="text">
-    <string>Submit bug report</string>
+    <string>Bug reports</string>
    </property>
   </action>
-  <action name="menuAction_help_update">
+  <action name="menuAction_help_updates">
    <property name="text">
     <string>Check for updates</string>
    </property>
@@ -270,6 +270,11 @@
   <action name="menuAction_dev_create_app">
    <property name="text">
     <string>Create app</string>
+   </property>
+  </action>
+  <action name="menuAction_help_tutorials">
+   <property name="text">
+    <string>Tutorials</string>
    </property>
   </action>
  </widget>

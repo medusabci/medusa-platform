@@ -3,6 +3,7 @@ import os, sys, time
 import multiprocessing as mp
 import json, traceback
 import ctypes
+import webbrowser
 
 # EXTERNAL MODULES
 from PyQt5 import uic
@@ -59,10 +60,12 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(medusaid)
 
         # Splash screen
-        # splash_screen = self.set_splash_screen()
+        splash_screen = SplashScreen()
+        splash_screen.set_state(0, "Reading articles...")
 
         # Instantiate accounts manager
         self.accounts_manager = accounts_manager.AccountsManager()
+        splash_screen.set_state(20, "Reading articles...")
 
         # Get gui settings of the user
         self.gui_config = None
@@ -73,6 +76,7 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         # Menu and toolbar action initializing
         self.set_up_menu_bar_main()
         self.set_up_tool_bar_main()
+        splash_screen.set_state(40, "Reading articles...")
 
         # State constants shared across medusa. See constants.py for more info
         self.plot_state = mp.Value('i', constants.PLOT_STATE_OFF)
@@ -84,6 +88,7 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         self.medusa_interface_listener = None
         self.set_up_medusa_interface_listener(self.interface_queue)
         self.medusa_interface = resources.MedusaInterface(self.interface_queue)
+        splash_screen.set_state(60, "Reading articles...")
 
         # Initialize important variables
         self.working_lsl_streams = None
@@ -91,13 +96,14 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
 
         # Reset panels
         self.reset_panels()
+        splash_screen.set_state(80, "Reading articles...")
 
         # Set up
         self.set_status('Ready')
         self.show()
 
-        # Hide splash screen
-        # splash_screen.finish(self)
+        splash_screen.set_state(100, "Reading articles...")
+        splash_screen.hide()
 
         # User account
         self.set_up_user_account()
@@ -112,71 +118,6 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         self.splitter_2.setSizes(
             [int(self.default_splitter_2_ratio * self.default_height),
              int((1 - self.default_splitter_2_ratio) * self.default_height)])
-
-    @staticmethod
-    def set_splash_screen():
-        """ Sets the initial splash screen while it loads things."""
-        # Attaching the splash image
-        splash_image = QPixmap('gui/images/medusa_splash_' +
-                               constants.MEDUSA_VERSION + '.png')
-        splash_screen = QSplashScreen(splash_image, Qt.WindowStaysOnTopHint)
-        splash_screen.setStyleSheet("QSplashScreen { margin-right: 0px; "
-                                    "padding-right: 0px;}")
-        splash_screen.setMask(splash_image.mask())
-
-        # Creating the progress bar
-        splash_progbar = QProgressBar(splash_screen)
-        splash_progbar.setStyleSheet(
-            "QProgressBar{ "
-            "height: 8px; "
-            "margin-right: -5px;"
-            "padding-right: 0px;"
-            "color: none; "
-            "border: 1px solid transparent; "
-            "background: rgba(0,0,0,0); "
-            "margin-left: 330px; "
-            "margin-top: 337px;"
-            "}" +
-            "QProgressBar::chunk{ background: white; }")
-        # Creating the progress text
-        splash_text = QLabel('Making a PhD thesis...')
-        splash_text.setStyleSheet("color: white; "
-                                  "font-size: 8pt; "
-                                  "font-weight: bold; "
-                                  "margin-top: 390px; "
-                                  "margin-left: 318px; "
-                                  "font-family: sans-serif, "
-                                  "Helvetica, Arial; "
-                                  "text-align: left;")
-
-        # Creating the final layout
-        splash_layout = QGridLayout()
-        splash_layout.setContentsMargins(0, 0, 0, 0)
-        splash_layout.addWidget(splash_progbar, 0, 0)
-        splash_layout.addWidget(splash_text, 0, 0)
-        splash_screen.setLayout(splash_layout)
-
-        # Displaying the splash screen
-        splash_screen.show()
-
-        # Showing progress
-        for i in range(0, 100):
-            splash_progbar.setValue(i)
-            if i < 20:
-                splash_text.setText("Reading articles...")
-            elif i < 40:
-                splash_text.setText("Writing an article...")
-            elif i < 60:
-                splash_text.setText("Waiting for the review...")
-            elif i < 80:
-                splash_text.setText("Tiding up the desk...")
-            elif i < 100:
-                splash_text.setText("Writing the PhD thesis...")
-            # Simulate something that takes time
-            time.sleep(0.01)
-        time.sleep(1)
-
-        return splash_screen
 
     @exceptions.error_handler(scope='general')
     def set_status(self, msg):
@@ -331,16 +272,24 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
             self.set_light_theme)
         # Lab streaming layer
         # TODO: menuAction_lsl_doc, menuAction_lsl_repo, menuAction_lsl_about
+        self.menuAction_lsl_doc.triggered.connect(
+            self.open_lsl_doc)
+        self.menuAction_lsl_repo.triggered.connect(
+            self.open_lsl_repo)
         self.menuAction_lsl_settings.triggered.connect(
             self.open_lsl_config_window)
         # Developer tools
-        # TODO: menuAction_dev_tutorial, menuAction_dev_create_app,
+        self.menuAction_dev_tutorial.triggered.connect(
+            self.open_dev_tutorial)
         self.menuAction_dev_create_app.triggered.connect(
             self.create_app_config_window)
         # Help
+        self.menuAction_help_tutorials.triggered.connect(
+            self.open_help_tutorials)
+        self.menuAction_help_forum.triggered.connect(self.open_help_forum)
+        self.menuAction_help_bugs.triggered.connect(self.open_help_bugs)
+        self.menuAction_help_updates.triggered.connect(self.open_help_updates)
         self.menuAction_help_about.triggered.connect(self.open_help_about)
-        # TODO: menuAction_help_support, menuAction_help_bug,
-        #  menuAction_help_update, menuAction_help_about
 
     # ============================== PREFERENCES ============================= #
     def set_dark_theme(self):
@@ -461,6 +410,16 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
 
     # ======================== LAB-STREAMING LAYER =========================== #
     @exceptions.error_handler(scope='general')
+    def open_lsl_doc(self, checked=None):
+        return webbrowser.open(
+            'https://labstreaminglayer.readthedocs.io/info/intro.html')
+
+    @exceptions.error_handler(scope='general')
+    def open_lsl_repo(self, checked=None):
+        return webbrowser.open(
+            'https://github.com/sccn/labstreaminglayer/')
+
+    @exceptions.error_handler(scope='general')
     def open_lsl_config_window(self, checked=None):
         self.lsl_config_window = \
             lsl_config.LSLConfig(
@@ -490,6 +449,11 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
 
     # ========================= DEVELOPER TOOLS ============================== #
     @exceptions.error_handler(scope='general')
+    def open_dev_tutorial(self, checked=None):
+        return webbrowser.open(
+            'https://www.medusabci.com/solutions/get-started/#create-app')
+
+    @exceptions.error_handler(scope='general')
     def create_app_config_window(self, checked=None):
         self.create_app_window = \
             create_app.CreateAppDialog(self.apps_manager,
@@ -502,8 +466,29 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
 
     # ========================= HELP ============================== #
     @exceptions.error_handler(scope='general')
+    def open_help_tutorials(self, checked=None):
+        return webbrowser.open(
+            'https://www.medusabci.com/solutions/get-started/')
+
+    @exceptions.error_handler(scope='general')
+    def open_help_forum(self, checked=None):
+        return webbrowser.open('https://forum.medusabci.com/')
+
+    @exceptions.error_handler(scope='general')
+    def open_help_bugs(self, checked=None):
+        return webbrowser.open(
+            'https://github.com/medusabci/medusa-platform/issues/')
+
+    @exceptions.error_handler(scope='general')
+    def open_help_updates(self, checked=None):
+        # TODO: check for updates automatically
+        return webbrowser.open(
+            'https://www.medusabci.com/solutions/medusa-platform/')
+
+    @exceptions.error_handler(scope='general')
     def open_help_about(self, checked=None):
-        dialog = AboutDialog(alias=self.accounts_manager.current_session.user_info['alias'])
+        dialog = AboutDialog(
+            alias=self.accounts_manager.current_session.user_info['alias'])
         dialog.exec_()
 
     # ======================= PLOTS PANEL FUNCTIONS ========================== #
@@ -947,12 +932,6 @@ class AboutDialog(QDialog, gui_about):
                 'none; color:#ff1ae0;}'
         body_ = '<p>Developed by (MSc) Eduardo Santamaría-Vázquez & (PhD) ' \
                 'Víctor Martínez-Cagigal.<br><br>' \
-                'Please cite us:<br>Eduardo Santamaría-Vázquez, Víctor ' \
-                'Martínez-Cagigal, Diego Marcos-Martínez, Víctor ' \
-                'Rodríguez-González, Sergio Pérez-Velasco, Selene ' \
-                'Moreno-Calderón, Roberto Hornero, "MEDUSA: A Novel ' \
-                'Brain-Computer Interface Platform based on Python", ' \
-                'Computer Methods & Programs in Biomedicine, 2022.<br><br>' \
                 'More information at <a ' \
                 'href="https://medusabci.com/">www.medusabci.com</a><br><br' \
                 '></p>' \
@@ -960,3 +939,77 @@ class AboutDialog(QDialog, gui_about):
                 'href="http://gib.tel.uva.es/">Grupo de ' \
                 'Ingeniería Biomédica</a>, University of Valladolid, Spain.</p>'
         self.textBrowser_details.setText(TEXT_BROWSER_TEMPLATE % (style, body_))
+        self.setModal(True)
+
+
+class SplashScreen:
+
+    def __init__(self):
+        """ Sets the initial splash screen while it loads things."""
+        # Attaching the splash image
+        splash_image = QPixmap('gui/images/medusa_splash_' +
+                               constants.MEDUSA_VERSION + '.png')
+        self.splash_screen = QSplashScreen(splash_image, Qt.WindowStaysOnTopHint)
+        self.splash_screen.setStyleSheet("QSplashScreen { margin-right: 0px; "
+                                         "padding-right: 0px;}")
+        self.splash_screen.setMask(splash_image.mask())
+
+        # Creating the progress bar
+        self.splash_progbar = QProgressBar(self.splash_screen)
+        self.splash_progbar.setStyleSheet(
+            "QProgressBar{ "
+            "height: 8px; "
+            "margin-right: -5px;"
+            "padding-right: 0px;"
+            "color: none; "
+            "border: 1px solid transparent; "
+            "background: rgba(0,0,0,0); "
+            "margin-left: 330px; "
+            "margin-top: 337px;"
+            "}" +
+            "QProgressBar::chunk{ background: white; }")
+        # Creating the progress text
+        self.splash_text = QLabel('Making a PhD thesis...')
+        self.splash_text.setStyleSheet("color: white; "
+                                       "font-size: 8pt; "
+                                       "font-weight: bold; "
+                                       "margin-top: 390px; "
+                                       "margin-left: 318px; "
+                                       "font-family: sans-serif, "
+                                       "Helvetica, Arial; "
+                                       "text-align: left;")
+
+        # Creating the final layout
+        splash_layout = QGridLayout()
+        splash_layout.setContentsMargins(0, 0, 0, 0)
+        splash_layout.addWidget(self.splash_progbar, 0, 0)
+        splash_layout.addWidget(self.splash_text, 0, 0)
+        self.splash_screen.setLayout(splash_layout)
+
+        # Displaying the splash screen
+        self.splash_screen.show()
+
+        # # Showing progress
+        # for i in range(0, 100):
+        #     splash_progbar.setValue(i)
+        #     if i < 20:
+        #         splash_text.setText("Reading articles...")
+        #     elif i < 40:
+        #         splash_text.setText("Writing an article...")
+        #     elif i < 60:
+        #         splash_text.setText("Waiting for the review...")
+        #     elif i < 80:
+        #         splash_text.setText("Tiding up the desk...")
+        #     elif i < 100:
+        #         splash_text.setText("Writing the PhD thesis...")
+        #     # Simulate something that takes time
+        #     time.sleep(0.01)
+        # time.sleep(1)
+
+    def set_state(self, prog_value, prog_text):
+        self.splash_progbar.setValue(prog_value)
+        self.splash_text.setText(prog_text)
+
+    def hide(self, parent=None):
+        # Hide splash screen
+        self.splash_screen.finish(parent)

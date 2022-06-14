@@ -45,7 +45,7 @@ class LoginDialog(QtWidgets.QDialog, ui_main_dialog):
         self.stl = gui_utils.set_css_and_theme(self, self.theme_colors)
 
         medusa_task_icon = QtGui.QIcon('%s/medusa_favicon.png' %
-                                  constants.IMG_FOLDER)
+                                       constants.IMG_FOLDER)
         self.setWindowIcon(medusa_task_icon)
         self.setWindowTitle('Login in to MEDUSA©')
 
@@ -56,11 +56,13 @@ class LoginDialog(QtWidgets.QDialog, ui_main_dialog):
 
         # Buttons
         self.pushButton_login.clicked.connect(self.on_button_login_clicked)
-            # Show_password
-        self.visibleIcon = QtGui.QIcon(
-            '%s/icons/svg/visibility.svg' %constants.IMG_FOLDER)
-        self.hiddenIcon = QtGui.QIcon(
-            '%s/icons/svg/visibility_off.svg' %constants.IMG_FOLDER)
+        # Show_password
+        self.visibleIcon = gui_utils.get_icon(
+            "visibility_login.svg",
+            custom_color=self.theme_colors['THEME_BG_DARK'])
+        self.hiddenIcon = gui_utils.get_icon(
+            "visibility_login_off.svg",
+            custom_color=self.theme_colors['THEME_BG_DARK'])
         self.togglepasswordAction = self.lineEdit_password.addAction(
             self.visibleIcon, QtWidgets.QLineEdit.TrailingPosition)
         # self.showPassAction.setCheckable(True)
