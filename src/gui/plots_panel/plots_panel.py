@@ -49,8 +49,6 @@ class PlotsPanelWidget(QWidget, ui_plots_panel_widget):
                       'The plots config could not be loaded'
                 self.medusa_interface.log(msg)
 
-
-
     def handle_exception(self, ex):
         # Treat exception
         if not isinstance(ex, exceptions.MedusaException):
@@ -171,7 +169,8 @@ class PlotsPanelWidget(QWidget, ui_plots_panel_widget):
                         lsl_stream_info = \
                             lsl_utils.LSLStreamWrapper.from_serializable_obj(
                                 plot_settings['lsl_stream_info'])
-                        self.check_lsl_stream(lsl_stream_info)
+                        lsl_stream_info = \
+                            self.check_and_update_lsl_stream(lsl_stream_info)
                         self.plots_handlers[plot_uid].set_receiver(
                             lsl_stream_info)
                         self.plots_handlers[plot_uid].init_plot()
@@ -207,10 +206,10 @@ class PlotsPanelWidget(QWidget, ui_plots_panel_widget):
         except Exception as e:
             self.handle_exception(e)
 
-    def check_lsl_stream(self, lsl_stream):
+    def check_and_update_lsl_stream(self, lsl_stream):
         for working_lsl_stream in self.working_lsl_streams:
             if lsl_stream.lsl_uid == working_lsl_stream.lsl_uid:
-                return
+                return working_lsl_stream
         prop_dict = {
             'name': lsl_stream.lsl_name,
             'type': lsl_stream.lsl_type,

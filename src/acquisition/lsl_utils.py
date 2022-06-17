@@ -170,9 +170,9 @@ class LSLStreamWrapper(components.SerializableComponent):
             List with the channel info. If None, the info will be extracted
             automatically from the lsl_stream.
         """
-        # Get all channels
-        cha_info = self.get_desc_field_value(desc_channels_field) \
-            if cha_info is None else cha_info
+        # Get the information of the channels
+        cha_info = self.get_desc_field_value(desc_channels_field)
+        cha_info = [cha_info[i] for i in selected_channels_idx]
         # Set medusa parameters
         self.medusa_uid = medusa_uid
         self.medusa_type = medusa_type

@@ -987,24 +987,7 @@ class SplashScreen:
         self.splash_screen.setLayout(splash_layout)
 
         # Displaying the splash screen
-        self.splash_screen.show()
-
-        # # Showing progress
-        # for i in range(0, 100):
-        #     splash_progbar.setValue(i)
-        #     if i < 20:
-        #         splash_text.setText("Reading articles...")
-        #     elif i < 40:
-        #         splash_text.setText("Writing an article...")
-        #     elif i < 60:
-        #         splash_text.setText("Waiting for the review...")
-        #     elif i < 80:
-        #         splash_text.setText("Tiding up the desk...")
-        #     elif i < 100:
-        #         splash_text.setText("Writing the PhD thesis...")
-        #     # Simulate something that takes time
-        #     time.sleep(0.01)
-        # time.sleep(1)
+        # self.splash_screen.show()
 
     def set_state(self, prog_value, prog_text):
         self.splash_progbar.setValue(prog_value)
