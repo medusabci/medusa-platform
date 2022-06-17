@@ -287,12 +287,9 @@ class TimePlotMultichannel(RealTimePlot):
         # Draw y axis ticks (channel labels)
         ticks = list()
         if self.receiver.l_cha is not None:
-            l_cha_selected = [self.receiver.l_cha[i] for i in
-                              self.receiver.idx_cha]
             for i in range(self.receiver.n_cha):
                 offset = self.cha_separation * i
-                # label = self.receiver.l_cha[-i - 1]
-                label = l_cha_selected[-i - 1]
+                label = self.receiver.l_cha[-i - 1]
                 ticks.append((offset, label))
         ticks = [ticks]   # Two levels for ticks
         self.y_axis.setTicks(ticks)
@@ -530,11 +527,9 @@ class PSDPlotMultichannel(RealTimePlot):
     def draw_y_axis_ticks(self):
         ticks = list()
         if self.receiver.l_cha is not None:
-            l_cha_selected = [self.receiver.l_cha[i] for i in
-                              self.receiver.idx_cha]
             for i in range(self.receiver.n_cha):
                 offset = self.cha_separation * i
-                label = l_cha_selected[-i - 1]
+                label = self.receiver.l_cha[-i - 1]
                 ticks.append((offset, label))
         ticks = [ticks]  # Two levels for ticks
         self.y_axis.setTicks(ticks)
@@ -645,18 +640,15 @@ class TimePlot(RealTimePlot):
             self.plot_handler = plot_handler
 
         def select_channel(self):
-            l_cha_selected = [self.plot_handler.receiver.l_cha[i] for i in \
-                              self.plot_handler.receiver.idx_cha]
             cha_label = self.sender().text()
             for i in range(self.plot_handler.receiver.n_cha):
-                if l_cha_selected[i] == cha_label:
+                if self.plot_handler.receiver.l_cha[i] == cha_label:
                     self.plot_handler.select_channel(i)
 
         def set_channel_list(self):
-            l_cha_selected = [self.plot_handler.receiver.l_cha[i] for i in \
-                    self.plot_handler.receiver.idx_cha]
             for i in range(self.plot_handler.receiver.n_cha):
-                channel_action = QAction(l_cha_selected[i], self)
+                channel_action = QAction(
+                    self.plot_handler.receiver.l_cha[i], self)
                 channel_action.triggered.connect(self.select_channel)
                 self.addAction(channel_action)
 
@@ -719,9 +711,7 @@ class TimePlot(RealTimePlot):
         :param cha: sample frecuency in Hz
         """
         self.curr_cha = cha
-        l_cha_selected = [self.receiver.l_cha[i] for i in
-                          self.receiver.idx_cha]
-        self.widget.setTitle(str(l_cha_selected[cha]))
+        self.widget.setTitle(str(self.receiver.l_cha[cha]))
 
     def init_plot(self):
         """ This function changes the time of signal plotted in the graph. It
@@ -884,17 +874,14 @@ class PSDPlot(RealTimePlot):
 
         def select_channel(self):
             cha_label = self.sender().text()
-            l_cha_selected = [self.psd_plot_handler.receiver.l_cha[i] for i in \
-                              self.psd_plot_handler.receiver.idx_cha]
             for i in range(self.psd_plot_handler.receiver.n_cha):
-                if l_cha_selected[i] == cha_label:
+                if self.psd_plot_handler.receiver.l_cha[i] == cha_label:
                     self.psd_plot_handler.select_channel(i)
 
         def set_channel_list(self):
-            l_cha_selected = [self.psd_plot_handler.receiver.l_cha[i] for i in \
-                              self.psd_plot_handler.receiver.idx_cha]
             for i in range(self.psd_plot_handler.receiver.n_cha):
-                channel_action = QAction(l_cha_selected[i], self)
+                channel_action = QAction(
+                    self.psd_plot_handler.receiver.l_cha[i], self)
                 channel_action.triggered.connect(self.select_channel)
                 self.addAction(channel_action)
 
@@ -956,9 +943,7 @@ class PSDPlot(RealTimePlot):
         :param cha: sample frecuency in Hz
         """
         self.curr_cha = cha
-        l_cha_selected = [self.receiver.l_cha[i] for i in
-                          self.receiver.idx_cha]
-        self.widget.setTitle(str(l_cha_selected[cha]))
+        self.widget.setTitle(str(self.receiver.l_cha[cha]))
 
     def init_plot(self):
         """ This function changes the time of signal plotted in the graph. It
