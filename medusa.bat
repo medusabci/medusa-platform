@@ -42,7 +42,7 @@ IF %ERRORLEVEL% NEQ 0 GOTO cdError
 python "main.py"
 IF %ERRORLEVEL% NEQ 0 GOTO pythonError
 ::PAUSE
-exit /b 1
+exit
 
 :activateError
 powershell -Command "& {Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.MessageBox]::Show('Python venv cant be activated!', 'Error', 'OK', [System.Windows.Forms.MessageBoxIcon]::Error);}"
