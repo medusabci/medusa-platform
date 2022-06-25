@@ -10,7 +10,6 @@ class UserSession:
     # TODO: Handle connection error uniformly for all methods
 
     def __init__(self):
-
         """ This class handles user sessions to a BeeLab database """
 
         # Server and database name
@@ -41,7 +40,7 @@ class UserSession:
             raise Exception("\n\n" + resp.text)
 
     def login(self, email, password):
-        """Request to login to MEDUSA
+        """Login request to MEDUSA
 
         Parameters
         ----------
