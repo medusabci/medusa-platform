@@ -47,7 +47,7 @@ class LoginDialog(QtWidgets.QDialog, ui_main_dialog):
         medusa_task_icon = QtGui.QIcon('%s/medusa_favicon.png' %
                                        constants.IMG_FOLDER)
         self.setWindowIcon(medusa_task_icon)
-        self.setWindowTitle('Login in to MEDUSA©')
+        self.setWindowTitle('Log in to MEDUSA©')
 
         # Form entries
         self.lineEdit_email.setProperty("class", "login-entry")
