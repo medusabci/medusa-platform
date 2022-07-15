@@ -52,7 +52,8 @@ class AppController(TCPServer):
         self.run_state = run_state
 
         # Pass the IP and port to the TCPServer
-        super().__init__(ip=self.app_settings.ip, port=self.app_settings.port)
+        super().__init__(ip=self.app_settings.connection_settings.ip,
+                         port=self.app_settings.connection_settings.port)
 
         # States
         self.server_state = mp.Value('i', SERVER_DOWN)
@@ -69,9 +70,9 @@ class AppController(TCPServer):
 
     def start_application(self):
         """ Starts the Unity application that will act as a TCP client. """
-        subprocess.call([self.app_settings.path_to_exe,
-                         self.app_settings.ip,
-                         str(self.app_settings.port)])
+        subprocess.call([self.app_settings.connection_settings.path_to_exe,
+                         self.app_settings.connection_settings.ip,
+                         str(self.app_settings.connection_settings.port)])
 
     def start_server(self):
         """ Starts the TCP server in MEDUSA. """
@@ -82,7 +83,7 @@ class AppController(TCPServer):
         print(self.TAG, "Setting parameters...")
         msg = dict()
         msg["event_type"] = "setParameters"
-        msg["updates_per_min"] = self.app_settings.updates_per_min
+        msg["updates_per_min"] = self.app_settings.run_settings.updates_per_min
         self.send_command(msg)
 
     def play(self):

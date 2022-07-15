@@ -57,9 +57,6 @@ class App(resources.AppSkeleton):
                          app_state, run_state, working_lsl_streams_info)
         # Set attributes
         self.app_controller = None
-        # Queues to communicate with the app controller
-        self.queue_to_controller = mp.Queue()
-        self.queue_from_controller = mp.Queue()
         # Colors
         theme_colors = gui_utils.get_theme_colors('dark')
         self.log_color = theme_colors['THEME_TEXT_ACCENT']
@@ -83,9 +80,10 @@ class App(resources.AppSkeleton):
         """Check settings config.
         By default, this function check if unity path exits."""
 
-        if not os.path.exists(app_settings.path_to_exe):
+        if not os.path.exists(app_settings.connection_settings.path_to_exe):
             raise exceptions.IncorrectSettingsConfig(
-                f"Incorrect path of Unity file: {app_settings.path_to_exe}")
+                f"Incorrect path of Unity file: "
+                f"{app_settings.connection_settings.path_to_exe}")
 
     def get_lsl_worker(self):
         """Returns the LSL worker"""
