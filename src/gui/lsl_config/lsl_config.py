@@ -467,7 +467,9 @@ class EditStreamDialog(QtWidgets.QDialog, ui_stream_config_dialog):
                 if idx in cha_idx:
                     self.tableWidget_channels.cellWidget(i, j).setChecked(True)
                 else:
-                    self.tableWidget_channels.cellWidget(i, j).setChecked(False)
+                    if self.tableWidget_channels.cellWidget(i, j) is not None:
+                        self.tableWidget_channels.cellWidget(
+                            i, j).setChecked(False)
                 idx += 1
         return cha_idx
 
