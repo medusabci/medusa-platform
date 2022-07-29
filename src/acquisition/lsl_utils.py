@@ -171,8 +171,9 @@ class LSLStreamWrapper(components.SerializableComponent):
             automatically from the lsl_stream.
         """
         # Get the information of the channels
-        cha_info = self.get_desc_field_value(desc_channels_field)
-        cha_info = [cha_info[i] for i in selected_channels_idx]
+        if cha_info is None:
+            cha_info = self.get_desc_field_value(desc_channels_field)
+            cha_info = [cha_info[i] for i in selected_channels_idx]
         # Set medusa parameters
         self.medusa_uid = medusa_uid
         self.medusa_type = medusa_type

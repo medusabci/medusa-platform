@@ -114,7 +114,7 @@ class RealTimePlot(ABC):
         self.visualization_settings = plot_settings
 
     def set_receiver(self, lsl_stream_info):
-        """Set settings dicts
+        """Create a new receiver for each plot
 
         Parameters
         ----------

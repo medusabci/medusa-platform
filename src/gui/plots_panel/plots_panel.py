@@ -18,14 +18,12 @@ ui_plots_panel_widget = \
 
 
 class PlotsPanelWidget(QWidget, ui_plots_panel_widget):
-    
+    """ This widget implements the logic behind the plots panel.
+    """
     def __init__(self, working_lsl_streams, plot_state, medusa_interface,
                  plots_config_file_path, theme_colors):
         super().__init__()
         self.setupUi(self)
-
-        # TODO: Get current theme
-        self.theme = 'dark'
 
         # Attributes
         self.working_lsl_streams = working_lsl_streams
@@ -124,7 +122,8 @@ class PlotsPanelWidget(QWidget, ui_plots_panel_widget):
 
     def set_plots_panel_config(self):
         try:
-            self.plots_panel_config = self.plots_panel_config_dialog.get_config()
+            self.plots_panel_config = \
+                self.plots_panel_config_dialog.get_config()
             self.update_plots_panel()
         except Exception as e:
             self.handle_exception(e)
@@ -169,8 +168,7 @@ class PlotsPanelWidget(QWidget, ui_plots_panel_widget):
                         lsl_stream_info = \
                             lsl_utils.LSLStreamWrapper.from_serializable_obj(
                                 plot_settings['lsl_stream_info'])
-                        lsl_stream_info = \
-                            self.check_and_update_lsl_stream(lsl_stream_info)
+                        self.check_and_update_lsl_stream(lsl_stream_info)
                         self.plots_handlers[plot_uid].set_receiver(
                             lsl_stream_info)
                         self.plots_handlers[plot_uid].init_plot()
@@ -207,9 +205,31 @@ class PlotsPanelWidget(QWidget, ui_plots_panel_widget):
             self.handle_exception(e)
 
     def check_and_update_lsl_stream(self, lsl_stream):
+        """This function has two objectives. First, it checks that the LSL
+        stream that is configured for the plot is available in working LSL
+        streams in MEDUSA. Second, it updates the stream configured for the plot
+        with the last parameters configured in MEDUSA. For example, the user may
+        have changed the number of channels available in MEDUSA from in the LSL
+        config panel
+
+        Take care in not returning the working_lsl_stream directly. If several
+        plots are fed with the same LSL stream and the Inlet is the same, they
+        will crash!
+        """
+        # Get LSL stream
         for working_lsl_stream in self.working_lsl_streams:
             if lsl_stream.lsl_uid == working_lsl_stream.lsl_uid:
-                return working_lsl_stream
+                # Update MEDUSA params
+                lsl_stream.set_medusa_parameters(
+                    medusa_uid=working_lsl_stream.medusa_uid,
+                    medusa_type=working_lsl_stream.medusa_type,
+                    desc_channels_field=working_lsl_stream.desc_channels_field,
+                    channel_label_field=working_lsl_stream.channel_label_field,
+                    selected_channels_idx=working_lsl_stream.selected_channels_idx,
+                    cha_info=working_lsl_stream.cha_info,
+                )
+                return
+        # If the LSL stream was not found, launch an error
         prop_dict = {
             'name': lsl_stream.lsl_name,
             'type': lsl_stream.lsl_type,
@@ -232,7 +252,9 @@ class PlotsPanelWidget(QWidget, ui_plots_panel_widget):
             self.handle_exception(e)
 
     def plot_start(self):
-        """ This function gets the lsl stream to start getting data """
+        """ This function is called when the plot_start button is clicked. Take
+        into account that this button is called to start or to stop plotting,
+        depending on the state of plot_state"""
         try:
             if self.plot_state.value == constants.PLOT_STATE_OFF:
                 # Update plot state. This will notify the action directly if
@@ -286,6 +308,8 @@ class PlotsPanelWidget(QWidget, ui_plots_panel_widget):
 
 
 class PlotsPanelWindow(QMainWindow):
+
+    """This window holds the plots panel widget in undocked mode"""
 
     close_signal = pyqtSignal()
 
