@@ -108,11 +108,16 @@ class LogPanelWidget(QWidget, ui_plots_panel_widget):
         except Exception as e:
             self.handle_exception(e)
 
-    def format_log_msg(self, msg, color=None, **kwargs):
+    def format_log_msg(self, msg, **kwargs):
         try:
-            col = self.theme_colors['THEME_TEXT_LIGHT'] \
-                if color is None else color
-            style = 'color:%s;' % col
+            # Default style
+            kwargs.setdefault('color', self.theme_colors['THEME_TEXT_LIGHT'])
+            kwargs.setdefault('margin', '0')
+            kwargs.setdefault('margin-top', '2px')
+            kwargs.setdefault('margin-top', '2px')
+            kwargs.setdefault('font-size', '9pt')
+            # Format css
+            style = ''
             for key, value in kwargs.items():
                 if not isinstance(value, str):
                     raise ValueError('Type of %s must be str' % key)
@@ -124,17 +129,35 @@ class LogPanelWidget(QWidget, ui_plots_panel_widget):
 
     def print_log(self, msg, style=None):
         """ Prints in the application log.
+
+        Parameters
+        ----------
+        msg: str
+            String to print int the log panel
+        style: dict or str
+            If it is a dict, it must contain css properties and values for
+            PyQt5. If it is a string, it must be one of the predefined styles,
+            which are: ['error'].
         """
         try:
             # Default styles
-            if style == 'error':
-                style = {'color': self.theme_colors['THEME_RED']}
-            style = {} if style is None else style
-            color = style.pop('color', None)
-            formatted_msg = self.format_log_msg(msg, color=color, **style)
-            curr_html = self.text_log.toHtml()
-            curr_html += formatted_msg
-            self.text_log.setText(curr_html)
+            if isinstance(style, str):
+                if style == 'error':
+                    style = {'color': self.theme_colors['THEME_RED']}
+                elif style == 'warning':
+                    style = {'color': self.theme_colors['THEME_YELLOW']}
+                else:
+                    raise ValueError('Custom style %s not recognized' % style)
+            elif isinstance(style, dict):
+                pass
+            elif style is None:
+                style = {}
+            else:
+                raise ValueError('Unrecognized style type')
+
+            # Print log
+            formatted_msg = self.format_log_msg(msg, **style)
+            self.text_log.append(formatted_msg)
         except Exception as e:
             self.handle_exception(e)
 

@@ -635,7 +635,7 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         """ Prints in the application log."""
         # hasattr is needed because if an exception occurs before
         # log_panel_widget is initialized, the program enters in an infinite
-        # loop because exception handling
+        # loop because of exception handling
         if hasattr(self, 'log_panel_widget'):
             self.log_panel_widget.print_log(msg, style)
 
