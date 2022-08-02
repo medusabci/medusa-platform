@@ -78,6 +78,16 @@ def get_lsl_streams(wait_time=0.1, force_one_stream=False, **kwargs):
         return match_streams
 
 
+def check_if_medusa_uid_is_available(working_lsl_streams, medusa_uid):
+    """This function checks if an uid is available given the current working
+    lsl streams that have been configured
+    """
+    for stream in working_lsl_streams:
+        if stream.medusa_uid == medusa_uid:
+            return False
+    return True
+
+
 class LSLStreamWrapper(components.SerializableComponent):
     """LSL stream wrapper class for medusa. It includes the stream_info and
     stream_inlet objects for easier use.

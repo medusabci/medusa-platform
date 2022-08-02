@@ -10,9 +10,24 @@ import constants
 from gui.themes import themes
 
 # ------------------------------- QT UTILS ----------------------------------- #
-def select_entry_combobox(combobox, entry_text, force_selection=False,
-                          throw_error=False):
+def select_entry_combobox_with_text(combobox, entry_text, force_selection=False,
+                                    throw_error=False):
     index = combobox.findText(entry_text, Qt.MatchFixedString)
+    if index >= 0:
+        combobox.setCurrentIndex(index)
+    else:
+        if force_selection:
+            combobox.setCurrentIndex(0)
+        else:
+            if throw_error:
+                raise ValueError('Entry text not valid')
+            else:
+                return
+
+
+def select_entry_combobox_with_data(combobox, entry_data, force_selection=False,
+                                    throw_error=False):
+    index = combobox.findData(entry_data, Qt.MatchFixedString)
     if index >= 0:
         combobox.setCurrentIndex(index)
     else:

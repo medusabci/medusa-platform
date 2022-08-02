@@ -208,8 +208,19 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
                             lsl_stream_info_dict)
                 except exceptions.LSLStreamNotFound as e:
                     self.print_log('LSL stream %s not found' %
-                                   lsl_stream_info_dict['medusa_uid'])
+                                   lsl_stream_info_dict['medusa_uid'],
+                                   style='error')
                     continue
+                # Check uid
+                if not lsl_utils.check_if_medusa_uid_is_available(
+                        self.working_lsl_streams, lsl_stream_info.medusa_uid):
+                    error_dialog(
+                        'Incorrect LSL configuration with duplicated LSL stream'
+                        'UID %s. MEDUSA LSL UIDs must be unique. Please '
+                        'reconfigure LSL.' % lsl_stream_info.medusa_uid,
+                        'Incorrect MEDUSA LSL UID')
+                    self.working_lsl_streams = list()
+                    break
                 self.working_lsl_streams.append(lsl_stream_info)
                 self.print_log('Connected to LSL stream: %s' %
                                lsl_stream_info.medusa_uid)
