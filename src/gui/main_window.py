@@ -39,7 +39,8 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         self.setupUi(self)
 
         # Qt parameters
-        self.setWindowIcon(QIcon('%s/medusa_task_icon.png' % constants.IMG_FOLDER))
+        self.setWindowIcon(QIcon('%s/medusa_task_icon.png' %
+                                 constants.IMG_FOLDER))
         self.setWindowTitle('MEDUSA© Platform %s [%s]' %
                             (constants.MEDUSA_VERSION,
                              constants.MEDUSA_VERSION_NAME))
@@ -272,11 +273,18 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         if not self.accounts_manager.check_session():
             self.open_login_window()
 
+    def keyPressEvent(self, key_event):
+        # TODO: define some shortcuts
+        # Receive the key in decimal ASCII
+        # d_key = key_event.key()
+        # self.print_log(d_key, style={'color': 'green'})
+        pass
+
     # =============================== MENU BAR =============================== #
     @exceptions.error_handler(scope='general')
     def set_up_menu_bar_main(self):
         # Preferences
-        # TODO: menuAction_view_integrated, menuAction_view_split,
+        # TODO: menuAction_view_integrated, menuAction_view_split
         self.menuAction_color_dark.triggered.connect(
             self.set_dark_theme)
         self.menuAction_color_light.triggered.connect(
