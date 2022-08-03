@@ -1,5 +1,5 @@
 # PYTHON MODULES
-import os, sys, time
+import os, sys
 import multiprocessing as mp
 import json, traceback
 import ctypes
@@ -208,9 +208,11 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
                         lsl_utils.LSLStreamWrapper.from_serializable_obj(
                             lsl_stream_info_dict)
                 except exceptions.LSLStreamNotFound as e:
-                    self.print_log('LSL stream %s not found' %
+                    self.print_log('No match for LSL stream "%s"' %
                                    lsl_stream_info_dict['medusa_uid'],
                                    style='error')
+                    # raise exceptions.MedusaException(
+                    #     e, scope='acquisition', importance='mild')
                     continue
                 # Check uid
                 if not lsl_utils.check_if_medusa_uid_is_available(
