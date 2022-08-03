@@ -123,7 +123,7 @@ class LSLStreamWrapper(components.SerializableComponent):
             utils.xml_string_to_json(self.lsl_stream_info_xml)
         if 'desc' not in self.lsl_stream_info_json_format or \
                 self.lsl_stream_info_json_format['desc'] == '':
-            # Field desc must be a dict
+            # This field desc must be a dict
             self.lsl_stream_info_json_format['desc'] = dict()
         # Additional Medusa parameters
         self.medusa_params_initialized = False
@@ -131,6 +131,9 @@ class LSLStreamWrapper(components.SerializableComponent):
         self.medusa_type = None
         self.desc_channels_field = None
         self.channel_label_field = None
+        self.original_cha_info = None
+        self.original_n_cha = None
+        self.original_l_cha = None
         self.selected_channels_idx = None
         self.n_cha = None
         self.cha_info = None
@@ -160,7 +163,7 @@ class LSLStreamWrapper(components.SerializableComponent):
                               desc_channels_field,
                               channel_label_field,
                               selected_channels_idx,
-                              cha_info=None):
+                              cha_info):
         """Decodes the channels from the extended description of the stream,
         in XML format, contained in lsl_stream_info
 
@@ -180,19 +183,19 @@ class LSLStreamWrapper(components.SerializableComponent):
             List with the channel info. If None, the info will be extracted
             automatically from the lsl_stream.
         """
-        # Get the information of the channels
-        if cha_info is None:
-            cha_info = self.get_desc_field_value(desc_channels_field)
-            cha_info = [cha_info[i] for i in selected_channels_idx]
         # Set medusa parameters
         self.medusa_uid = medusa_uid
         self.medusa_type = medusa_type
         self.desc_channels_field = desc_channels_field
         self.channel_label_field = channel_label_field
+        # Set channels that are used in MEDUSA
+        # if cha_info is None:
+        #     cha_info = self.get_desc_field_value(desc_channels_field)
         self.selected_channels_idx = selected_channels_idx
         self.n_cha = len(self.selected_channels_idx)
-        self.cha_info = cha_info
-        self.l_cha = [info[channel_label_field] for info in self.cha_info] \
+        self.cha_info = [cha_info[i] for i in selected_channels_idx]
+        self.l_cha = [
+            info[channel_label_field] for info in self.cha_info] \
             if channel_label_field is not None else list(range(self.n_cha))
         self.medusa_params_initialized = True
 

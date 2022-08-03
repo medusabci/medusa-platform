@@ -223,7 +223,8 @@ class PlotsPanelWidget(QWidget, ui_plots_panel_widget):
         """
         # Get LSL stream
         for working_lsl_stream in self.working_lsl_streams:
-            if lsl_stream.lsl_uid == working_lsl_stream.lsl_uid:
+            if lsl_stream.lsl_uid == working_lsl_stream.lsl_uid and \
+                    lsl_stream.medusa_uid == working_lsl_stream.medusa_uid:
                 # Update MEDUSA params
                 lsl_stream.set_medusa_parameters(
                     medusa_uid=working_lsl_stream.medusa_uid,

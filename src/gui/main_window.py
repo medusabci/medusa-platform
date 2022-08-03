@@ -55,11 +55,6 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         self.default_splitter_2_ratio = 0.28
         self.reset_sizes()
 
-        # Tell windows that this application is not pythonw.exe so it can
-        # have its own icon
-        medusaid = u'gib.medusa.' + constants.MEDUSA_VERSION
-        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(medusaid)
-
         # Splash screen
         splash_screen = SplashScreen()
         splash_screen.set_state(0, "Reading articles...")
