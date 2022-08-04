@@ -4,6 +4,18 @@ MEDUSA© is a software ecosystem for the development of BCIs and neuroscience ex
 
 MEDUSA© Platform is a desktop application, programmed in Python, which implements high level functionalities to perform BCI and cognitive neuroscience experiments. It includes a modern graphic user interface (GUI) sustained by the advanced signal acquisition functions and real time charts. One of the most critical features is the possibility to install and create apps, which are implementations of neuroscience and BCI experiments or paradigms. Noteworthy, all these functionalities rely on [MEDUSA© Kernel](https://github.com/medusabci/medusa-kernel) to perform the necessary real-time signal processing.
 
+## Information
+
+## Information
+
+Check the following links to know more about the MEDUSA environment for neurotechnology and brain-computer interface (BCI) experiments:
+
+- Website: https://www.medusabci.com/
+- Documentation: [https://docs.www.medusabci.com/medusa-platform/](https://docs.medusabci.com/platform/v2022/getstarted.php)
+
+Important: MEDUSA Platform is under heavy development! It may change significantly in following versions
+
+
 ## Design principles
 
 MEDUSA© has been designed and developed following three principles: 
