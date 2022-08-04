@@ -177,6 +177,7 @@ class LSLConfig(QtWidgets.QDialog, ui_main_dialog):
             self.edit_stream_dialog = EditStreamDialog(
                 self.working_streams[self.lsl_stream_editing_idx],
                 self.working_streams,
+                editing=True,
                 theme_colors=self.theme_colors)
             self.edit_stream_dialog.accepted.connect(
                 self.on_edit_stream_ok)
@@ -222,6 +223,8 @@ class LSLConfig(QtWidgets.QDialog, ui_main_dialog):
                 self.lsl_stream_editing_idx)
             self.insert_working_stream_in_table(
                 lsl_stream_wrapper, self.lsl_stream_editing_idx)
+            self.working_streams[self.lsl_stream_editing_idx] = \
+                lsl_stream_wrapper
             self.lsl_stream_editing_idx = None
             self.edit_stream_dialog = None
         except Exception as e:
@@ -305,7 +308,8 @@ class LSLConfig(QtWidgets.QDialog, ui_main_dialog):
 
 class EditStreamDialog(QtWidgets.QDialog, ui_stream_config_dialog):
 
-    def __init__(self, lsl_stream_info, working_lsl_streams, theme_colors=None):
+    def __init__(self, lsl_stream_info, working_lsl_streams, editing=False,
+                 theme_colors=None):
         try:
             # Super call
             super().__init__()
@@ -320,10 +324,13 @@ class EditStreamDialog(QtWidgets.QDialog, ui_stream_config_dialog):
             self.setWindowTitle('Stream settings')
             self.resize(400, 400)
             # Params
+            # Create a new lsl wrapper object to avoid reference passing
+            # problems with working_lsl_streams
             self.lsl_stream_info = lsl_utils.LSLStreamWrapper(
                 lsl_stream_info.lsl_stream)
             self.working_lsl_streams = working_lsl_streams
             self.cha_info = None
+            self.editing = editing
             # Init widgets
             self.init_widgets()
         except Exception as e:
@@ -507,13 +514,14 @@ class EditStreamDialog(QtWidgets.QDialog, ui_stream_config_dialog):
             medusa_uid, medusa_type, desc_channels_field,
             channel_label_field, selected_channels_idx, self.cha_info)
         # Check the medusa uid, it has to be unique
-        if not lsl_utils.check_if_medusa_uid_is_available(
-                self.working_lsl_streams, medusa_uid):
-            dialogs.error_dialog(
-                'Duplicated MEDUSA LSL UID. This parameter must be unique, '
-                'please change it.', 'Incorrect medusa_uid'
-            )
-            return
+        if not self.editing:
+            if not lsl_utils.check_if_medusa_uid_is_available(
+                    self.working_lsl_streams, medusa_uid):
+                dialogs.error_dialog(
+                    'Duplicated MEDUSA LSL UID. This parameter must be unique, '
+                    'please change it.', 'Incorrect medusa_uid'
+                )
+                return
         super().accept()
 
     def reject(self):

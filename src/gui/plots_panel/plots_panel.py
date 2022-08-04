@@ -184,6 +184,7 @@ class PlotsPanelWidget(QWidget, ui_plots_panel_widget):
                         scope='plots',
                         origin='PlotsWidget/update_plots_panel'
                     )
+                    # Remove plot
                     self.medusa_interface.error(ex)
                     continue
                 except Exception as e:
@@ -203,7 +204,6 @@ class PlotsPanelWidget(QWidget, ui_plots_panel_widget):
                     item['span'][0],
                     item['span'][1])
 
-    @exceptions.error_handler(scope='plots')
     def check_and_update_lsl_stream(self, lsl_stream):
         """This function has two objectives. First, it checks that the LSL
         stream that is configured for the plot is available in working LSL
