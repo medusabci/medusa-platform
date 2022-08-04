@@ -6,8 +6,6 @@ MEDUSA© Platform is a desktop application, programmed in Python, which implemen
 
 ## Information
 
-## Information
-
 Check the following links to know more about the MEDUSA environment for neurotechnology and brain-computer interface (BCI) experiments:
 
 - Website: https://www.medusabci.com/
