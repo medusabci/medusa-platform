@@ -12,7 +12,7 @@ from gui.themes import themes
 # ------------------------------- QT UTILS ----------------------------------- #
 def select_entry_combobox_with_text(combobox, entry_text, force_selection=False,
                                     throw_error=False):
-    index = combobox.findText(entry_text, Qt.MatchFixedString)
+    index = combobox.findText(entry_text)
     if index >= 0:
         combobox.setCurrentIndex(index)
     else:
@@ -26,13 +26,19 @@ def select_entry_combobox_with_text(combobox, entry_text, force_selection=False,
 
 
 def select_entry_combobox_with_data(combobox, entry_data, force_selection=False,
-                                    throw_error=False):
-    index = combobox.findData(entry_data, Qt.MatchFixedString)
+                                    forced_selection=None, throw_error=False):
+    index = combobox.findData(entry_data)
     if index >= 0:
         combobox.setCurrentIndex(index)
     else:
         if force_selection:
-            combobox.setCurrentIndex(0)
+            if forced_selection is None:
+                index = 0
+            else:
+                index = combobox.findData(forced_selection,
+                                          Qt.MatchFixedString)
+                index = index if index >= 0 else 0
+            combobox.setCurrentIndex(index)
         else:
             if throw_error:
                 raise ValueError('Entry text not valid')

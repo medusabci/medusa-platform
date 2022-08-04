@@ -75,3 +75,10 @@ RUN_STATE_PAUSED = 2
 RUN_STATE_STOP = 3
 RUN_STATE_FINISHED = 4
 
+# ============================= MEDUSA LSL TYPES ============================= #
+MEDUSA_LSL_TYPES = {
+    'EEG': 'EEG',
+    'MEG': 'MEG',
+    'Other': 'CustomBiosignalData'
+}
+

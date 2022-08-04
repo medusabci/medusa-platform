@@ -324,13 +324,22 @@ class EditStreamDialog(QtWidgets.QDialog, ui_stream_config_dialog):
             self.setWindowTitle('Stream settings')
             self.resize(400, 400)
             # Params
+            self.editing = editing
             # Create a new lsl wrapper object to avoid reference passing
             # problems with working_lsl_streams
             self.lsl_stream_info = lsl_utils.LSLStreamWrapper(
                 lsl_stream_info.lsl_stream)
+            if self.editing:
+                self.lsl_stream_info.set_medusa_parameters(
+                    lsl_stream_info.medusa_uid,
+                    lsl_stream_info.medusa_type,
+                    lsl_stream_info.desc_channels_field,
+                    lsl_stream_info.channel_label_field,
+                    lsl_stream_info.selected_channels_idx,
+                    lsl_stream_info.cha_info
+                )
             self.working_lsl_streams = working_lsl_streams
             self.cha_info = None
-            self.editing = editing
             # Init widgets
             self.init_widgets()
         except Exception as e:
@@ -343,9 +352,8 @@ class EditStreamDialog(QtWidgets.QDialog, ui_stream_config_dialog):
         # Medusa type combobox
         self.comboBox_medusa_type.currentIndexChanged.connect(
             self.on_medusa_stream_type_changed)
-        self.comboBox_medusa_type.addItem('EEG', 'EEG')
-        self.comboBox_medusa_type.addItem('MEG', 'MEG')
-        self.comboBox_medusa_type.addItem('Other', 'CustomBiosignal')
+        for key, val in constants.MEDUSA_LSL_TYPES.items():
+            self.comboBox_medusa_type.addItem(key, val)
         # Initialize comboboxes
         self.update_desc_fields()
         self.update_channel_fields()
@@ -361,14 +369,14 @@ class EditStreamDialog(QtWidgets.QDialog, ui_stream_config_dialog):
             QtWidgets.QHeaderView.Stretch)
         self.tableWidget_channels.horizontalHeader().hide()
         self.tableWidget_channels.verticalHeader().hide()
-
         # Init params
         if self.lsl_stream_info.medusa_params_initialized:
             self.lineEdit_medusa_uid.setText(self.lsl_stream_info.medusa_uid)
             gu.select_entry_combobox_with_data(
                 self.comboBox_medusa_type,
                 self.lsl_stream_info.medusa_type,
-                force_selection=False)
+                force_selection=True,
+                forced_selection='CustomBiosignalData')
             gu.select_entry_combobox_with_data(
                 self.comboBox_desc_channels_field,
                 self.lsl_stream_info.desc_channels_field)
