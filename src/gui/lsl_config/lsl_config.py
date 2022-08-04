@@ -1,4 +1,5 @@
 # Built-in imports
+import copy
 import sys, os, json, traceback, math
 # External imports
 from PyQt5 import QtCore, QtGui, QtWidgets, uic
@@ -210,6 +211,7 @@ class LSLConfig(QtWidgets.QDialog, ui_main_dialog):
             lsl_stream_wrapper = self.edit_stream_dialog.get_lsl_stream_info()
             self.insert_working_stream_in_table(lsl_stream_wrapper)
             self.working_streams.append(lsl_stream_wrapper)
+            self.edit_stream_dialog = None
         except Exception as e:
             self.handle_exception(e)
 
@@ -318,7 +320,8 @@ class EditStreamDialog(QtWidgets.QDialog, ui_stream_config_dialog):
             self.setWindowTitle('Stream settings')
             self.resize(400, 400)
             # Params
-            self.lsl_stream_info = lsl_stream_info
+            self.lsl_stream_info = lsl_utils.LSLStreamWrapper(
+                lsl_stream_info.lsl_stream)
             self.working_lsl_streams = working_lsl_streams
             self.cha_info = None
             # Init widgets

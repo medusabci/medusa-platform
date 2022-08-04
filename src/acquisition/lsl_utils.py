@@ -107,7 +107,35 @@ class LSLStreamWrapper(components.SerializableComponent):
         if not isinstance(lsl_stream, pylsl.stream_info):
             raise TypeError('Parameter lsl_stream must be '
                             'of type pylsl.stream_info')
-        self.lsl_stream_inlet = pylsl.StreamInlet(lsl_stream)
+        self.lsl_stream = lsl_stream
+        # LSL parameters
+        self.lsl_stream_inlet = None
+        self.lsl_stream_info = None
+        self.lsl_name = None
+        self.lsl_type = None
+        self.lsl_n_cha = None
+        self.lsl_cha_format = None
+        self.lsl_uid = None
+        self.lsl_source_id = None
+        self.fs = None
+        self.hostname = None
+        self.lsl_stream_info_xml = None
+        self.lsl_stream_info_json_format = None
+        # Additional Medusa parameters
+        self.medusa_params_initialized = False
+        self.medusa_uid = None
+        self.medusa_type = None
+        self.desc_channels_field = None
+        self.channel_label_field = None
+        self.selected_channels_idx = None
+        self.n_cha = None
+        self.cha_info = None
+        self.l_cha = None
+        # Set inlet and lsl info
+        self.set_inlet()
+
+    def set_inlet(self):
+        self.lsl_stream_inlet = pylsl.StreamInlet(self.lsl_stream)
         self.lsl_stream_info = self.lsl_stream_inlet.info()
         # LSL parameters
         self.lsl_name = self.lsl_stream_info.name()
@@ -125,19 +153,6 @@ class LSLStreamWrapper(components.SerializableComponent):
                 self.lsl_stream_info_json_format['desc'] == '':
             # This field desc must be a dict
             self.lsl_stream_info_json_format['desc'] = dict()
-        # Additional Medusa parameters
-        self.medusa_params_initialized = False
-        self.medusa_uid = None
-        self.medusa_type = None
-        self.desc_channels_field = None
-        self.channel_label_field = None
-        self.original_cha_info = None
-        self.original_n_cha = None
-        self.original_l_cha = None
-        self.selected_channels_idx = None
-        self.n_cha = None
-        self.cha_info = None
-        self.l_cha = None
 
     def get_easy_description(self):
         if self.medusa_params_initialized:
