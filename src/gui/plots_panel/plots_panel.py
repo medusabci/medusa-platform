@@ -233,6 +233,7 @@ class PlotsPanelWidget(QWidget, ui_plots_panel_widget):
                     channel_label_field=working_lsl_stream.channel_label_field,
                     selected_channels_idx=working_lsl_stream.selected_channels_idx,
                     cha_info=working_lsl_stream.cha_info,
+                    updating_parameters=True
                 )
                 return
         # If the LSL stream was not found, launch an error
