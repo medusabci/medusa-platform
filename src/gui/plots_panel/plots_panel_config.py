@@ -562,11 +562,12 @@ class ConfigPlotFrameDialog(QDialog, ui_plot_config_dialog):
                     not isinstance(selected_plot_info, dict):
                 raise ValueError('Parameter selected_plot '
                                  'must be None or dict')
-            if not lsl_utils.check_if_medusa_uid_is_available(
-                    lsl_streams, selected_lsl_stream.medusa_uid):
-                # Perhaps the name of the stream has been changed and is no
-                # longer available
-                selected_lsl_stream = None
+            if selected_lsl_stream is not None:
+                if not lsl_utils.check_if_medusa_uid_is_available(
+                        lsl_streams, selected_lsl_stream.medusa_uid):
+                    # Perhaps the name of the stream has been changed and is no
+                    # longer available
+                    selected_lsl_stream = None
             # Init variables
             self.uid = uid
             self.working_lsl_streams = lsl_streams
