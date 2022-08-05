@@ -48,6 +48,11 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         self.setAttribute(Qt.WA_DeleteOnClose)
         # self.setWindowFlags(Qt.FramelessWindowHint)
 
+        # Tell windows that this application is not pythonw.exe so it can
+        # have its own icon
+        medusaid = u'gib.medusa.' + constants.MEDUSA_VERSION
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(medusaid)
+
         # Initial sizes
         self.default_width = 1600
         self.default_height = 900
@@ -965,7 +970,8 @@ class SplashScreen:
         # Attaching the splash image
         splash_image = QPixmap('gui/images/medusa_splash_' +
                                constants.MEDUSA_VERSION + '.png')
-        self.splash_screen = QSplashScreen(splash_image, Qt.WindowStaysOnTopHint)
+        self.splash_screen = QSplashScreen(splash_image,
+                                           Qt.WindowStaysOnTopHint)
         self.splash_screen.setStyleSheet("QSplashScreen { margin-right: 0px; "
                                          "padding-right: 0px;}")
         self.splash_screen.setMask(splash_image.mask())
@@ -1003,7 +1009,7 @@ class SplashScreen:
         self.splash_screen.setLayout(splash_layout)
 
         # Displaying the splash screen
-        # self.splash_screen.show()
+        self.splash_screen.show()
 
     def set_state(self, prog_value, prog_text):
         self.splash_progbar.setValue(prog_value)
