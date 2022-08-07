@@ -10,7 +10,6 @@ from gui.qt_widgets.notifications import NotificationStack
 from acquisition import lsl_utils
 import exceptions
 import constants
-from medusa.plots import optimal_subplots
 
 # Load the .ui files
 ui_main_dialog = \
@@ -330,13 +329,8 @@ class EditStreamDialog(QtWidgets.QDialog, ui_stream_config_dialog):
             self.lsl_stream_info = lsl_utils.LSLStreamWrapper(
                 lsl_stream_info.lsl_stream)
             if self.editing:
-                self.lsl_stream_info.set_medusa_parameters(
-                    lsl_stream_info.medusa_uid,
-                    lsl_stream_info.medusa_type,
-                    lsl_stream_info.desc_channels_field,
-                    lsl_stream_info.channel_label_field,
-                    lsl_stream_info.selected_channels_idx,
-                    lsl_stream_info.cha_info
+                self.lsl_stream_info.update_medusa_parameters_from_lslwrapper(
+                    lsl_stream_info
                 )
             self.working_lsl_streams = working_lsl_streams
             self.cha_info = None

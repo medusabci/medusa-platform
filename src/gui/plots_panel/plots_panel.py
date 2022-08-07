@@ -226,15 +226,8 @@ class PlotsPanelWidget(QWidget, ui_plots_panel_widget):
             if lsl_stream.lsl_uid == working_lsl_stream.lsl_uid and \
                     lsl_stream.medusa_uid == working_lsl_stream.medusa_uid:
                 # Update MEDUSA params
-                lsl_stream.set_medusa_parameters(
-                    medusa_uid=working_lsl_stream.medusa_uid,
-                    medusa_type=working_lsl_stream.medusa_type,
-                    desc_channels_field=working_lsl_stream.desc_channels_field,
-                    channel_label_field=working_lsl_stream.channel_label_field,
-                    selected_channels_idx=working_lsl_stream.selected_channels_idx,
-                    cha_info=working_lsl_stream.cha_info,
-                    updating_parameters=True
-                )
+                lsl_stream.update_medusa_parameters_from_lslwrapper(
+                    working_lsl_stream)
                 return
         # If the LSL stream was not found, launch an error
         prop_dict = {

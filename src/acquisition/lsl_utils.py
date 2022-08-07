@@ -176,7 +176,7 @@ class LSLStreamWrapper(components.SerializableComponent):
                               desc_channels_field,
                               channel_label_field,
                               selected_channels_idx,
-                              cha_info, updating_parameters=False):
+                              cha_info):
         """Decodes the channels from the extended description of the stream,
         in XML format, contained in lsl_stream_info
 
@@ -201,24 +201,59 @@ class LSLStreamWrapper(components.SerializableComponent):
             stream. This avoids problems when reselecting the channels in
             cha_info.
         """
-        # Select cha info
-        cha_info = [cha_info[i] for i in selected_channels_idx] \
-            if not updating_parameters else cha_info
-        # Set medusa parameters
+        # Select channels
+        n_cha = len(selected_channels_idx)
+        cha_info = [cha_info[i] for i in selected_channels_idx]
+        l_cha = [info[channel_label_field] for info in cha_info] \
+            if channel_label_field is not None else list(range(n_cha))
+        # Update parameters
+        self.update_medusa_parameters(
+            medusa_params_initialized=True,
+            medusa_uid=medusa_uid,
+            medusa_type=medusa_type,
+            desc_channels_field=desc_channels_field,
+            channel_label_field=channel_label_field,
+            selected_channels_idx=selected_channels_idx,
+            n_cha=n_cha,
+            cha_info=cha_info,
+            l_cha=l_cha
+        )
+
+    def update_medusa_parameters_from_lslwrapper(self, lsl_stream_wrapper):
+        """Use this function to manually update the medusa params from one
+        stream to another. An error will be raised if the passed lsl stream
+        does not have the medusa params initialized"""
+        self.update_medusa_parameters(
+            lsl_stream_wrapper.medusa_params_initialized,
+            lsl_stream_wrapper.medusa_uid,
+            lsl_stream_wrapper.medusa_type,
+            lsl_stream_wrapper.desc_channels_field,
+            lsl_stream_wrapper.channel_label_field,
+            lsl_stream_wrapper.selected_channels_idx,
+            lsl_stream_wrapper.n_cha,
+            lsl_stream_wrapper.cha_info,
+            lsl_stream_wrapper.l_cha
+        )
+
+    def update_medusa_parameters(self, medusa_params_initialized, medusa_uid,
+                                 medusa_type, desc_channels_field,
+                                 channel_label_field, selected_channels_idx,
+                                 n_cha, cha_info, l_cha):
+        """Use this function to manually update the medusa params"""
+        if not medusa_params_initialized:
+            raise ValueError('The medusa parameters have not been '
+                             'initialized yet. Use function '
+                             'set_medusa_parameters instead')
+        self.medusa_params_initialized = \
+            medusa_params_initialized
         self.medusa_uid = medusa_uid
         self.medusa_type = medusa_type
         self.desc_channels_field = desc_channels_field
         self.channel_label_field = channel_label_field
-        # Set channels that are used in MEDUSA
-        # if cha_info is None:
-        #     cha_info = self.get_desc_field_value(desc_channels_field)
         self.selected_channels_idx = selected_channels_idx
-        self.n_cha = len(self.selected_channels_idx)
+        self.n_cha = n_cha
         self.cha_info = cha_info
-        self.l_cha = [
-            info[channel_label_field] for info in self.cha_info] \
-            if channel_label_field is not None else list(range(self.n_cha))
-        self.medusa_params_initialized = True
+        self.l_cha = l_cha
 
     def to_serializable_obj(self):
         # TODO: The dictionary is copied by hand due to problems with
@@ -259,16 +294,20 @@ class LSLStreamWrapper(components.SerializableComponent):
             channel_count=dict_data['lsl_n_cha'],
             nominal_srate=dict_data['fs']
         )
+        # Create LSLWrapper
         instance = cls(lsl_stream)
-        if dict_data['medusa_params_initialized']:
-            instance.set_medusa_parameters(
-                dict_data['medusa_uid'],
-                dict_data['medusa_type'],
-                dict_data['desc_channels_field'],
-                dict_data['channel_label_field'],
-                dict_data['selected_channels_idx'],
-                dict_data['cha_info'],
-                dict_data['medusa_params_initialized'])
+        # Update medusa params (don't use set_medusa_parameters)
+        instance.update_medusa_parameters(
+            medusa_params_initialized=dict_data['medusa_params_initialized'],
+            medusa_uid=dict_data['medusa_uid'],
+            medusa_type=dict_data['medusa_type'],
+            desc_channels_field=dict_data['desc_channels_field'],
+            channel_label_field=dict_data['channel_label_field'],
+            selected_channels_idx=dict_data['selected_channels_idx'],
+            n_cha=dict_data['n_cha'],
+            cha_info=dict_data['cha_info'],
+            l_cha=dict_data['l_cha'],
+        )
         return instance
 
 
