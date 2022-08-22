@@ -362,8 +362,8 @@ class LSLStreamReceiver:
                 dt_aliasing = (times[-1] - (len(times) - 1) * 1 / self.fs) \
                               - self.last_t
                 if dt_aliasing < 0:
-                    print('%sCorrecting an aliasing of %.3f ms...' %
-                          (self.TAG, dt_aliasing * 1000))
+                    # print('%sCorrecting an aliasing of %.3f ms...' %
+                    #       (self.TAG, dt_aliasing * 1000))
                     corrected_times = np.linspace(self.last_t, times[-1],
                                                   len(times))
                     times = corrected_times

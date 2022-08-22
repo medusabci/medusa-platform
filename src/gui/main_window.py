@@ -141,7 +141,6 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         else:
             self.gui_config = dict()
             self.gui_config['theme'] = 'dark'
-
         # Set theme
         self.theme = self.gui_config['theme']
         self.theme_colors = gu.get_theme_colors(self.theme)

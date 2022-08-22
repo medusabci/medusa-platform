@@ -17,9 +17,9 @@ from contextlib import closing
 
 
 class TCPServer(ABC):
-    """ Represents an asynchronous TCP/IP server that provides real-time
-    communication with multiple asynchronous TCP/IP clients. Useful functions
-    are: start(), stop(), send_to() and send_to_all(). Check the example for a
+    """ Asynchronous TCP/IP server that provides real-time communication
+    with multiple asynchronous TCP/IP clients. Useful functions are:
+    start(), stop(), send_to() and send_to_all(). Check the example for a
     practical usage. Messages are sent using a customized header format,
     check the class TCPClientServer if you need to know the details for e.g.,
     implementing it using other language.
@@ -127,7 +127,8 @@ class TCPServer(ABC):
         target clients.
         """
         # Open a TCP/IP socket to accept connections
-        print(self.TAG, '> Opening TCP/IP server at %s:%s...' % (self.ip, self.port))
+        print(self.TAG, '> Opening TCP/IP server at %s:%s...' %
+              (self.ip, self.port))
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         # Avoid bind() exception: OSError: [Errno 48] Address already in use
         self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -139,7 +140,8 @@ class TCPServer(ABC):
         self.socket.listen()
         # Set the socket in non-blocking mode
         self.socket.setblocking(False)
-        # Register the listening (connections) socket in the selector (multiplexing)
+        # Register the listening (connections) socket in the selector
+        # (multiplexing)
         self.selector = selectors.DefaultSelector()
         self.selector.register(self.socket, selectors.EVENT_READ, data=None)
         # Start the infinite working loop in a separate thread
@@ -251,12 +253,12 @@ class TCPServer(ABC):
                         except TCPClientDisconnected:
                             # If client disconnected, close it but keep
                             # monitoring the rest of them
+                            traceback.print_exc()
                             self._close_client(message.client_ip + ':' +
                                                str(message.client_port))
-                            pass
         except Exception:
             print(self.TAG, '[thread] > Exception occurred')
-            print(traceback.format_exc())
+            traceback.print_exc()
         finally:
             print(self.TAG, '[thread] > Working loop ended')
 
@@ -291,7 +293,11 @@ class TCPServer(ABC):
 
         # Store the info
         str_client_conn = client_ip + ':' + str(client_port)
-        self.clients[str_client_conn] = {'socket': client_socket, 'connection': client_connection, 'data': data}
+        self.clients[str_client_conn] = {
+            'socket': client_socket,
+            'connection': client_connection,
+            'data': data
+        }
 
     def _close_client(self, client_address):
         """ Closes the connection to a client.
