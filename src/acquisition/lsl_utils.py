@@ -314,7 +314,7 @@ class LSLStreamWrapper(components.SerializableComponent):
 class LSLStreamReceiver:
     """"""
 
-    def __init__(self, lsl_stream_mds, max_chunk_size=32, timeout=1):
+    def __init__(self, lsl_stream_mds, max_chunk_size=1024, timeout=1):
         """Class constructor
 
         Parameters
@@ -357,6 +357,7 @@ class LSLStreamReceiver:
                 if self.time_offset is None:
                     self.time_offset = time.time() - timestamps[0]
                 times = np.array(timestamps) + self.time_offset
+                samples = np.array(chunk)
 
                 # Aliasing detection and correction
                 dt_aliasing = (times[-1] - (len(times) - 1) * 1 / self.fs) \
@@ -369,11 +370,12 @@ class LSLStreamReceiver:
                     times = corrected_times
                 self.last_t = times[-1]
 
-                return np.array(chunk)[:, self.idx_cha], times
+                return samples[:, self.idx_cha], times
+
             if timer.get_s() > self.timeout:
                 raise exceptions.LSLStreamTimeout()
             # Wait a bit
-            time.sleep(0.001)
+            # time.sleep(0.001)
 
     def get_sample(self):
         """Get signal label.
