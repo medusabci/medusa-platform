@@ -151,6 +151,10 @@ class App(resources.AppSkeleton):
             time.sleep(0.1)
         self.send_to_log('Unity is ready to start')
 
+        # Change app state to power on
+        self.medusa_interface.app_state_changed(
+            mds_constants.APP_STATE_ON)
+
         # If play is pressed
         while self.run_state.value == mds_constants.RUN_STATE_READY:
             time.sleep(0.1)
@@ -197,15 +201,15 @@ class App(resources.AppSkeleton):
             callback=self,
             app_settings=self.app_settings,
             run_state=self.run_state)
-        # 3 - Change app state to power on
-        self.medusa_interface.app_state_changed(
-            mds_constants.APP_STATE_ON)
         # 4 - Wait until server is UP, start the unity app and block the
         # execution until it is closed
         while self.app_controller.server_state.value == \
                 app_constants.SERVER_DOWN:
             time.sleep(0.1)
         try:
+            # The application will not be ready until everything is set up.
+            # The app state must be set to APP_STATE_ON in
+            # manager_thread_worker, that detects when UNITY is ready.
             self.app_controller.start_application()
         except Exception as ex:
             self.handle_exception(ex)
