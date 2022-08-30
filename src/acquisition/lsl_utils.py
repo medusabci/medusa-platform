@@ -374,8 +374,6 @@ class LSLStreamReceiver:
 
             if timer.get_s() > self.timeout:
                 raise exceptions.LSLStreamTimeout()
-            # Wait a bit
-            # time.sleep(0.001)
 
     def get_sample(self):
         """Get signal label.

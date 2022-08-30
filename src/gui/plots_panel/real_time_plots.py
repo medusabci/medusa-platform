@@ -1062,9 +1062,13 @@ class RealTimePlotWorker(QThread):
     def run(self):
         try:
             while self.plot_state.value == constants.PLOT_STATE_ON:
+                t0 = time.time()
                 chunk_data, chunk_times = self.receiver.get_chunk()
                 chunk_data = self.preprocessor.transform(chunk_data)
                 self.update.emit(chunk_times, chunk_data)
+                # Wait a bit
+                time.sleep(0.03)
+                # print(time.time()-t0)
         except Exception as e:
             self.error.emit(e)
 
