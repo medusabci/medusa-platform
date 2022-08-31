@@ -252,7 +252,7 @@ class TimePlotMultichannel(RealTimePlot):
 
     def init_plot(self):
         """ This function changes the time of signal plotted in the graph. It
-        depends on the sample frecuency.
+        depends on the sample frequency.
         """
         # Set custom menu
         self.set_custom_menu()
@@ -264,7 +264,7 @@ class TimePlotMultichannel(RealTimePlot):
             self.visualization_settings['scaling']['initial_channel_separation']
         self.win_t = self.visualization_settings['seconds_displayed']
         self.subsample_factor = self.visualization_settings['subsample_factor']
-        self.win_s = int(self.win_t * self.receiver.fs)
+        self.win_s = int(self.win_t * self.receiver.fs / self.subsample_factor)
         # Place curves in plot
         self.curves = []
         self.offsets = []
@@ -316,11 +316,13 @@ class TimePlotMultichannel(RealTimePlot):
 
     def append_data(self, chunk_times, chunk_signal):
         self.time_in_graph = np.hstack((self.time_in_graph, chunk_times))
-        if len(self.time_in_graph) >= self.win_s:
-            self.time_in_graph = self.time_in_graph[-self.win_s:]
         self.sig_in_graph = np.vstack((self.sig_in_graph, chunk_signal))
-        if len(self.sig_in_graph) >= self.win_s:
-            self.sig_in_graph = self.sig_in_graph[-self.win_s:]
+        abs_time_in_graph = self.time_in_graph - self.time_in_graph[0]
+        if abs_time_in_graph[-1] >= self.win_t:
+            cut_idx = np.argmin(np.abs(abs_time_in_graph -
+                                       (abs_time_in_graph[-1] - self.win_t)))
+            self.time_in_graph = self.time_in_graph[cut_idx:]
+            self.sig_in_graph = self.sig_in_graph[cut_idx:]
 
         # return self.time_in_graph.copy(), self.sig_in_graph.copy()
         return self.time_in_graph, self.sig_in_graph
@@ -1058,17 +1060,18 @@ class RealTimePlotWorker(QThread):
         self.receiver = receiver
         self.preprocessor = preprocessor
         self.preprocessor.fit(self.receiver.fs, self.receiver.n_cha)
+        self.refresh_rate = 125/500
 
     def run(self):
         try:
             while self.plot_state.value == constants.PLOT_STATE_ON:
-                t0 = time.time()
+                # Get chunks
                 chunk_data, chunk_times = self.receiver.get_chunk()
                 chunk_data = self.preprocessor.transform(chunk_data)
+                # Check if the plot is ready to receive data
                 self.update.emit(chunk_times, chunk_data)
                 # Wait a bit
-                time.sleep(0.03)
-                # print(time.time()-t0)
+                time.sleep(0.1)
         except Exception as e:
             self.error.emit(e)
 
