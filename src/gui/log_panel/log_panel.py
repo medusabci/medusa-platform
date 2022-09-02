@@ -127,7 +127,16 @@ class LogPanelWidget(QWidget, ui_plots_panel_widget):
         except Exception as e:
             self.handle_exception(e)
 
-    def print_log(self, msg, style=None):
+    def remove_last_line(self):
+        cursor = self.text_log.textCursor()
+        cursor.movePosition(QTextCursor.End)
+        cursor.select(QTextCursor.LineUnderCursor)
+        cursor.removeSelectedText()
+        cursor.deletePreviousChar()
+        cursor.movePosition(QTextCursor.End)
+        self.text_log.setTextCursor(cursor)
+
+    def print_log(self, msg, style=None, mode='append'):
         """ Prints in the application log.
 
         Parameters
@@ -138,6 +147,10 @@ class LogPanelWidget(QWidget, ui_plots_panel_widget):
             If it is a dict, it must contain css properties and values for
             PyQt5. If it is a string, it must be one of the predefined styles,
             which are: ['error'].
+        mode: str {'append', 'replace'}
+            Mode append cretes a new message in the log panel. Mode replace
+            removes the last line and place the new one. This mode is designed
+            for repetitive messages.
         """
         try:
             # Default styles
@@ -157,7 +170,14 @@ class LogPanelWidget(QWidget, ui_plots_panel_widget):
 
             # Print log
             formatted_msg = self.format_log_msg(msg, **style)
-            self.text_log.append(formatted_msg)
+            if mode == 'append':
+                self.text_log.append(formatted_msg)
+            elif mode == 'replace':
+                self.remove_last_line()
+                self.text_log.append(formatted_msg)
+            else:
+                raise ValueError('Unknown log mode! Valid values are'
+                                 '{append, replace}')
         except Exception as e:
             self.handle_exception(e)
 

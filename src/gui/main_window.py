@@ -651,13 +651,13 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
                              str(self.app_state.value))
 
     @exceptions.error_handler(scope='general')
-    def print_log(self, msg, style=None):
+    def print_log(self, msg, style=None, mode='append'):
         """ Prints in the application log."""
         # hasattr is needed because if an exception occurs before
         # log_panel_widget is initialized, the program enters in an infinite
         # loop because of exception handling
         if hasattr(self, 'log_panel_widget'):
-            self.log_panel_widget.print_log(msg, style)
+            self.log_panel_widget.print_log(msg, style, mode)
 
     # ====================== EXCEPTION HANDLER, CLOSE ======================== #
     def handle_exception(self, ex):
@@ -844,7 +844,7 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         """
 
         # Basic info types
-        msg_signal = pyqtSignal(str, object)
+        msg_signal = pyqtSignal(str, object, str)
         exception_signal = pyqtSignal(exceptions.MedusaException)
         # Plot info types
         plot_state_changed_signal = pyqtSignal(int)
@@ -881,7 +881,8 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
                     # Decode message
                     if info['info_type'] == \
                             resources.MedusaInterface.INFO_LOG:
-                        self.msg_signal.emit(info['info'], info['style'])
+                        mode = info['mode'] if 'mode' in info else 'append'
+                        self.msg_signal.emit(info['info'], info['style'], mode)
                     elif info['info_type'] == \
                             resources.MedusaInterface.INFO_EXCEPTION:
                         self.exception_signal.emit(info['info'])
