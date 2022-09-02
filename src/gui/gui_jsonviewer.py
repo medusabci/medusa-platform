@@ -1,12 +1,5 @@
 #!/usr/bin/env python3
 
-__author__ = "Ashwin Nanjappa"
-
-# GUI viewer to view JSON data as tree.
-# Ubuntu packages needed:
-# python3-pyqt5
-
-# Std
 import argparse
 import collections
 import json
@@ -16,6 +9,7 @@ import sys
 from PyQt5 import QtCore
 from PyQt5 import QtGui
 from PyQt5 import QtWidgets
+
 
 class TextToTreeItem:
 
@@ -167,7 +161,9 @@ class JsonViewer(QtWidgets.QMainWindow):
 
 def main():
     qt_app = QtWidgets.QApplication(sys.argv)
-    json_viewer = JsonViewer('E:\SoftwareProjects\medusa\medusa-2.0\medusa-platform\src\gui/lsl_config.json')
+    json_viewer = JsonViewer(
+        'E:\SoftwareProjects\medusa\medusa-2.0\
+        medusa-platform\src\gui/lsl_config.json')
     sys.exit(qt_app.exec_())
 
 

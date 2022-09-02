@@ -1,5 +1,5 @@
 # PYTHON MODULES
-import os, sys, time
+import os, sys
 import multiprocessing as mp
 import json, traceback
 import ctypes
@@ -39,7 +39,8 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         self.setupUi(self)
 
         # Qt parameters
-        self.setWindowIcon(QIcon('%s/medusa_task_icon.png' % constants.IMG_FOLDER))
+        self.setWindowIcon(QIcon('%s/medusa_task_icon.png' %
+                                 constants.IMG_FOLDER))
         self.setWindowTitle('MEDUSA© Platform %s [%s]' %
                             (constants.MEDUSA_VERSION,
                              constants.MEDUSA_VERSION_NAME))
@@ -47,17 +48,17 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         self.setAttribute(Qt.WA_DeleteOnClose)
         # self.setWindowFlags(Qt.FramelessWindowHint)
 
+        # Tell windows that this application is not pythonw.exe so it can
+        # have its own icon
+        medusaid = u'gib.medusa.' + constants.MEDUSA_VERSION
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(medusaid)
+
         # Initial sizes
         self.default_width = 1600
         self.default_height = 900
         self.default_splitter_ratio = 0.36
         self.default_splitter_2_ratio = 0.28
         self.reset_sizes()
-
-        # Tell windows that this application is not pythonw.exe so it can
-        # have its own icon
-        medusaid = u'gib.medusa.' + constants.MEDUSA_VERSION
-        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(medusaid)
 
         # Splash screen
         splash_screen = SplashScreen()
@@ -140,7 +141,6 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         else:
             self.gui_config = dict()
             self.gui_config['theme'] = 'dark'
-
         # Set theme
         self.theme = self.gui_config['theme']
         self.theme_colors = gu.get_theme_colors(self.theme)
@@ -207,9 +207,22 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
                         lsl_utils.LSLStreamWrapper.from_serializable_obj(
                             lsl_stream_info_dict)
                 except exceptions.LSLStreamNotFound as e:
-                    self.print_log('LSL stream %s not found' %
-                                   lsl_stream_info_dict['medusa_uid'])
+                    self.print_log('No match for LSL stream "%s"' %
+                                   lsl_stream_info_dict['medusa_uid'],
+                                   style='error')
+                    # raise exceptions.MedusaException(
+                    #     e, scope='acquisition', importance='mild')
                     continue
+                # Check uid
+                if not lsl_utils.check_if_medusa_uid_is_available(
+                        self.working_lsl_streams, lsl_stream_info.medusa_uid):
+                    error_dialog(
+                        'Incorrect LSL configuration with duplicated LSL stream'
+                        'UID %s. MEDUSA LSL UIDs must be unique. Please '
+                        'reconfigure LSL.' % lsl_stream_info.medusa_uid,
+                        'Incorrect MEDUSA LSL UID')
+                    self.working_lsl_streams = list()
+                    break
                 self.working_lsl_streams.append(lsl_stream_info)
                 self.print_log('Connected to LSL stream: %s' %
                                lsl_stream_info.medusa_uid)
@@ -261,11 +274,18 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         if not self.accounts_manager.check_session():
             self.open_login_window()
 
+    def keyPressEvent(self, key_event):
+        # TODO: define some shortcuts
+        # Receive the key in decimal ASCII
+        # d_key = key_event.key()
+        # self.print_log(d_key, style={'color': 'green'})
+        pass
+
     # =============================== MENU BAR =============================== #
     @exceptions.error_handler(scope='general')
     def set_up_menu_bar_main(self):
         # Preferences
-        # TODO: menuAction_view_integrated, menuAction_view_split,
+        # TODO: menuAction_view_integrated, menuAction_view_split
         self.menuAction_color_dark.triggered.connect(
             self.set_dark_theme)
         self.menuAction_color_light.triggered.connect(
@@ -631,13 +651,13 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
                              str(self.app_state.value))
 
     @exceptions.error_handler(scope='general')
-    def print_log(self, msg, style=None):
+    def print_log(self, msg, style=None, mode='append'):
         """ Prints in the application log."""
         # hasattr is needed because if an exception occurs before
         # log_panel_widget is initialized, the program enters in an infinite
-        # loop because exception handling
+        # loop because of exception handling
         if hasattr(self, 'log_panel_widget'):
-            self.log_panel_widget.print_log(msg, style)
+            self.log_panel_widget.print_log(msg, style, mode)
 
     # ====================== EXCEPTION HANDLER, CLOSE ======================== #
     def handle_exception(self, ex):
@@ -824,7 +844,7 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         """
 
         # Basic info types
-        msg_signal = pyqtSignal(str, object)
+        msg_signal = pyqtSignal(str, object, str)
         exception_signal = pyqtSignal(exceptions.MedusaException)
         # Plot info types
         plot_state_changed_signal = pyqtSignal(int)
@@ -861,7 +881,8 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
                     # Decode message
                     if info['info_type'] == \
                             resources.MedusaInterface.INFO_LOG:
-                        self.msg_signal.emit(info['info'], info['style'])
+                        mode = info['mode'] if 'mode' in info else 'append'
+                        self.msg_signal.emit(info['info'], info['style'], mode)
                     elif info['info_type'] == \
                             resources.MedusaInterface.INFO_EXCEPTION:
                         self.exception_signal.emit(info['info'])
@@ -949,7 +970,8 @@ class SplashScreen:
         # Attaching the splash image
         splash_image = QPixmap('gui/images/medusa_splash_' +
                                constants.MEDUSA_VERSION + '.png')
-        self.splash_screen = QSplashScreen(splash_image, Qt.WindowStaysOnTopHint)
+        self.splash_screen = QSplashScreen(splash_image,
+                                           Qt.WindowStaysOnTopHint)
         self.splash_screen.setStyleSheet("QSplashScreen { margin-right: 0px; "
                                          "padding-right: 0px;}")
         self.splash_screen.setMask(splash_image.mask())
@@ -987,7 +1009,7 @@ class SplashScreen:
         self.splash_screen.setLayout(splash_layout)
 
         # Displaying the splash screen
-        # self.splash_screen.show()
+        self.splash_screen.show()
 
     def set_state(self, prog_value, prog_text):
         self.splash_progbar.setValue(prog_value)

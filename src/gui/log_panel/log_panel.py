@@ -108,11 +108,16 @@ class LogPanelWidget(QWidget, ui_plots_panel_widget):
         except Exception as e:
             self.handle_exception(e)
 
-    def format_log_msg(self, msg, color=None, **kwargs):
+    def format_log_msg(self, msg, **kwargs):
         try:
-            col = self.theme_colors['THEME_TEXT_LIGHT'] \
-                if color is None else color
-            style = 'color:%s;' % col
+            # Default style
+            kwargs.setdefault('color', self.theme_colors['THEME_TEXT_LIGHT'])
+            kwargs.setdefault('margin', '0')
+            kwargs.setdefault('margin-top', '2px')
+            kwargs.setdefault('margin-top', '2px')
+            kwargs.setdefault('font-size', '9pt')
+            # Format css
+            style = ''
             for key, value in kwargs.items():
                 if not isinstance(value, str):
                     raise ValueError('Type of %s must be str' % key)
@@ -122,19 +127,57 @@ class LogPanelWidget(QWidget, ui_plots_panel_widget):
         except Exception as e:
             self.handle_exception(e)
 
-    def print_log(self, msg, style=None):
+    def remove_last_line(self):
+        cursor = self.text_log.textCursor()
+        cursor.movePosition(QTextCursor.End)
+        cursor.select(QTextCursor.LineUnderCursor)
+        cursor.removeSelectedText()
+        cursor.deletePreviousChar()
+        cursor.movePosition(QTextCursor.End)
+        self.text_log.setTextCursor(cursor)
+
+    def print_log(self, msg, style=None, mode='append'):
         """ Prints in the application log.
+
+        Parameters
+        ----------
+        msg: str
+            String to print int the log panel
+        style: dict or str
+            If it is a dict, it must contain css properties and values for
+            PyQt5. If it is a string, it must be one of the predefined styles,
+            which are: ['error'].
+        mode: str {'append', 'replace'}
+            Mode append cretes a new message in the log panel. Mode replace
+            removes the last line and place the new one. This mode is designed
+            for repetitive messages.
         """
         try:
             # Default styles
-            if style == 'error':
-                style = {'color': self.theme_colors['THEME_RED']}
-            style = {} if style is None else style
-            color = style.pop('color', None)
-            formatted_msg = self.format_log_msg(msg, color=color, **style)
-            curr_html = self.text_log.toHtml()
-            curr_html += formatted_msg
-            self.text_log.setText(curr_html)
+            if isinstance(style, str):
+                if style == 'error':
+                    style = {'color': self.theme_colors['THEME_RED']}
+                elif style == 'warning':
+                    style = {'color': self.theme_colors['THEME_YELLOW']}
+                else:
+                    raise ValueError('Custom style %s not recognized' % style)
+            elif isinstance(style, dict):
+                pass
+            elif style is None:
+                style = {}
+            else:
+                raise ValueError('Unrecognized style type')
+
+            # Print log
+            formatted_msg = self.format_log_msg(msg, **style)
+            if mode == 'append':
+                self.text_log.append(formatted_msg)
+            elif mode == 'replace':
+                self.remove_last_line()
+                self.text_log.append(formatted_msg)
+            else:
+                raise ValueError('Unknown log mode! Valid values are'
+                                 '{append, replace}')
         except Exception as e:
             self.handle_exception(e)
 

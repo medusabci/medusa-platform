@@ -20,7 +20,8 @@ class RealTimePreprocessor(ABC):
 class PlotsRealTimePreprocessor(RealTimePreprocessor):
 
     """Class that implements real time preprocessing functions for plotting,
-    keeping it simple: band-pass filter and notch filter"""
+    keeping it simple: band-pass filter and notch filter. For more advanced
+    pre-processing, implement another class"""
 
     def __init__(self, preprocessing_settings):
         # Settings

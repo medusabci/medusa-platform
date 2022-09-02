@@ -1,16 +1,14 @@
 # BUILT-IN MODULES
-import threading as th
 import time
-import xml.etree.ElementTree as et
-import copy
+
+import numpy as np
 # EXTERNAL MODULES
 import pylsl
-import numpy as np
+from medusa import components
+
 # MEDUSA MODULES
-import constants
 import exceptions
 import utils
-from medusa import components
 
 
 def get_lsl_streams(wait_time=0.1, force_one_stream=False, **kwargs):
@@ -78,6 +76,16 @@ def get_lsl_streams(wait_time=0.1, force_one_stream=False, **kwargs):
         return match_streams
 
 
+def check_if_medusa_uid_is_available(working_lsl_streams, medusa_uid):
+    """This function checks if an uid is available given the current working
+    lsl streams that have been configured
+    """
+    for stream in working_lsl_streams:
+        if stream.medusa_uid == medusa_uid:
+            return False
+    return True
+
+
 class LSLStreamWrapper(components.SerializableComponent):
     """LSL stream wrapper class for medusa. It includes the stream_info and
     stream_inlet objects for easier use.
@@ -97,7 +105,35 @@ class LSLStreamWrapper(components.SerializableComponent):
         if not isinstance(lsl_stream, pylsl.stream_info):
             raise TypeError('Parameter lsl_stream must be '
                             'of type pylsl.stream_info')
-        self.lsl_stream_inlet = pylsl.StreamInlet(lsl_stream)
+        self.lsl_stream = lsl_stream
+        # LSL parameters
+        self.lsl_stream_inlet = None
+        self.lsl_stream_info = None
+        self.lsl_name = None
+        self.lsl_type = None
+        self.lsl_n_cha = None
+        self.lsl_cha_format = None
+        self.lsl_uid = None
+        self.lsl_source_id = None
+        self.fs = None
+        self.hostname = None
+        self.lsl_stream_info_xml = None
+        self.lsl_stream_info_json_format = None
+        # Additional Medusa parameters
+        self.medusa_params_initialized = False
+        self.medusa_uid = None
+        self.medusa_type = None
+        self.desc_channels_field = None
+        self.channel_label_field = None
+        self.selected_channels_idx = None
+        self.n_cha = None
+        self.cha_info = None
+        self.l_cha = None
+        # Set inlet and lsl info
+        self.set_inlet()
+
+    def set_inlet(self):
+        self.lsl_stream_inlet = pylsl.StreamInlet(self.lsl_stream)
         self.lsl_stream_info = self.lsl_stream_inlet.info()
         # LSL parameters
         self.lsl_name = self.lsl_stream_info.name()
@@ -113,18 +149,8 @@ class LSLStreamWrapper(components.SerializableComponent):
             utils.xml_string_to_json(self.lsl_stream_info_xml)
         if 'desc' not in self.lsl_stream_info_json_format or \
                 self.lsl_stream_info_json_format['desc'] == '':
-            # Field desc must be a dict
+            # This field desc must be a dict
             self.lsl_stream_info_json_format['desc'] = dict()
-        # Additional Medusa parameters
-        self.medusa_params_initialized = False
-        self.medusa_uid = None
-        self.medusa_type = None
-        self.desc_channels_field = None
-        self.channel_label_field = None
-        self.selected_channels_idx = None
-        self.n_cha = None
-        self.cha_info = None
-        self.l_cha = None
 
     def get_easy_description(self):
         if self.medusa_params_initialized:
@@ -150,7 +176,7 @@ class LSLStreamWrapper(components.SerializableComponent):
                               desc_channels_field,
                               channel_label_field,
                               selected_channels_idx,
-                              cha_info=None):
+                              cha_info):
         """Decodes the channels from the extended description of the stream,
         in XML format, contained in lsl_stream_info
 
@@ -169,21 +195,65 @@ class LSLStreamWrapper(components.SerializableComponent):
         cha_info: list of dict [Optional]
             List with the channel info. If None, the info will be extracted
             automatically from the lsl_stream.
+        medusa_params_initialized: bool
+            Tells if this is the first time that the medusa parameters are set
+            in this stream or we are updating them from a previous configured
+            stream. This avoids problems when reselecting the channels in
+            cha_info.
         """
-        # Get the information of the channels
-        cha_info = self.get_desc_field_value(desc_channels_field)
+        # Select channels
+        n_cha = len(selected_channels_idx)
         cha_info = [cha_info[i] for i in selected_channels_idx]
-        # Set medusa parameters
+        l_cha = [info[channel_label_field] for info in cha_info] \
+            if channel_label_field is not None else list(range(n_cha))
+        # Update parameters
+        self.update_medusa_parameters(
+            medusa_params_initialized=True,
+            medusa_uid=medusa_uid,
+            medusa_type=medusa_type,
+            desc_channels_field=desc_channels_field,
+            channel_label_field=channel_label_field,
+            selected_channels_idx=selected_channels_idx,
+            n_cha=n_cha,
+            cha_info=cha_info,
+            l_cha=l_cha
+        )
+
+    def update_medusa_parameters_from_lslwrapper(self, lsl_stream_wrapper):
+        """Use this function to manually update the medusa params from one
+        stream to another. An error will be raised if the passed lsl stream
+        does not have the medusa params initialized"""
+        self.update_medusa_parameters(
+            lsl_stream_wrapper.medusa_params_initialized,
+            lsl_stream_wrapper.medusa_uid,
+            lsl_stream_wrapper.medusa_type,
+            lsl_stream_wrapper.desc_channels_field,
+            lsl_stream_wrapper.channel_label_field,
+            lsl_stream_wrapper.selected_channels_idx,
+            lsl_stream_wrapper.n_cha,
+            lsl_stream_wrapper.cha_info,
+            lsl_stream_wrapper.l_cha
+        )
+
+    def update_medusa_parameters(self, medusa_params_initialized, medusa_uid,
+                                 medusa_type, desc_channels_field,
+                                 channel_label_field, selected_channels_idx,
+                                 n_cha, cha_info, l_cha):
+        """Use this function to manually update the medusa params"""
+        if not medusa_params_initialized:
+            raise ValueError('The medusa parameters have not been '
+                             'initialized yet. Use function '
+                             'set_medusa_parameters instead')
+        self.medusa_params_initialized = \
+            medusa_params_initialized
         self.medusa_uid = medusa_uid
         self.medusa_type = medusa_type
         self.desc_channels_field = desc_channels_field
         self.channel_label_field = channel_label_field
         self.selected_channels_idx = selected_channels_idx
-        self.n_cha = len(self.selected_channels_idx)
+        self.n_cha = n_cha
         self.cha_info = cha_info
-        self.l_cha = [info[channel_label_field] for info in self.cha_info] \
-            if channel_label_field is not None else list(range(self.n_cha))
-        self.medusa_params_initialized = True
+        self.l_cha = l_cha
 
     def to_serializable_obj(self):
         # TODO: The dictionary is copied by hand due to problems with
@@ -224,21 +294,27 @@ class LSLStreamWrapper(components.SerializableComponent):
             channel_count=dict_data['lsl_n_cha'],
             nominal_srate=dict_data['fs']
         )
+        # Create LSLWrapper
         instance = cls(lsl_stream)
-        if dict_data['medusa_params_initialized']:
-            instance.set_medusa_parameters(dict_data['medusa_uid'],
-                                           dict_data['medusa_type'],
-                                           dict_data['desc_channels_field'],
-                                           dict_data['channel_label_field'],
-                                           dict_data['selected_channels_idx'],
-                                           dict_data['cha_info'])
+        # Update medusa params (don't use set_medusa_parameters)
+        instance.update_medusa_parameters(
+            medusa_params_initialized=dict_data['medusa_params_initialized'],
+            medusa_uid=dict_data['medusa_uid'],
+            medusa_type=dict_data['medusa_type'],
+            desc_channels_field=dict_data['desc_channels_field'],
+            channel_label_field=dict_data['channel_label_field'],
+            selected_channels_idx=dict_data['selected_channels_idx'],
+            n_cha=dict_data['n_cha'],
+            cha_info=dict_data['cha_info'],
+            l_cha=dict_data['l_cha'],
+        )
         return instance
 
 
 class LSLStreamReceiver:
     """"""
 
-    def __init__(self, lsl_stream_mds, max_chunk_size=32, timeout=1):
+    def __init__(self, lsl_stream_mds, max_chunk_size=1024, timeout=1):
         """Class constructor
 
         Parameters
@@ -281,23 +357,23 @@ class LSLStreamReceiver:
                 if self.time_offset is None:
                     self.time_offset = time.time() - timestamps[0]
                 times = np.array(timestamps) + self.time_offset
+                samples = np.array(chunk)
 
                 # Aliasing detection and correction
                 dt_aliasing = (times[-1] - (len(times) - 1) * 1 / self.fs) \
                               - self.last_t
                 if dt_aliasing < 0:
-                    print('%sCorrecting an aliasing of %.3f ms...' %
-                          (self.TAG, dt_aliasing * 1000))
+                    # print('%sCorrecting an aliasing of %.3f ms...' %
+                    #       (self.TAG, dt_aliasing * 1000))
                     corrected_times = np.linspace(self.last_t, times[-1],
                                                   len(times))
                     times = corrected_times
                 self.last_t = times[-1]
 
-                return np.array(chunk)[:, self.idx_cha], times
+                return samples[:, self.idx_cha], times
+
             if timer.get_s() > self.timeout:
                 raise exceptions.LSLStreamTimeout()
-            # Wait a bit
-            time.sleep(0.001)
 
     def get_sample(self):
         """Get signal label.

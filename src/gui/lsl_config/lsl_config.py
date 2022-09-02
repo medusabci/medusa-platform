@@ -1,4 +1,5 @@
 # Built-in imports
+import copy
 import sys, os, json, traceback, math
 # External imports
 from PyQt5 import QtCore, QtGui, QtWidgets, uic
@@ -9,7 +10,6 @@ from gui.qt_widgets.notifications import NotificationStack
 from acquisition import lsl_utils
 import exceptions
 import constants
-from medusa.plots import optimal_subplots
 
 # Load the .ui files
 ui_main_dialog = \
@@ -155,6 +155,7 @@ class LSLConfig(QtWidgets.QDialog, ui_main_dialog):
             # Show dialog
             self.edit_stream_dialog = EditStreamDialog(
                 self.available_streams[sel_item_row],
+                self.working_streams,
                 theme_colors=self.theme_colors)
             self.edit_stream_dialog.accepted.connect(
                 self.on_add_stream_ok)
@@ -173,7 +174,10 @@ class LSLConfig(QtWidgets.QDialog, ui_main_dialog):
             self.lsl_stream_editing_idx = sel_item_row
             # Show dialog
             self.edit_stream_dialog = EditStreamDialog(
-                self.working_streams[self.lsl_stream_editing_idx])
+                self.working_streams[self.lsl_stream_editing_idx],
+                self.working_streams,
+                editing=True,
+                theme_colors=self.theme_colors)
             self.edit_stream_dialog.accepted.connect(
                 self.on_edit_stream_ok)
             self.edit_stream_dialog.rejected.connect(
@@ -207,6 +211,7 @@ class LSLConfig(QtWidgets.QDialog, ui_main_dialog):
             lsl_stream_wrapper = self.edit_stream_dialog.get_lsl_stream_info()
             self.insert_working_stream_in_table(lsl_stream_wrapper)
             self.working_streams.append(lsl_stream_wrapper)
+            self.edit_stream_dialog = None
         except Exception as e:
             self.handle_exception(e)
 
@@ -217,6 +222,8 @@ class LSLConfig(QtWidgets.QDialog, ui_main_dialog):
                 self.lsl_stream_editing_idx)
             self.insert_working_stream_in_table(
                 lsl_stream_wrapper, self.lsl_stream_editing_idx)
+            self.working_streams[self.lsl_stream_editing_idx] = \
+                lsl_stream_wrapper
             self.lsl_stream_editing_idx = None
             self.edit_stream_dialog = None
         except Exception as e:
@@ -300,7 +307,8 @@ class LSLConfig(QtWidgets.QDialog, ui_main_dialog):
 
 class EditStreamDialog(QtWidgets.QDialog, ui_stream_config_dialog):
 
-    def __init__(self, lsl_stream_info, theme_colors=None):
+    def __init__(self, lsl_stream_info, working_lsl_streams, editing=False,
+                 theme_colors=None):
         try:
             # Super call
             super().__init__()
@@ -315,7 +323,16 @@ class EditStreamDialog(QtWidgets.QDialog, ui_stream_config_dialog):
             self.setWindowTitle('Stream settings')
             self.resize(400, 400)
             # Params
-            self.lsl_stream_info = lsl_stream_info
+            self.editing = editing
+            # Create a new lsl wrapper object to avoid reference passing
+            # problems with working_lsl_streams
+            self.lsl_stream_info = lsl_utils.LSLStreamWrapper(
+                lsl_stream_info.lsl_stream)
+            if self.editing:
+                self.lsl_stream_info.update_medusa_parameters_from_lslwrapper(
+                    lsl_stream_info
+                )
+            self.working_lsl_streams = working_lsl_streams
             self.cha_info = None
             # Init widgets
             self.init_widgets()
@@ -329,9 +346,8 @@ class EditStreamDialog(QtWidgets.QDialog, ui_stream_config_dialog):
         # Medusa type combobox
         self.comboBox_medusa_type.currentIndexChanged.connect(
             self.on_medusa_stream_type_changed)
-        self.comboBox_medusa_type.addItem('EEG')
-        self.comboBox_medusa_type.addItem('MEG')
-        self.comboBox_medusa_type.addItem('Custom signal')
+        for key, val in constants.MEDUSA_LSL_TYPES.items():
+            self.comboBox_medusa_type.addItem(key, val)
         # Initialize comboboxes
         self.update_desc_fields()
         self.update_channel_fields()
@@ -347,27 +363,27 @@ class EditStreamDialog(QtWidgets.QDialog, ui_stream_config_dialog):
             QtWidgets.QHeaderView.Stretch)
         self.tableWidget_channels.horizontalHeader().hide()
         self.tableWidget_channels.verticalHeader().hide()
-
         # Init params
         if self.lsl_stream_info.medusa_params_initialized:
             self.lineEdit_medusa_uid.setText(self.lsl_stream_info.medusa_uid)
-            gu.select_entry_combobox(
+            gu.select_entry_combobox_with_data(
                 self.comboBox_medusa_type,
                 self.lsl_stream_info.medusa_type,
-                force_selection=False)
-            gu.select_entry_combobox(
+                force_selection=True,
+                forced_selection='CustomBiosignalData')
+            gu.select_entry_combobox_with_data(
                 self.comboBox_desc_channels_field,
                 self.lsl_stream_info.desc_channels_field)
-            gu.select_entry_combobox(
+            gu.select_entry_combobox_with_data(
                 self.comboBox_channel_label_field,
                 self.lsl_stream_info.channel_label_field)
             self.set_checked_channels(
                 self.lsl_stream_info.selected_channels_idx)
         else:
             self.lineEdit_medusa_uid.setText(self.lsl_stream_info.lsl_name)
-            gu.select_entry_combobox(self.comboBox_medusa_type,
-                                            self.lsl_stream_info.lsl_type,
-                                            force_selection=False)
+            gu.select_entry_combobox_with_data(self.comboBox_medusa_type,
+                                               self.lsl_stream_info.lsl_type,
+                                               force_selection=False)
 
     def on_medusa_stream_uid_changed(self):
         try:
@@ -391,7 +407,7 @@ class EditStreamDialog(QtWidgets.QDialog, ui_stream_config_dialog):
         if len(desc_fields) > 0:
             for field in desc_fields:
                 self.comboBox_desc_channels_field.addItem(field, True)
-            gu.select_entry_combobox(self.comboBox_desc_channels_field,
+            gu.select_entry_combobox_with_text(self.comboBox_desc_channels_field,
                                             'channels', force_selection=False)
         else:
             self.comboBox_desc_channels_field.addItem('channels', False)
@@ -426,7 +442,7 @@ class EditStreamDialog(QtWidgets.QDialog, ui_stream_config_dialog):
         cha_fields = list(self.cha_info[0].keys())
         for field in cha_fields:
             self.comboBox_channel_label_field.addItem(field)
-        gu.select_entry_combobox(self.comboBox_channel_label_field, 'label')
+        gu.select_entry_combobox_with_text(self.comboBox_channel_label_field, 'label')
 
     def on_desc_channels_field_changed(self):
         self.update_channel_fields()
@@ -467,7 +483,9 @@ class EditStreamDialog(QtWidgets.QDialog, ui_stream_config_dialog):
                 if idx in cha_idx:
                     self.tableWidget_channels.cellWidget(i, j).setChecked(True)
                 else:
-                    self.tableWidget_channels.cellWidget(i, j).setChecked(False)
+                    if self.tableWidget_channels.cellWidget(i, j) is not None:
+                        self.tableWidget_channels.cellWidget(
+                            i, j).setChecked(False)
                 idx += 1
         return cha_idx
 
@@ -490,13 +508,22 @@ class EditStreamDialog(QtWidgets.QDialog, ui_stream_config_dialog):
 
     def accept(self):
         medusa_uid = self.lineEdit_medusa_uid.text()
-        medusa_type = self.comboBox_medusa_type.currentText()
+        medusa_type = self.comboBox_medusa_type.currentData()
         desc_channels_field = self.comboBox_desc_channels_field.currentText()
         channel_label_field = self.comboBox_channel_label_field.currentText()
         selected_channels_idx = self.get_checked_channels_idx()
         self.lsl_stream_info.set_medusa_parameters(
             medusa_uid, medusa_type, desc_channels_field,
             channel_label_field, selected_channels_idx, self.cha_info)
+        # Check the medusa uid, it has to be unique
+        if not self.editing:
+            if not lsl_utils.check_if_medusa_uid_is_available(
+                    self.working_lsl_streams, medusa_uid):
+                dialogs.error_dialog(
+                    'Duplicated MEDUSA LSL UID. This parameter must be unique, '
+                    'please change it.', 'Incorrect medusa_uid'
+                )
+                return
         super().accept()
 
     def reject(self):

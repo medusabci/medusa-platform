@@ -411,7 +411,7 @@ class MedusaInterface:
         """
         self.queue_to_medusa = queue_to_medusa
 
-    def log(self, msg, style=None):
+    def log(self, msg, style=None, mode='append'):
         """Prints a log message in medusa cmd
 
         Parameters
@@ -421,10 +421,15 @@ class MedusaInterface:
         style: dict
             Dictionary with the desired CSS style.
             E.g., {'color':'white', 'font-style': 'italic'}
+        mode: str {'append', 'replace'}
+            Mode append cretes a new message in the log panel. Mode replace
+            removes the last line and place the new one. This mode is designed
+            for repetitive messages.
         """
         self.queue_to_medusa.put({'info_type': self.INFO_LOG,
                                   'info': msg,
-                                  'style': style})
+                                  'style': style,
+                                  'mode': mode})
 
     def error(self, ex):
         """Notifies to medusa that an error has occurred in a plot

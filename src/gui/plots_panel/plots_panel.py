@@ -18,14 +18,12 @@ ui_plots_panel_widget = \
 
 
 class PlotsPanelWidget(QWidget, ui_plots_panel_widget):
-    
+    """ This widget implements the logic behind the plots panel.
+    """
     def __init__(self, working_lsl_streams, plot_state, medusa_interface,
                  plots_config_file_path, theme_colors):
         super().__init__()
         self.setupUi(self)
-
-        # TODO: Get current theme
-        self.theme = 'dark'
 
         # Attributes
         self.working_lsl_streams = working_lsl_streams
@@ -59,10 +57,12 @@ class PlotsPanelWidget(QWidget, ui_plots_panel_widget):
         # Notify exception to gui main
         self.medusa_interface.error(ex)
 
+    @exceptions.error_handler(scope='plots')
     def set_undocked(self, undocked):
         self.undocked = undocked
         self.reset_tool_bar_plot_buttons()
 
+    @exceptions.error_handler(scope='plots')
     def reset_tool_bar_plot_buttons(self):
         # Creates QIcons for the app tool bar
         plot_start_icon = gu.get_icon("visibility.svg", self.theme_colors)
@@ -84,6 +84,7 @@ class PlotsPanelWidget(QWidget, ui_plots_panel_widget):
         self.toolButton_plot_config.setToolTip('Configure plots')
         self.toolButton_plot_undock.setToolTip('Undock')
 
+    @exceptions.error_handler(scope='plots')
     def set_up_tool_bar_plot(self):
         """ This method creates the QAction buttons displayed in the toolbar
         """
@@ -92,124 +93,143 @@ class PlotsPanelWidget(QWidget, ui_plots_panel_widget):
         self.toolButton_plot_start.clicked.connect(self.plot_start)
         self.toolButton_plot_config.clicked.connect(self.plots_panel_config)
 
+    @exceptions.error_handler(scope='plots')
     def update_working_lsl_streams(self, working_lsl_streams):
         self.working_lsl_streams = working_lsl_streams
         self.update_plots_panel()
 
-    def plots_panel_config(self):
-        try:
-            # Check errors
-            if len(self.working_lsl_streams) == 0:
-                ex = exceptions.MedusaException(
-                    exceptions.NoLSLStreamsAvailable(),
-                    importance='mild',
-                    scope='plots',
-                    origin='PlotsWidget/plot_panel_config'
-                )
-                ex.set_handled(True)
-                raise ex
-            # Dashboard config window
-            self.plots_panel_config_dialog = \
-                plots_panel_config.PlotsPanelConfigDialog(
-                    self.working_lsl_streams,
-                    self.plots_config_file_path,
-                    config=self.plots_panel_config,
-                    theme_colors=self.theme_colors)
-            self.plots_panel_config_dialog.accepted.connect(
-                self.set_plots_panel_config)
-            self.plots_panel_config_dialog.rejected.connect(
-                self.reset_plots_panel)
-        except Exception as e:
-            self.handle_exception(e)
+    @exceptions.error_handler(scope='plots')
+    def plots_panel_config(self, checked=None):
+        # Check errors
+        if len(self.working_lsl_streams) == 0:
+            ex = exceptions.MedusaException(
+                exceptions.NoLSLStreamsAvailable(),
+                importance='mild',
+                scope='plots',
+                origin='PlotsWidget/plot_panel_config'
+            )
+            ex.set_handled(True)
+            raise ex
+        # Dashboard config window
+        self.plots_panel_config_dialog = \
+            plots_panel_config.PlotsPanelConfigDialog(
+                self.working_lsl_streams,
+                self.plots_config_file_path,
+                config=self.plots_panel_config,
+                theme_colors=self.theme_colors)
+        self.plots_panel_config_dialog.accepted.connect(
+            self.set_plots_panel_config)
+        self.plots_panel_config_dialog.rejected.connect(
+            self.reset_plots_panel)
 
+    @exceptions.error_handler(scope='plots')
     def set_plots_panel_config(self):
-        try:
-            self.plots_panel_config = self.plots_panel_config_dialog.get_config()
-            self.update_plots_panel()
-        except Exception as e:
-            self.handle_exception(e)
+        self.plots_panel_config = \
+            self.plots_panel_config_dialog.get_config()
+        self.update_plots_panel()
 
+    @exceptions.error_handler(scope='plots')
     def reset_plots_panel(self):
         self.update_plots_panel()
 
+    @exceptions.error_handler(scope='plots')
     def update_plots_panel(self):
-        try:
-            # Check plots_panel_config
-            if self.plots_panel_config is None:
-                return
-            # Clear previous config and load the new one
-            self.clear_plots_grid()
-            # Add grid cells
-            count = 0
-            for r in range(self.plots_panel_config['n_rows']):
-                for c in range(self.plots_panel_config['n_cols']):
-                    item = plots_panel_config.GridCell(count, [r, c])
-                    self.gridLayout_plots.addWidget(item, r, c, 1, 1)
-                    count += 1
-            # Add plot frames
-            for item in self.plots_panel_config['plots']:
-                plot_uid = item['uid']
-                plot_settings = \
-                    self.plots_panel_config['plots_settings'][str(plot_uid)]
-                plot_type = plot_settings['plot_uid']
-                if plot_type is not None and item['configured']:
-                    plot_info = real_time_plots.get_plot_info(plot_type)
-                    try:
-                        # Create plot
-                        self.plots_handlers[plot_uid] = plot_info['class'](
-                            plot_uid,
-                            self.plot_state,
-                            self.medusa_interface,
-                            self.theme_colors)
-                        # Set settings
-                        self.plots_handlers[plot_uid].set_settings(
-                            plot_settings['preprocessing_settings'],
-                            plot_settings['visualization_settings'])
-                        # Set receiver
-                        lsl_stream_info = \
-                            lsl_utils.LSLStreamWrapper.from_serializable_obj(
-                                plot_settings['lsl_stream_info'])
-                        lsl_stream_info = \
-                            self.check_and_update_lsl_stream(lsl_stream_info)
-                        self.plots_handlers[plot_uid].set_receiver(
-                            lsl_stream_info)
-                        self.plots_handlers[plot_uid].init_plot()
-                        self.plots_handlers[plot_uid].set_ready()
-                    except exceptions.LSLStreamNotFound as e:
-                        msg = 'Plot %i. %s' % \
-                              (plot_uid, 'LSL stream not available, '
-                                         'reconfigure')
-                        ex = exceptions.MedusaException(
-                            exceptions.LSLStreamNotFound(msg),
-                            importance='mild',
-                            scope='plots',
-                            origin='PlotsWidget/update_plots_panel'
-                        )
-                        self.medusa_interface.error(ex)
-                        continue
-                    except Exception as e:
-                        msg = 'Plot %i. %s' % (plot_uid, str(e))
-                        ex = exceptions.MedusaException(
-                            e, importance='unknown',
-                            scope='plots',
-                            origin='PlotsWidget/update_plots_panel'
-                        )
-                        self.medusa_interface.error(ex)
-                        continue
-                    # Add plot
-                    self.gridLayout_plots.addWidget(
-                        self.plots_handlers[plot_uid].get_widget(),
-                        item['coordinates'][0],
-                        item['coordinates'][1],
-                        item['span'][0],
-                        item['span'][1])
-        except Exception as e:
-            self.handle_exception(e)
+        # Check plots_panel_config
+        if self.plots_panel_config is None:
+            return
+        # Clear previous config and load the new one
+        self.clear_plots_grid()
+        # Add grid cells
+        count = 0
+        for r in range(self.plots_panel_config['n_rows']):
+            for c in range(self.plots_panel_config['n_cols']):
+                item = plots_panel_config.GridCell(count, [r, c])
+                self.gridLayout_plots.addWidget(item, r, c, 1, 1)
+                count += 1
+        # Add plot frames
+        for item in self.plots_panel_config['plots']:
+            plot_uid = item['uid']
+            plot_settings = \
+                self.plots_panel_config['plots_settings'][str(plot_uid)]
+            plot_type = plot_settings['plot_uid']
+            if plot_type is not None and item['configured']:
+                plot_info = real_time_plots.get_plot_info(plot_type)
+                try:
+                    # Create plot
+                    self.plots_handlers[plot_uid] = plot_info['class'](
+                        plot_uid,
+                        self.plot_state,
+                        self.medusa_interface,
+                        self.theme_colors)
+                    # Set settings
+                    self.plots_handlers[plot_uid].set_settings(
+                        plot_settings['preprocessing_settings'],
+                        plot_settings['visualization_settings'])
+                    # Set receiver
+                    lsl_stream_info = \
+                        lsl_utils.LSLStreamWrapper.from_serializable_obj(
+                            plot_settings['lsl_stream_info'])
+                    self.check_and_update_lsl_stream(lsl_stream_info)
+                    self.plots_handlers[plot_uid].set_receiver(
+                        lsl_stream_info)
+                    self.plots_handlers[plot_uid].init_plot()
+                    self.plots_handlers[plot_uid].set_ready()
+                except exceptions.LSLStreamNotFound as e:
+                    msg = 'Plot %i. %s' % \
+                          (plot_uid, 'LSL stream not available, '
+                                     'reconfigure')
+                    ex = exceptions.MedusaException(
+                        exceptions.LSLStreamNotFound(msg),
+                        importance='mild',
+                        scope='plots',
+                        origin='PlotsWidget/update_plots_panel'
+                    )
+                    # Remove plot
+                    self.medusa_interface.error(ex)
+                    continue
+                except Exception as e:
+                    msg = 'Plot %i. %s' % (plot_uid, str(e))
+                    ex = exceptions.MedusaException(
+                        e, importance='unknown',
+                        scope='plots',
+                        origin='PlotsWidget/update_plots_panel'
+                    )
+                    self.medusa_interface.error(ex)
+                    continue
+                # Add plot
+                self.gridLayout_plots.addWidget(
+                    self.plots_handlers[plot_uid].get_widget(),
+                    item['coordinates'][0],
+                    item['coordinates'][1],
+                    item['span'][0],
+                    item['span'][1])
 
     def check_and_update_lsl_stream(self, lsl_stream):
+        """This function has two objectives. First, it checks that the LSL
+        stream that is configured for the plot is available in working LSL
+        streams in MEDUSA. Second, it updates the stream configured for the plot
+        with the last parameters configured in MEDUSA. For example, the user may
+        have changed the number of channels available in MEDUSA in the LSL
+        config panel.
+
+        Take care in not returning the working_lsl_stream directly. If several
+        plots are fed with the same LSL stream and the Inlet is the same, they
+        will crash!
+
+        Parameters
+        ----------
+        lsl_stream: lsl_utils.LSLStreamWrapper
+            LSL Stream to check and update
+        """
+        # Get LSL stream
         for working_lsl_stream in self.working_lsl_streams:
-            if lsl_stream.lsl_uid == working_lsl_stream.lsl_uid:
-                return working_lsl_stream
+            if lsl_stream.lsl_uid == working_lsl_stream.lsl_uid and \
+                    lsl_stream.medusa_uid == working_lsl_stream.medusa_uid:
+                # Update MEDUSA params
+                lsl_stream.update_medusa_parameters_from_lslwrapper(
+                    working_lsl_stream)
+                return
+        # If the LSL stream was not found, launch an error
         prop_dict = {
             'name': lsl_stream.lsl_name,
             'type': lsl_stream.lsl_type,
@@ -220,65 +240,65 @@ class PlotsPanelWidget(QWidget, ui_plots_panel_widget):
         }
         raise exceptions.LSLStreamNotFound(prop_dict)
 
+    @exceptions.error_handler(scope='plots')
     def clear_plots_grid(self):
-        try:
-            # Delete widgets
-            while self.gridLayout_plots.count() > 0:
-                item = self.gridLayout_plots.takeAt(0)
-                item.widget().deleteLater()
-            # Reset plot handlers
-            self.plots_handlers = dict()
-        except Exception as e:
-            self.handle_exception(e)
+        """Clears the grid of the plots panel"""
+        # Delete widgets
+        while self.gridLayout_plots.count() > 0:
+            item = self.gridLayout_plots.takeAt(0)
+            item.widget().deleteLater()
+        # Reset plot handlers
+        self.plots_handlers = dict()
 
-    def plot_start(self):
-        """ This function gets the lsl stream to start getting data """
-        try:
-            if self.plot_state.value == constants.PLOT_STATE_OFF:
-                # Update plot state. This will notify the action directly if
-                # the plots are undocked
-                self.plot_state.value = constants.PLOT_STATE_ON
-                # Start plot
-                n_ready_plots = 0
-                for uid, plot_handler in self.plots_handlers.items():
-                    if plot_handler.ready:
-                        plot_handler.start()
-                        n_ready_plots += 1
-                if n_ready_plots == 0:
-                    return
+    @exceptions.error_handler(scope='plots')
+    def plot_start(self, checked=None):
+        """ This function is called when the plot_start button is clicked. Take
+        into account that this button is called to start or to stop plotting,
+        depending on the state of plot_state"""
+        if self.plot_state.value == constants.PLOT_STATE_OFF:
+            # Update plot state. This will notify the action directly if
+            # the plots are undocked
+            self.plot_state.value = constants.PLOT_STATE_ON
+            # Start plot
+            n_ready_plots = 0
+            for uid, plot_handler in self.plots_handlers.items():
+                if plot_handler.ready:
+                    plot_handler.start()
+                    n_ready_plots += 1
+            if n_ready_plots == 0:
+                return
+            # Update gui
+            icon_dock = "open_in_new.svg" if self.undocked else "close.svg"
+            plot_undock_icon = gu.get_icon(icon_dock, self.theme_colors)
+            self.toolButton_plot_undock.setIcon(
+                plot_undock_icon)
+            self.toolButton_plot_undock.setDisabled(True)
+            self.toolButton_plot_config.setIcon(
+                gu.get_icon("settings.svg", self.theme_colors)
+            )
+            self.toolButton_plot_config.setDisabled(True)
+            self.toolButton_plot_start.setIcon(
+                gu.get_icon("visibility_off.svg", self.theme_colors)
+            )
+        else:
+            if self.plot_state.value == constants.PLOT_STATE_ON:
+                # The change of state will notify the action directly
+                # if the plots are undocked
+                self.plot_state.value = constants.PLOT_STATE_OFF
+                self.reset_plots()
                 # Update gui
                 icon_dock = "open_in_new.svg" if self.undocked else "close.svg"
                 plot_undock_icon = gu.get_icon(icon_dock, self.theme_colors)
                 self.toolButton_plot_undock.setIcon(
                     plot_undock_icon)
-                self.toolButton_plot_undock.setDisabled(True)
+                self.toolButton_plot_undock.setDisabled(False)
                 self.toolButton_plot_config.setIcon(
-                    gu.get_icon("settings.svg", self.theme_colors)
-                )
-                self.toolButton_plot_config.setDisabled(True)
+                    gu.get_icon("settings.svg", self.theme_colors))
+                self.toolButton_plot_config.setDisabled(False)
                 self.toolButton_plot_start.setIcon(
-                    gu.get_icon("visibility_off.svg", self.theme_colors)
-                )
-            else:
-                if self.plot_state.value == constants.PLOT_STATE_ON:
-                    # The change of state will notify the action directly
-                    # if the plots are undocked
-                    self.plot_state.value = constants.PLOT_STATE_OFF
-                    self.reset_plots()
-                    # Update gui
-                    icon_dock = "open_in_new.svg" if self.undocked else "close.svg"
-                    plot_undock_icon = gu.get_icon(icon_dock, self.theme_colors)
-                    self.toolButton_plot_undock.setIcon(
-                        plot_undock_icon)
-                    self.toolButton_plot_undock.setDisabled(False)
-                    self.toolButton_plot_config.setIcon(
-                        gu.get_icon("settings.svg", self.theme_colors))
-                    self.toolButton_plot_config.setDisabled(False)
-                    self.toolButton_plot_start.setIcon(
-                        gu.get_icon("visibility.svg", self.theme_colors))
-        except Exception as e:
-            self.handle_exception(e)
+                    gu.get_icon("visibility.svg", self.theme_colors))
 
+    @exceptions.error_handler(scope='plots')
     def reset_plots(self):
         # Reset the plots
         for uid, plot_handler in self.plots_handlers.items():
@@ -286,6 +306,8 @@ class PlotsPanelWidget(QWidget, ui_plots_panel_widget):
 
 
 class PlotsPanelWindow(QMainWindow):
+
+    """This window holds the plots panel widget in undocked mode"""
 
     close_signal = pyqtSignal()
 

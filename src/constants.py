@@ -39,11 +39,16 @@ RUN_STATE_STOP: int
 RUN_STATE_FINISHED: int
     The run is still active, but finished.
 
+MEDUSA_LSL_TYPES: dict
+    Supported LSL types in MEDUSA Platform. The keys are descriptive names and
+    the values are the class in MEDUSA Kernel that refer to.
+
 """
 # ============================== MEDUSA VERSION ============================== #
-MEDUSA_VERSION = 'v2022.0'
+MEDUSA_VERSION = 'v2022'
 MEDUSA_VERSION_NAME = 'CHAOS'
 MEDUSA_VERSION_DATE = '18 May, 2022'
+
 # =============================== DEFAULT PATHS ============================== #
 # Config files
 LSL_CONFIG_FILE = 'lsl_config.json'
@@ -51,7 +56,6 @@ PLOTS_CONFIG_FILE = 'plots_config.json'
 LOG_CONFIG_FILE = 'log_config.json'
 APPS_CONFIG_FILE = 'apps_config.json'
 GUI_CONFIG_FILE = 'gui_config.json'
-
 
 # Images folder
 IMG_FOLDER = 'gui/images'
@@ -74,4 +78,11 @@ RUN_STATE_RUNNING = 1
 RUN_STATE_PAUSED = 2
 RUN_STATE_STOP = 3
 RUN_STATE_FINISHED = 4
+
+# ============================= MEDUSA LSL TYPES ============================= #
+MEDUSA_LSL_TYPES = {
+    'EEG': 'EEG',
+    'MEG': 'MEG',
+    'Other': 'CustomBiosignalData'
+}
 
