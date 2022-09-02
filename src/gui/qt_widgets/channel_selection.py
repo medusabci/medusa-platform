@@ -11,7 +11,7 @@ import time
 import threading
 import matplotlib
 from medusa.components import SerializableComponent
-from medusa.plots.topographic_plots import plot_topography
+from medusa.plots.new_topographic_plots import plot_topography, plot_head
 import numpy as np
 from medusa import meeg
 import matplotlib.pyplot as plt
@@ -223,7 +223,7 @@ class EEGChannelSelectionPlot(SerializableComponent):
         }
         # Plot Channel Plot
         self.set_tolerance_radius()
-        self.fig, self.axes = plot_topography(self.channel_set, plot_clabels=True, plot_contour_ch=True,
+        self.fig, self.axes = plot_head(self.channel_set, plot_clabels=True, plot_contour_ch=True,
                                               show=False, chcontour_radius=self.tolerance_radius,
                                               plot_skin_in_color=True,
                                               plot_channels=True)
