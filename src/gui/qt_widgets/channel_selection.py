@@ -11,7 +11,7 @@ import time
 import threading
 import matplotlib
 from medusa.components import SerializableComponent
-from medusa.plots.new_topographic_plots import plot_topography, plot_head
+from medusa.plots.topographic_plots import plot_topography, plot_head
 import numpy as np
 from medusa import meeg
 import matplotlib.pyplot as plt
