@@ -640,7 +640,7 @@ class BasicConfigWindow(QDialog):
         self.stl = gui_utils.set_css_and_theme(self, self.theme_colors)
         self.setWindowIcon(QIcon('gui/images/medusa_task_icon.png'))
         self.setWindowTitle('Default configuration window')
-        # self.setGeometry(390, 300, 400, 400)
+        self.resize(640, 480)
 
         # Attributes
         self.medusa_interface = medusa_interface
@@ -702,7 +702,7 @@ class BasicConfigWindow(QDialog):
     def btn_save(self):
         fdialog = QFileDialog()
         fname = fdialog.getSaveFileName(
-            fdialog, 'Save settings', '../../../config/', 'JSON (*.json)')
+            fdialog, 'Save settings', '../config/', 'JSON (*.json)')
         if fname[0]:
             self.settings = self.settings.from_serializable_obj(json.loads(
                 self.text_edit.toPlainText()))
@@ -712,7 +712,7 @@ class BasicConfigWindow(QDialog):
         """ Opens a dialog to load a configuration file. """
         fdialog = QFileDialog()
         fname = fdialog.getOpenFileName(
-            fdialog, 'Load settings', '../../../config/', 'JSON (*.json)')
+            fdialog, 'Load settings', '../config/', 'JSON (*.json)')
         if fname[0]:
             self.settings = self.settings.load(fname[0])
             self.text_edit.setText(json.dumps(

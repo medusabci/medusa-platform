@@ -83,6 +83,7 @@ RUN_STATE_FINISHED = 4
 MEDUSA_LSL_TYPES = {
     'EEG': 'EEG',
     'MEG': 'MEG',
+    'EMG': 'EMG',
     'Other': 'CustomBiosignalData'
 }
 
