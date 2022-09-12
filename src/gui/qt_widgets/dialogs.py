@@ -12,8 +12,8 @@ class MedusaDialog(QDialog):
     """Dialog skeleton for medusa, Inherit from this class to create custom
     dialogs with the proper style
     """
-    def __init__(self, window_title, theme_colors=None, pos_x=300, pos_y=300,
-                 width=400, heigh=200):
+    def __init__(self, window_title, theme_colors=None, width=400, heigh=200,
+                 pos_x=None, pos_y=None):
         try:
             super().__init__()
             # Set style
@@ -22,7 +22,10 @@ class MedusaDialog(QDialog):
             self.stl = gui_utils.set_css_and_theme(self, self.theme_colors)
             self.setWindowIcon(QIcon('gui/images/medusa_task_icon.png'))
             self.setWindowTitle(window_title)
-            self.setGeometry(pos_x, pos_y, width, heigh)
+            if pos_x is not None and pos_y is not None:
+                self.move(pos_x, pos_y)
+            if width is not None and heigh is not None:
+                self.resize(width, heigh)
 
             layout = self.create_layout()
             if layout is None:

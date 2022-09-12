@@ -511,8 +511,7 @@ class SaveFileDialog(dialogs.MedusaDialog):
             Theme colors
         """
         super().__init__(window_title='Save recording file',
-                         theme_colors=theme_colors, pos_x=300, pos_y=300,
-                         width=400, heigh=200)
+                         theme_colors=theme_colors)
         # Paths
         folder = os.path.abspath(os.getcwd() + '/../data/')
         if not os.path.exists(folder):
@@ -615,6 +614,7 @@ class SaveFileDialog(dialogs.MedusaDialog):
             self.path = path
             self.name = os.path.basename(path)
             self.file_path_lineEdit.setText(os.path.basename(path))
+
 
 class BasicConfigWindow(QDialog):
     """ This class provides a basic graphical configuration for an app
