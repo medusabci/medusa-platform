@@ -762,13 +762,6 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         if self.app_state.value != constants.APP_STATE_OFF or \
                 self.run_state.value != constants.RUN_STATE_READY:
             # Paradigm open. Not allowed to close Medusa
-            # msg = QMessageBox()
-            # msg.setIcon(QMessageBox.Information)
-            # msg.setText("Please, finish the current run pressing the stop "
-            #             "button before closing MEDUSA")
-            # msg.setWindowTitle("Warning!")
-            # msg.setStandardButtons(QMessageBox.Ok)
-            # msg.exec_()
             info_dialog("Please, finish the current run pressing the stop "
                         "button before closing MEDUSA", "Warning!")
             event.ignore()

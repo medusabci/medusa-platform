@@ -253,7 +253,6 @@ class TCPServer(ABC):
                         except TCPClientDisconnected:
                             # If client disconnected, close it but keep
                             # monitoring the rest of them
-                            traceback.print_exc()
                             self._close_client(message.client_ip + ':' +
                                                str(message.client_port))
         except Exception:
