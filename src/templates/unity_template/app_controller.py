@@ -63,19 +63,19 @@ class AppController(TCPServer):
         self.close()
         event.accept()
 
-    def close(self):
-        super().stop()
-        self.server_state.value = SERVER_DOWN
-        return True
-
     def start_application(self):
         """ Starts the Unity application that will act as a TCP client. """
+        """ Starts the Unity application that will act as a TCP client.
+
+                Uncomment subprocess.call and uncomment the other 2 lines to test the
+                app in the Unity editor
+                """
         subprocess.call([self.app_settings.connection_settings.path_to_exe,
                          self.app_settings.connection_settings.ip,
                          str(self.app_settings.connection_settings.port)])
 
     def start_server(self):
-        """ Starts the TCP server in MEDUSA. """
+        """ Starts the TCP server in MEDUSA."""
         super().start()
 
     # --------------- SEND MESSAGES TO UNITY --------------- #        
@@ -109,6 +109,10 @@ class AppController(TCPServer):
         msg = dict()
         msg["event_type"] = "stop"
         self.send_command(msg)
+
+    def close(self):
+        super().stop()
+        self.server_state.value = SERVER_DOWN
 
     # --------------------- ABSTRACT METHODS -------------------- #
     def on_server_up(self):

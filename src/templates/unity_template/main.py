@@ -67,8 +67,10 @@ class App(resources.AppSkeleton):
         if isinstance(ex, exceptions.MedusaException):
             # Take actions
             if ex.importance == 'critical':
-                if self.app_controller.unity_state != app_constants.UNITY_DOWN:
-                    self.app_controller.send_command({"event_type": "exception"})
+                if self.app_controller.unity_state != \
+                        app_constants.UNITY_DOWN:
+                    self.app_controller.send_command(
+                        {"event_type": "exception"})
                 self.close_app(force=True)
                 ex.set_handled(True)
 
@@ -111,60 +113,49 @@ class App(resources.AppSkeleton):
         pause and stop events to notify Unity about them.
         """
         TAG = '[apps/dev_app_unity/App/manager_thread_worker]'
-
         # Function to close everything
         def close_everything():
             # Notify Unity that it must stop
-            self.app_controller.stop()  # Send the stop signal to unity
+            self.app_controller.stop()
             print(TAG, 'Close signal emitted to Unity.')
-
             # Wait until the Unity server notify us that the app is closed
-            while self.app_controller.unity_state.value != app_constants.UNITY_FINISHED:
-                time.sleep(0.1)
+            while self.app_controller.unity_state.value != \
+                    app_constants.UNITY_FINISHED:
+                pass
             print(TAG, 'Unity application closed!')
-
-            # Close the main app and exit the loop
+            # Exit the loop
             self.stop = True
-            self.close_app()
-
         # Wait until MEDUSA is ready
         print(TAG, "Waiting MEDUSA to be ready...")
         while self.run_state.value != mds_constants.RUN_STATE_READY:
             time.sleep(0.1)
-
         # Wait until the app_controller is initialized
-        while self.app_controller is None: time.sleep(0.1)
-
+        while self.app_controller is None:
+            time.sleep(0.1)
         # Set up the TCP server and wait for the Unity client
         self.send_to_log('Setting up the TCP server...')
         self.app_controller.start_server()
-
         # Wait until UNITY is UP and send the parameters
         while self.app_controller.unity_state.value == \
                 app_constants.UNITY_DOWN:
             time.sleep(0.1)
         self.app_controller.send_parameters()
-
         # Wait until UNITY is ready
         while self.app_controller.unity_state.value == \
                 app_constants.UNITY_UP:
             time.sleep(0.1)
         self.send_to_log('Unity is ready to start')
-
         # Change app state to power on
         self.medusa_interface.app_state_changed(
             mds_constants.APP_STATE_ON)
-
         # If play is pressed
         while self.run_state.value == mds_constants.RUN_STATE_READY:
             time.sleep(0.1)
         if self.run_state.value == mds_constants.RUN_STATE_RUNNING:
             self.app_controller.play()
-
         # Check for an early stop
         if self.run_state.value == mds_constants.RUN_STATE_STOP:
             close_everything()
-
         # Loop
         while not self.stop:
             # Check for pause
@@ -175,7 +166,6 @@ class App(resources.AppSkeleton):
                 # If resumed
                 if self.run_state.value == mds_constants.RUN_STATE_RUNNING:
                     self.app_controller.resume()
-
             # Check for stop
             if self.run_state.value == mds_constants.RUN_STATE_STOP:
                 close_everything()
@@ -193,6 +183,7 @@ class App(resources.AppSkeleton):
         shows a dialog to save the file (only if we have data available).
         Finally, it changes the app state to off and dies.
         """
+
         # 1 - Change app state to powering on
         self.medusa_interface.app_state_changed(
             mds_constants.APP_STATE_POWERING_ON)
@@ -201,32 +192,31 @@ class App(resources.AppSkeleton):
             callback=self,
             app_settings=self.app_settings,
             run_state=self.run_state)
-        # 4 - Wait until server is UP, start the unity app and block the
+        # 3 - Wait until server is UP, start the unity app and block the
         # execution until it is closed
         while self.app_controller.server_state.value == \
                 app_constants.SERVER_DOWN:
             time.sleep(0.1)
-        try:
-            # The application will not be ready until everything is set up.
-            # The app state must be set to APP_STATE_ON in
-            # manager_thread_worker, that detects when UNITY is ready.
-            self.app_controller.start_application()
-        except Exception as ex:
-            self.handle_exception(ex)
-            self.medusa_interface.error(ex)
-        # 5 - Check for a forced closure from Unity
-        self.check_forced_closure()
-        # 6 - Change app state to powering off
+        # Start application (blocking method)
+        self.app_controller.start_application()
+        # 4 - Close (only if close app has not been called yet)
+        if self.app_controller.server_state.value != \
+                app_controller.SERVER_DOWN:
+            self.close_app()
+        # Check server
+        while self.app_controller.server_state.value == app_constants.SERVER_UP:
+            time.sleep(0.1)
+        # 5 - Change app state to powering off
         self.medusa_interface.app_state_changed(
             mds_constants.APP_STATE_POWERING_OFF)
-        # 7 - Save recording
+        # 6 - Save recording
         qt_app = QApplication([])
         self.save_file_dialog = resources.SaveFileDialog(
             self.app_info['extension'])
         self.save_file_dialog.accepted.connect(self.on_save_rec_accepted)
         self.save_file_dialog.rejected.connect(self.on_save_rec_rejected)
         qt_app.exec()
-        # 8 - Change app state to power off
+        # 7 - Change app state to power off
         self.medusa_interface.app_state_changed(
             mds_constants.APP_STATE_OFF)
 
@@ -255,21 +245,14 @@ class App(resources.AppSkeleton):
         elif event["event_type"] == 'close':
             self.close_app()
 
-    def check_forced_closure(self):
-        """Called in case of forced closure from Unity app. It closes correctly the
-        app controller"""
-        if self.app_controller is not None:
-            self.close_app(force=True)
-
     def close_app(self, force=False):
-        """ Closes the ``AppController`` and working threads.
+        """ Closes the app controller and working threads. The force parameter
+        is not required in Unity apps
         """
-        # Trigger the close event in the AppController. Returns True if
-        # closed correctly, and False otherwise. If everything was
-        # correct, stop the working threads
-        if self.app_controller.close():
-            self.stop_working_threads()
-        self.app_controller = None
+        # Trigger the close event in the AppController
+        if self.app_controller.server_state.value != app_constants.SERVER_DOWN:
+            self.app_controller.close()
+        self.stop_working_threads()
 
     @exceptions.error_handler(scope='app')
     def on_save_rec_accepted(self):
