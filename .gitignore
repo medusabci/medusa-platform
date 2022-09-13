@@ -133,12 +133,8 @@ dmypy.json
 .idea/
 
 # Content
-models/*
-data/*
-config/*
-art
 art/*
 apps/*
-lsl/
+lsl/*
 
 
