@@ -234,7 +234,7 @@ class App(resources.AppSkeleton):
             - 'close': Unity said it has been closed, so we need to close
             everything.
         """
-        self.send_to_log('Message from Unity: %s' % str(event))
+        # self.send_to_log('Message from Unity: %s' % str(event))
         if event["event_type"] == 'request_samples':
             # Get the current number of samples of the first LSL stream
             # and send it to Unity again

@@ -11,6 +11,7 @@ from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
 from PyQt5.QtGui import *
 
+
 # MEDUSA general
 import constants, resources, exceptions, accounts_manager, app_manager
 from gui import gui_utils as gu
