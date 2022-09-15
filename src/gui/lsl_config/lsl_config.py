@@ -381,9 +381,11 @@ class EditStreamDialog(QtWidgets.QDialog, ui_stream_config_dialog):
                 self.lsl_stream_info.selected_channels_idx)
         else:
             self.lineEdit_medusa_uid.setText(self.lsl_stream_info.lsl_name)
-            gu.select_entry_combobox_with_data(self.comboBox_medusa_type,
-                                               self.lsl_stream_info.lsl_type,
-                                               force_selection=False)
+            gu.select_entry_combobox_with_data(
+                self.comboBox_medusa_type,
+                self.lsl_stream_info.lsl_type,
+                force_selection=True,
+                forced_selection='CustomBiosignalData')
 
     def on_medusa_stream_uid_changed(self):
         try:
@@ -407,17 +409,9 @@ class EditStreamDialog(QtWidgets.QDialog, ui_stream_config_dialog):
         if len(desc_fields) > 0:
             for field in desc_fields:
                 self.comboBox_desc_channels_field.addItem(field, True)
-            try:
-                gu.select_entry_combobox_with_text(
-                    self.comboBox_desc_channels_field,
-                    'channels', force_selection=False, throw_error=True)
-            except ValueError as e:
-                try:
-                    gu.select_entry_combobox_with_text(
-                        self.comboBox_desc_channels_field,
-                        'channel', force_selection=False, throw_error=True)
-                except ValueError as e:
-                    pass
+            gu.select_entry_combobox_with_text(
+                self.comboBox_desc_channels_field,
+                'channels', force_selection=True)
         else:
             self.comboBox_desc_channels_field.addItem('channels', False)
 

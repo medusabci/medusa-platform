@@ -147,9 +147,9 @@ class LSLStreamWrapper(components.SerializableComponent):
         self.lsl_stream_info_xml = self.lsl_stream_info.as_xml()
         self.lsl_stream_info_json_format = None
         # Check lsl stream info format
-        self.check_lsl_stream_info_format()
+        self.lsl_stream_info_to_json()
 
-    def check_lsl_stream_info_format(self):
+    def lsl_stream_info_to_json(self):
         # Custom corrections
         if self.lsl_stream_info_xml.find('NeuroElectrics') > 0:
             """Neuroelectrics uses the following structure:
@@ -193,30 +193,33 @@ class LSLStreamWrapper(components.SerializableComponent):
                     ''.join('\t' + line for line in lines) + \
                     self.lsl_stream_info_xml[idx2:]
             else:
-                if self.lsl_n_cha == 1:
-                    idx = self.lsl_stream_info_xml.rfind('</manufacturer>') + \
-                          len('</manufacturer>')
+                # Some NeuroElectrics streams do not have channels in LSL desc
+                idx = self.lsl_stream_info_xml.rfind('</manufacturer>') + \
+                      len('</manufacturer>')
+                for i in range(self.lsl_n_cha):
                     self.lsl_stream_info_xml = \
                         self.lsl_stream_info_xml[:idx] + \
                         '\n\t\t<channels>\n\t\t\t<channel>' \
-                        '\n\t\t\t\t<name>Markers</name>' \
+                        '\n\t\t\t\t<name>Ch%i</name>' \
                         '\n\t\t\t\t<unit>None</unit>' \
-                        '\n\t\t\t\t<type>Marker</type>' \
-                        '\n\t\t\t</channel>\n\t\t</channels>' + \
+                        '\n\t\t\t\t<type>None</type>' \
+                        '\n\t\t\t</channel>\n\t\t</channels>' % i + \
                         self.lsl_stream_info_xml[idx:]
-            # Update json description
-            self.lsl_stream_info_json_format = \
-                utils.xml_string_to_json(self.lsl_stream_info_xml)
-            # Check json description
-            if 'desc' not in self.lsl_stream_info_json_format or \
-                    self.lsl_stream_info_json_format['desc'] == '':
-                # This field desc must be a dict
-                self.lsl_stream_info_json_format['desc'] = dict()
-            channels = self.lsl_stream_info_json_format['desc']['channels']
-            if not isinstance(channels, list):
-                # If there is only one channel, it has to be converted to list
-                self.lsl_stream_info_json_format['desc']['channels'] = \
-                    list(channels.values())
+                    idx = self.lsl_stream_info_xml.rfind('</channels>') + \
+                          len('</channels>')
+        # Update json description
+        self.lsl_stream_info_json_format = \
+            utils.xml_string_to_json(self.lsl_stream_info_xml)
+        # Check json description
+        if 'desc' not in self.lsl_stream_info_json_format or \
+                self.lsl_stream_info_json_format['desc'] == '':
+            # This field desc must be a dict
+            self.lsl_stream_info_json_format['desc'] = dict()
+        channels = self.lsl_stream_info_json_format['desc']['channels']
+        if not isinstance(channels, list):
+            # If there is only one channel, it has to be converted to list
+            self.lsl_stream_info_json_format['desc']['channels'] = \
+                list(channels.values())
 
     def get_easy_description(self):
         if self.medusa_params_initialized:
@@ -452,8 +455,8 @@ class LSLStreamReceiver:
                 dt_aliasing = \
                     (times[-1] - (len(times) - 1) * 1 / self.fs) - self.last_t
                 if dt_aliasing < 0:
-                    print('%sCorrecting an aliasing of %.3f ms...' %
-                          (self.TAG, dt_aliasing * 1000))
+                    # print('%sCorrecting an aliasing of %.3f ms...' %
+                    #       (self.TAG, dt_aliasing * 1000))
                     corrected_times = np.linspace(self.last_t, times[-1],
                                                   len(times))
                     times = corrected_times

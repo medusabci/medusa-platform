@@ -35,8 +35,7 @@ def select_entry_combobox_with_data(combobox, entry_data, force_selection=False,
             if forced_selection is None:
                 index = 0
             else:
-                index = combobox.findData(forced_selection,
-                                          Qt.MatchFixedString)
+                index = combobox.findData(forced_selection)
                 index = index if index >= 0 else 0
             combobox.setCurrentIndex(index)
         else:
