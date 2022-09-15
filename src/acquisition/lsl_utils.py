@@ -341,6 +341,8 @@ class LSLStreamReceiver:
         self.l_cha = self.lsl_stream_info.l_cha
         self.info_cha = self.lsl_stream_info.cha_info
         self.idx_cha = self.lsl_stream_info.selected_channels_idx
+        self.lsl_clock_offset = \
+            np.mean([time.time() - pylsl.local_clock() for i in range(10)])
         self.chunk_counter = 0
         self.last_t = 0
         # ============================================================ #
@@ -363,34 +365,26 @@ class LSLStreamReceiver:
                 # DELETE
                 # if self.time_offset is None:
                 #     self.time_offset = time.time() - timestamps[0]
-                # times = np.array(timestamps) + self.time_offset
+                # times2 = np.array(timestamps) + self.time_offset
                 # ============================================================ #
                 # Increment chunk counter
                 self.chunk_counter += 1
-                # Calculate offset times
-                # TODO: Probably it is not needed to calculate Do every time a
-                #   chunk is received. It can be done in __init__ assuming that
-                #   the difference between LSL and local clocks is constant.
-                #   For more precision, it can be calculated several times and
-                #   compute the mean.
-                t_l_r = pylsl.local_clock()
-                t_c_r = time.time()
-                do = t_c_r - t_l_r
-                dt = t_l_r - timestamps[-1]
                 # LSL time to local time
-                times = np.array(timestamps) + do
+                times = np.array(timestamps) + self.lsl_clock_offset
                 samples = np.array(chunk)
                 # ============================================================ #
                 # UNCOMMENT FOR DEBUGGING
                 # for i in range(len(times)):
-                #     print('#%i, LSL time: %s; Local time: %s; Do: %s, '
-                #           'Dt: %s; Signals %s' %
+                #     print('#%i, LSL time: %s; New time: %s; Old time: %s; '
+                #           'LSL offset: %s, Transmission time: %s; Signal %s' %
                 #           (self.chunk_counter, timestamps[i], times[i],
-                #            do, dt, str(chunk[i][-1])))
+                #            times2[i], self.lsl_clock_offset,
+                #            pylsl.local_clock() - timestamps[-1],
+                #            str(chunk[i][-1])))
                 # ============================================================ #
                 # Aliasing detection and correction
-                dt_aliasing = (times[-1] - (len(times) - 1) * 1 / self.fs) \
-                              - self.last_t
+                dt_aliasing = \
+                    (times[-1] - (len(times) - 1) * 1 / self.fs) - self.last_t
                 if dt_aliasing < 0:
                     print('%sCorrecting an aliasing of %.3f ms...' %
                           (self.TAG, dt_aliasing * 1000))
@@ -403,6 +397,12 @@ class LSLStreamReceiver:
 
             if timer.get_s() > self.timeout:
                 raise exceptions.LSLStreamTimeout()
+
+    def flush_stream(self):
+        """Call this function to stop queueing input data, but preserve the
+        StreamInlet. Calling pull_chunk will open the stream again
+        """
+        self.lsl_stream_info.lsl_stream_inlet.flush()
 
     def get_channel_indexes_from_labels(self, l_cha, case_sensitive=False):
         """Returns the index of the channels given by l_cha

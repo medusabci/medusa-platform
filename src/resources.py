@@ -352,8 +352,8 @@ class LSLStreamAppWorker(th.Thread):
                 if error_counter > 5:
                     raise exceptions.MedusaException(
                         e, importance='important',
-                        msg='LSLStreamAppWorker cannot receive signal from %s. '
-                            'Is the device connected?' % self.receiver.name,
+                        msg='LSLStreamAppWorker is not receiving signal from '
+                            '%s. Is the device connected?' % self.receiver.name,
                         scope='app', origin='LSLStreamAppWorker.run')
                 else:
                     continue

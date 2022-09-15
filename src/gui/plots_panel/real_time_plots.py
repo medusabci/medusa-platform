@@ -1064,6 +1064,7 @@ class RealTimePlotWorker(QThread):
 
     def run(self):
         try:
+            self.receiver.flush_stream()
             while self.plot_state.value == constants.PLOT_STATE_ON:
                 # Get chunks
                 chunk_data, chunk_times = self.receiver.get_chunk()
