@@ -145,12 +145,78 @@ class LSLStreamWrapper(components.SerializableComponent):
         self.fs = self.lsl_stream_info.nominal_srate()
         self.hostname = self.lsl_stream_info.hostname()
         self.lsl_stream_info_xml = self.lsl_stream_info.as_xml()
-        self.lsl_stream_info_json_format = \
-            utils.xml_string_to_json(self.lsl_stream_info_xml)
-        if 'desc' not in self.lsl_stream_info_json_format or \
-                self.lsl_stream_info_json_format['desc'] == '':
-            # This field desc must be a dict
-            self.lsl_stream_info_json_format['desc'] = dict()
+        self.lsl_stream_info_json_format = None
+        # Check lsl stream info format
+        self.check_lsl_stream_info_format()
+
+    def check_lsl_stream_info_format(self):
+        # Custom corrections
+        if self.lsl_stream_info_xml.find('NeuroElectrics') > 0:
+            """Neuroelectrics uses the following structure:
+            
+            <desc>
+                <manufacturer>NeuroElectrics</manufacturer>
+                <channel>
+                    <name>Ch1</name>
+                    <unit>microvolts</unit>
+                    <type>EEG</type>
+                </channel>
+                .
+                .
+                .
+                <channel>
+                    <name>Ch32</name>
+                    <unit>microvolts</unit>
+                    <type>EEG</type>
+                </channel>
+            </desc>
+            """
+            if self.lsl_stream_info_xml.find('<channel>') > 0:
+                # Correct structure introducing channels element to wrap the
+                # channels
+                idx1 = self.lsl_stream_info_xml.find('<channel>')
+                self.lsl_stream_info_xml = \
+                    self.lsl_stream_info_xml[:idx1] + '<channels>\n\t\t' + \
+                    self.lsl_stream_info_xml[idx1:]
+                idx2 = self.lsl_stream_info_xml.rfind('</channel>') + \
+                       len('</channel>')
+                self.lsl_stream_info_xml = \
+                    self.lsl_stream_info_xml[:idx2] + \
+                    '\n\t\t</channels>' + self.lsl_stream_info_xml[idx2:]
+                # Correct indentations
+                idx1 = self.lsl_stream_info_xml.find('<channels>\n\t\t') + \
+                       len('<channels>\n\t\t')
+                idx2 = self.lsl_stream_info_xml.find('\n\t\t</channels>')
+                lines = self.lsl_stream_info_xml[idx1:idx2].splitlines(True)
+                self.lsl_stream_info_xml = \
+                    self.lsl_stream_info_xml[:idx1] + \
+                    ''.join('\t' + line for line in lines) + \
+                    self.lsl_stream_info_xml[idx2:]
+            else:
+                if self.lsl_n_cha == 1:
+                    idx = self.lsl_stream_info_xml.rfind('</manufacturer>') + \
+                          len('</manufacturer>')
+                    self.lsl_stream_info_xml = \
+                        self.lsl_stream_info_xml[:idx] + \
+                        '\n\t\t<channels>\n\t\t\t<channel>' \
+                        '\n\t\t\t\t<name>Markers</name>' \
+                        '\n\t\t\t\t<unit>None</unit>' \
+                        '\n\t\t\t\t<type>Marker</type>' \
+                        '\n\t\t\t</channel>\n\t\t</channels>' + \
+                        self.lsl_stream_info_xml[idx:]
+            # Update json description
+            self.lsl_stream_info_json_format = \
+                utils.xml_string_to_json(self.lsl_stream_info_xml)
+            # Check json description
+            if 'desc' not in self.lsl_stream_info_json_format or \
+                    self.lsl_stream_info_json_format['desc'] == '':
+                # This field desc must be a dict
+                self.lsl_stream_info_json_format['desc'] = dict()
+            channels = self.lsl_stream_info_json_format['desc']['channels']
+            if not isinstance(channels, list):
+                # If there is only one channel, it has to be converted to list
+                self.lsl_stream_info_json_format['desc']['channels'] = \
+                    list(channels.values())
 
     def get_easy_description(self):
         if self.medusa_params_initialized:

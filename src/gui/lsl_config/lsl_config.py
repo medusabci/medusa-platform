@@ -407,8 +407,17 @@ class EditStreamDialog(QtWidgets.QDialog, ui_stream_config_dialog):
         if len(desc_fields) > 0:
             for field in desc_fields:
                 self.comboBox_desc_channels_field.addItem(field, True)
-            gu.select_entry_combobox_with_text(self.comboBox_desc_channels_field,
-                                            'channels', force_selection=False)
+            try:
+                gu.select_entry_combobox_with_text(
+                    self.comboBox_desc_channels_field,
+                    'channels', force_selection=False, throw_error=True)
+            except ValueError as e:
+                try:
+                    gu.select_entry_combobox_with_text(
+                        self.comboBox_desc_channels_field,
+                        'channel', force_selection=False, throw_error=True)
+                except ValueError as e:
+                    pass
         else:
             self.comboBox_desc_channels_field.addItem('channels', False)
 
