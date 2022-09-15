@@ -312,7 +312,10 @@ class LSLStreamWrapper(components.SerializableComponent):
 
 
 class LSLStreamReceiver:
-    """"""
+    """ This class calculates the difference between the LSL clock and the
+     local time (time.time()) for synchronization with applications,
+     which will use the latter
+     """
 
     def __init__(self, lsl_stream_mds, max_chunk_size=1024, timeout=1):
         """Class constructor
@@ -338,10 +341,12 @@ class LSLStreamReceiver:
         self.l_cha = self.lsl_stream_info.l_cha
         self.info_cha = self.lsl_stream_info.cha_info
         self.idx_cha = self.lsl_stream_info.selected_channels_idx
-        # Difference between the LSL clock and the Python time-time()
-        # for synchronization with applications, which will use the Python clock
-        self.time_offset = None
+        self.chunk_counter = 0
         self.last_t = 0
+        # ============================================================ #
+        # DELETE
+        # self.time_offset = None
+        # ============================================================ #
 
     def get_chunk(self):
         """Get signal chunk. Throws an error if the reception time exceeds
@@ -354,17 +359,41 @@ class LSLStreamReceiver:
                     max_samples=self.max_chunk_size
                 )
             if len(timestamps) > 0:
-                if self.time_offset is None:
-                    self.time_offset = time.time() - timestamps[0]
-                times = np.array(timestamps) + self.time_offset
+                # ============================================================ #
+                # DELETE
+                # if self.time_offset is None:
+                #     self.time_offset = time.time() - timestamps[0]
+                # times = np.array(timestamps) + self.time_offset
+                # ============================================================ #
+                # Increment chunk counter
+                self.chunk_counter += 1
+                # Calculate offset times
+                # TODO: Probably it is not needed to calculate Do every time a
+                #   chunk is received. It can be done in __init__ assuming that
+                #   the difference between LSL and local clocks is constant.
+                #   For more precision, it can be calculated several times and
+                #   compute the mean.
+                t_l_r = pylsl.local_clock()
+                t_c_r = time.time()
+                do = t_c_r - t_l_r
+                dt = t_l_r - timestamps[-1]
+                # LSL time to local time
+                times = np.array(timestamps) + do
                 samples = np.array(chunk)
-
+                # ============================================================ #
+                # UNCOMMENT FOR DEBUGGING
+                # for i in range(len(times)):
+                #     print('#%i, LSL time: %s; Local time: %s; Do: %s, '
+                #           'Dt: %s; Signals %s' %
+                #           (self.chunk_counter, timestamps[i], times[i],
+                #            do, dt, str(chunk[i][-1])))
+                # ============================================================ #
                 # Aliasing detection and correction
                 dt_aliasing = (times[-1] - (len(times) - 1) * 1 / self.fs) \
                               - self.last_t
                 if dt_aliasing < 0:
-                    # print('%sCorrecting an aliasing of %.3f ms...' %
-                    #       (self.TAG, dt_aliasing * 1000))
+                    print('%sCorrecting an aliasing of %.3f ms...' %
+                          (self.TAG, dt_aliasing * 1000))
                     corrected_times = np.linspace(self.last_t, times[-1],
                                                   len(times))
                     times = corrected_times
@@ -374,13 +403,6 @@ class LSLStreamReceiver:
 
             if timer.get_s() > self.timeout:
                 raise exceptions.LSLStreamTimeout()
-
-    def get_sample(self):
-        """Get signal label.
-        """
-        # TODO: Check timeout and time offset!
-        sample, timestamp = self.lsl_stream_info.lsl_stream_inlet.pull_sample()
-        return np.array(sample)[self.idx_cha], timestamp
 
     def get_channel_indexes_from_labels(self, l_cha, case_sensitive=False):
         """Returns the index of the channels given by l_cha
