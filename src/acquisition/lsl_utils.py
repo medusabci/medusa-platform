@@ -413,7 +413,8 @@ class LSLStreamReceiver:
         self.lsl_clock_offset = \
             np.mean([time.time() - pylsl.local_clock() for i in range(10)])
         self.chunk_counter = 0
-        self.last_t = 0
+        self.last_t = -1
+        self.aliasing_correction = True
         # ============================================================ #
         # DELETE
         # self.time_offset = None
@@ -441,6 +442,11 @@ class LSLStreamReceiver:
                 # LSL time to local time
                 times = np.array(timestamps) + self.lsl_clock_offset
                 samples = np.array(chunk)
+                # # debug
+                # if self.chunk_counter == 1:
+                #     print('diff respect old offset: %.4f ms' % (1000*(
+                #             self.lsl_clock_offset - (time.time() -
+                #                                      timestamps[0]))))
                 # ============================================================ #
                 # UNCOMMENT FOR DEBUGGING
                 # for i in range(len(times)):
@@ -452,14 +458,18 @@ class LSLStreamReceiver:
                 #            str(chunk[i][-1])))
                 # ============================================================ #
                 # Aliasing detection and correction
-                dt_aliasing = \
-                    (times[-1] - (len(times) - 1) * 1 / self.fs) - self.last_t
-                if dt_aliasing < 0:
-                    # print('%sCorrecting an aliasing of %.3f ms...' %
-                    #       (self.TAG, dt_aliasing * 1000))
-                    corrected_times = np.linspace(self.last_t, times[-1],
-                                                  len(times))
-                    times = corrected_times
+                if self.aliasing_correction:
+                    # dt_aliasing = \
+                    #     (times[-1] - (len(times) - 1) * 1 / self.fs) - self.last_t
+                    # print('dt: %.4f \t time[0]: %.4f' % (dt_aliasing, times[0]
+                    #                                     - self.last_t))
+                    dt_aliasing = times[0] - self.last_t
+                    if dt_aliasing < 0 and self.last_t != -1:
+                        print('%sCorrecting an aliasing of %.4f ms...' %
+                              (self.TAG, dt_aliasing * 1000))
+                        corrected_times = np.linspace(self.last_t, times[-1],
+                                                      len(times) + 1)
+                        times = corrected_times[1:]
                 self.last_t = times[-1]
 
                 return samples[:, self.idx_cha], times
