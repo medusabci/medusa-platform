@@ -11,8 +11,9 @@ from gui.themes import themes
 
 # ------------------------------- QT UTILS ----------------------------------- #
 def select_entry_combobox_with_text(combobox, entry_text, force_selection=False,
-                                    throw_error=False):
-    index = combobox.findText(entry_text)
+                                    throw_error=False, case_sensitive=True):
+    index = combobox.findText(entry_text) if case_sensitive else \
+        combobox.findText(entry_text, Qt.MatchFixedString)
     if index >= 0:
         combobox.setCurrentIndex(index)
     else:
