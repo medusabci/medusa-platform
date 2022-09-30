@@ -84,6 +84,7 @@ MEDUSA_LSL_TYPES = {
     'EEG': 'EEG',
     'MEG': 'MEG',
     'EMG': 'EMG',
+    'NIRS': 'NIRS',
     'Other': 'CustomBiosignalData'
 }
 
