@@ -417,7 +417,7 @@ class LSLStreamReceiver:
         self.aliasing_correction = True
         # ============================================================ #
         # DELETE
-        # self.time_offset = None
+        # self.lsl_clock_offset = None
         # ============================================================ #
 
     def get_chunk(self):
@@ -433,8 +433,8 @@ class LSLStreamReceiver:
             if len(timestamps) > 0:
                 # ============================================================ #
                 # DELETE
-                # if self.time_offset is None:
-                #     self.time_offset = time.time() - timestamps[0]
+                # if self.lsl_clock_offset is None:
+                #     self.lsl_clock_offset = time.time() - timestamps[0]
                 # times2 = np.array(timestamps) + self.time_offset
                 # ============================================================ #
                 # Increment chunk counter
