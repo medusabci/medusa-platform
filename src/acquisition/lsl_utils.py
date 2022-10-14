@@ -215,6 +215,12 @@ class LSLStreamWrapper(components.SerializableComponent):
                 self.lsl_stream_info_json_format['desc'] == '':
             # This field desc must be a dict
             self.lsl_stream_info_json_format['desc'] = dict()
+        if 'channels' not in self.lsl_stream_info_json_format['desc']:
+            self.lsl_stream_info_json_format['desc']['channels'] = list()
+            for i in range(self.lsl_n_cha):
+                self.lsl_stream_info_json_format['desc']['channels'].append(
+                    {'name': 'Ch%i' % i}
+                )
         channels = self.lsl_stream_info_json_format['desc']['channels']
         if not isinstance(channels, list):
             # If there is only one channel, it has to be converted to list
