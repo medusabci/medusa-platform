@@ -322,6 +322,22 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
         self.apps_panel_grid_widget.find_app(curr_text)
 
     @exceptions.error_handler(scope='general')
+    def progress_install_app(self, listener):
+        # Wait for the number of files to unpack
+        started = False
+        n_files = None
+        while not started:
+            log_elements = str(listener.get()).split(', ')
+            for e in log_elements:
+                if e.startswith('"Starting:'):
+                    n_files = int(e.split(' ')[-2])
+                    started = True
+        # Initialize progress dialog
+        self.progress_dialog = ProgressDialog(n_files, listener,
+                                                     self.theme_colors,
+                                                     action='install')
+
+    @exceptions.error_handler(scope='general')
     def install_app(self, checked=None):
         # Get app file
         filt = "MEDUSA app (*.app)"
@@ -332,8 +348,25 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
                                                directory=directory,
                                                filter=filt)[0]
         if app_file != '':
-            # Install app
-            self.apps_manager.install_app_bundle(app_file)
+            # Prepare queue logger
+            log_queue = queue.Queue(-1)
+            queue_handler = QueueHandler(log_queue)
+            logger = logging.getLogger("install_app")
+            logger.setLevel(logging.INFO)
+            logger.addHandler(queue_handler)
+
+            # Install function
+            working_threads = []
+            T1 = threading.Thread(target=self.apps_manager.install_app_bundle,
+                                  args=(app_file, logger))
+            T1.start()
+            working_threads.append(T1)
+
+            # Progress dialog
+            self.progress_install_app(log_queue)
+
+            for t in working_threads:
+                t.join()
             # Update apps panel
             self.update_apps_panel()
 
@@ -367,8 +400,9 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
         n_files = sum(len(files) for _, _, files in os.walk(app_path))
         n_files += sum(len(dirnames) for _, dirnames, _ in os.walk(app_path))
         # Initialize progress dialog
-        self.progress_dialog = PackageProgressDialog(n_files, listener,
-                                                     self.theme_colors)
+        self.progress_dialog = ProgressDialog(n_files, listener,
+                                                     self.theme_colors,
+                                                     action='package')
 
     @exceptions.error_handler(scope='general')
     def package_app(self, app_key):
@@ -402,10 +436,6 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
 
             for t in working_threads:
                 t.join()
-                # log_queue.join()
-            # self.progress_package_app(app_key,output_path)
-            # # Package app
-            # self.apps_manager.package_app(app_key, output_path)
 
     @exceptions.error_handler(scope='general')
     def uninstall_app(self, app_key):
@@ -431,10 +461,10 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
 ui_packaging = uic.loadUiType("gui/ui_files/packaging.ui")[0]
 
 
-class PackageProgressDialog(QDialog, ui_packaging):
+class ProgressDialog(QDialog, ui_packaging):
     close_signal = pyqtSignal(object)
 
-    def __init__(self, n_files, log_queue, theme_colors=None):
+    def __init__(self, n_files, log_queue, theme_colors=None, action='package'):
         """Class constructor
 
         Parameters
@@ -467,6 +497,13 @@ class PackageProgressDialog(QDialog, ui_packaging):
         self.packaging_finished = False
         self.log_queue = log_queue
         self.changes_made = True
+        self.action = action
+
+        # Text of dialog
+        if self.action == 'package':
+            self.label.setText("Packaging MEDUSA App...")
+        elif self.action == 'install':
+            self.label.setText("Installing MEDUSA App...")
 
         # Connections
         self.pbar.setRange(0, self.n_files)
@@ -501,8 +538,7 @@ class PackageProgressDialog(QDialog, ui_packaging):
             else:
                 event.ignore()
 
-    @staticmethod
-    def close_dialog():
+    def close_dialog(self):
         """ Shows a confirmation dialog that notifies the user that the
         packaging process has finished
 
@@ -511,8 +547,12 @@ class PackageProgressDialog(QDialog, ui_packaging):
         output value: boolean
             True when user click OK button.
         """
+        if self.action == 'package':
+            message = "MEDUSA App packaged!"
+        elif self.action == 'install':
+            message = "MEDUSA App installed!"
         res = dialogs.info_dialog(
-            message="MEDUSA App packaged!",
+            message=message,
             title='MEDUSA',
         )
         return res

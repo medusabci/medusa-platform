@@ -35,7 +35,7 @@ class AppManager:
     def get_date_today(self):
         return datetime.today().strftime('%Y-%m-%d %H:%M:%S')
 
-    def install_app_bundle(self, bundle_path):
+    def install_app_bundle(self, bundle_path, logger):
         # Install app (extract zip)
         with zipfile.ZipFile(bundle_path) as bundle:
             token = bundle.read('token').decode()
@@ -45,8 +45,12 @@ class AppManager:
             app = BytesIO(f.decrypt(bundle.read('app')))
             with zipfile.ZipFile(app) as app_zf:
                 with tempfile.TemporaryDirectory() as temp_dir:
-                    # Extract app
-                    app_zf.extractall(temp_dir)
+                    # Notify the number of files in app zip
+                    logger.info(f"Starting: {len(app_zf.namelist())} files",)
+                    # Extract app files
+                    for member in app_zf.namelist():
+                        app_zf.extract(member, temp_dir)
+                        logger.info("adding '%s'", member)
                     with open('%s/info' % temp_dir, 'r') as f:
                         info = json.load(f)
                     if info['id'] in self.apps_dict:
@@ -54,6 +58,7 @@ class AppManager:
                                         info['name'])
                     dest_dir = '%s/%s' % (self.apps_folder, info['id'])
                     shutil.move(temp_dir, dest_dir)
+                    logger.info("Finished")
             # Update apps file
             info['installation-date'] = self.get_date_today()
             self.apps_dict[info['id']] = info
