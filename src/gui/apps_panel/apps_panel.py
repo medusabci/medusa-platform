@@ -8,6 +8,8 @@ import warnings
 import os
 import queue
 import logging
+import urllib
+import webbrowser
 from logging.handlers import QueueHandler
 # EXTERNAL MODULES
 import zipfile
@@ -379,10 +381,16 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
 
     @exceptions.error_handler(scope='general')
     def documentation_app(self, app_key):
-        dialogs.warning_dialog(
-            'No available documentation for %s' %
-            self.apps_manager.apps_dict[app_key]['name'],
-            'Documentation', self.theme_colors)
+        response = None
+        url = f"https://medusabci.com/market/{app_key}/"
+        try:
+            response = urllib.request.urlopen(url)
+        except urllib.error.HTTPError as e:
+            dialogs.warning_dialog(
+                'There is no app with the following  id: \n %s' %
+                app_key, 'Documentation', self.theme_colors)
+        if response:
+            webbrowser.open(url)
 
     @exceptions.error_handler(scope='general')
     def update_app(self, app_key):
