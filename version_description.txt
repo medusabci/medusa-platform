@@ -1,7 +1,0 @@
-This is the first version of MEDUSA©, a novel platform to perform brain-computer interface and neuroscience experiments.
-
-@@VERSION_PARAMETERS
-{
-"PYTHON_VERSIONS": ["3.8", "3.9", "3.10"],
-"CHANGES_LOG": []
-}
