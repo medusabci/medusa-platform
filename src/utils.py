@@ -1,4 +1,5 @@
 import xml.etree.ElementTree as et
+import subprocess, os, sys
 
 
 def xml_string_to_json(xml_str, convert_numbers=False):
@@ -77,3 +78,29 @@ def __str_to_number(number_str):
         except ValueError as e:
             n = number_str
     return n
+
+
+def execute_shell_commands(cmds):
+    # Save temporal bat file
+    bat_file_name = 'temp_bat_venv.bat'
+    with open(bat_file_name, 'w') as f:
+        for cmd in cmds:
+            f.write(cmd + '\n')
+    # Execute bat file
+    with subprocess.Popen('%s' % bat_file_name, shell=True,
+                          stdout=subprocess.PIPE,
+                          stderr=subprocess.PIPE,
+                          universal_newlines=True) as p:
+        while True:
+            if p.poll() is not None:
+                break
+            for line in p.stdout:
+                if line == '\n':
+                    continue
+                print(line)
+            for line in p.stderr:
+                if line == '\n':
+                    continue
+                print(line, file=sys.stderr)
+    # Delete bat file
+    os.remove(bat_file_name)

@@ -336,8 +336,8 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
                     started = True
         # Initialize progress dialog
         self.progress_dialog = ProgressDialog(n_files, listener,
-                                                     self.theme_colors,
-                                                     action='install')
+                                              self.theme_colors,
+                                              action='install')
 
     @exceptions.error_handler(scope='general')
     def install_app(self, checked=None):
@@ -559,10 +559,7 @@ class ProgressDialog(QDialog, ui_packaging):
             message = "MEDUSA App packaged!"
         elif self.action == 'install':
             message = "MEDUSA App installed!"
-        res = dialogs.info_dialog(
-            message=message,
-            title='MEDUSA',
-        )
+        res = dialogs.info_dialog(message, 'MEDUSA')
         return res
 
 

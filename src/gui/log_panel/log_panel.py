@@ -146,7 +146,7 @@ class LogPanelWidget(QWidget, ui_plots_panel_widget):
         style: dict or str
             If it is a dict, it must contain css properties and values for
             PyQt5. If it is a string, it must be one of the predefined styles,
-            which are: ['error'].
+            which are: ['error', 'warning'].
         mode: str {'append', 'replace'}
             Mode append cretes a new message in the log panel. Mode replace
             removes the last line and place the new one. This mode is designed

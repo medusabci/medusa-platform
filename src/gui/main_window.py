@@ -157,7 +157,8 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         self.working_lsl_streams = None
         self.set_up_lsl_config()
         # Apps panel
-        self.apps_manager = app_manager.AppManager(self.accounts_manager)
+        self.apps_manager = app_manager.AppManager(
+            self.accounts_manager, self.medusa_interface)
         self.apps_panel_widget = None
         self.set_up_apps_panel()
         # Plots dashboard
