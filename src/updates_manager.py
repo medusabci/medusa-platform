@@ -95,6 +95,12 @@ class UpdatesManager:
                     '%s/%s' % (mds_path, rel_path))
                 # zf_info_file.filename = rel_path
                 ext_path = zf.extract(zf_info_file, path=mds_path)
+                # Check if file already exists
+                if os.path.isdir(real_ext_path):
+                    shutil.rmtree(real_ext_path)
+                elif os.path.isfile(real_ext_path):
+                    os.remove(real_ext_path)
+                # Move file
                 shutil.move(ext_path, real_ext_path)
             shutil.rmtree('%s/%s' % (mds_path, root_path))
         # Close file
