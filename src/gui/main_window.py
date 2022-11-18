@@ -1038,7 +1038,7 @@ class SplashScreen:
         self.splash_screen.setLayout(splash_layout)
 
         # Displaying the splash screen
-        self.splash_screen.show()
+        # self.splash_screen.show()
 
     def set_state(self, prog_value, prog_text):
         self.splash_progbar.setValue(prog_value)

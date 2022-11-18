@@ -1,6 +1,7 @@
-import shutil, json, requests
+import shutil, json, requests, os, sys, tempfile, zipfile, pathlib
 
 import constants, exceptions
+import utils
 from gui.qt_widgets import dialogs
 
 
@@ -14,6 +15,8 @@ class UpdatesManager:
         - Check shutil.copytree with dirs_exist_ok=True for updates
         - Having a file named version is probably a good idea to manage versions
     """
+
+    ZIPBALL_SIZE = 400
 
     def __init__(self, medusa_interface, release_info):
         # Attributes
@@ -31,47 +34,70 @@ class UpdatesManager:
         # Check development
         if self.release_info['version'] == 'Dev':
             return
-        # Check updates
-        versions = \
-            self.get_medusa_platform_versions(depth=0)
+        # Check for updates
+        versions = utils.get_medusa_repo_releases_info(depth=0)
         latest_version = versions[self.release_info['version']]
-        self.release_info['minor_patch'] = 0
+        update = False
         if int(latest_version['major_patch']) > \
                 int(self.release_info['major_patch']):
-            dialogs.confirmation_dialog(
+            update = dialogs.confirmation_dialog(
                 'MEDUSA Platform %s is out! You want to update?' %
                 self.release_info['tag_name'], 'Major update available'
             )
         elif int(latest_version['minor_patch']) > \
                 int(self.release_info['minor_patch']):
-            dialogs.confirmation_dialog(
+            update = dialogs.confirmation_dialog(
                 'MEDUSA Platform %s is out! You want to update?' %
                 self.release_info['tag_name'], 'Minor update available'
             )
-        # TODO: Update medusa
 
-    def get_medusa_platform_versions(self, depth=0):
-        # Parse URL
-        url = self.url_server + '/get-medusa-platform-versions/'
-        # Make request
-        params = {'depth': depth}
-        data = json.dumps(params)
-        try:
-            resp = requests.get(url, json=data, verify=True)
-        except requests.exceptions.SSLError as e:
-            resp = requests.get(url, json=data, verify=False)
-        # Response handling
-        if resp.status_code == 200:
-            return json.loads(resp.content)['versions']
-        elif resp.status_code == 401:
-            raise exceptions.AuthenticationError(
-                'You do not have permission to install this app, '
-                'the bundle was not meant for you. Download '
-                'it from the website using your account!')
-        elif resp.status_code == 404:
-            raise exceptions.NotFoundError(
-                'This download is not licensed by MEDUSA. Please, '
-                'download the app from the official website.'
-            )
-        else:
-            raise Exception("\n\n" + resp.text)
+        if update:
+            self.update_version(latest_version['tag_name'])
+
+    def update_version(self, tag_name):
+        # TODO: Update medusa
+        # Download last release
+        self.__update_medusa_source(tag_name)
+        # Restar medusa
+        utils.restart()
+        pass
+
+    def __update_medusa_source(self, tag_name):
+        # Temp file
+        temp_medusa_src_file = tempfile.TemporaryFile()
+        mds_path = os.path.dirname(os.getcwd())
+        # Get latest MEDUSA release
+        uri = "https://api.github.com/repos/medusabci/" \
+              "medusa-platform/zipball/%s" % tag_name
+        headers = {}
+        # Download zip
+        with requests.get(uri, headers=headers, stream=True) as r:
+            # Download zip file and store in temp file
+            bytes_down = 0
+            for data in r.iter_content(chunk_size=int(1e6)):
+                bytes_down += len(data)
+                # Update progress bar
+                # pct = int(bytes_down / 1e6 / self.ZIPBALL_SIZE * 100)
+                # self.update_progress_bar(
+                #     "(1/4) Downloading MEDUSA %s (%i%%)..." %
+                #     (self.mds_release_info['depth_0_tag'], pct),
+                #     pct / 100 * 25)
+                temp_medusa_src_file.write(data)
+                print('%.2f MB' % (bytes_down / int(1e6)))
+        # Extract zip
+        with zipfile.ZipFile(temp_medusa_src_file) as zf:
+            zf_info_list = zf.infolist()
+            root_path = zf_info_list[0].filename
+            for zf_info_file in zf_info_list[1:]:
+                file_path = pathlib.Path(zf_info_file.filename)
+                rel_path = file_path.relative_to(root_path)
+                real_ext_path = os.path.normpath(
+                    '%s/%s' % (mds_path, rel_path))
+                # zf_info_file.filename = rel_path
+                ext_path = zf.extract(zf_info_file, path=mds_path)
+                shutil.move(ext_path, real_ext_path)
+            shutil.rmtree('%s/%s' % (mds_path, root_path))
+        # Close file
+        temp_medusa_src_file.close()
+
+
