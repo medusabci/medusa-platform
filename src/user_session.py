@@ -91,3 +91,4 @@ class UserSession:
             )
         else:
             raise Exception("\n\n" + resp.text)
+

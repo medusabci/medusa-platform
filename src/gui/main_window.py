@@ -1,9 +1,11 @@
 # PYTHON MODULES
+import glob
 import os, sys
 import multiprocessing as mp
 import json, traceback
 import ctypes
 import webbrowser
+import datetime
 
 # EXTERNAL MODULES
 from PyQt5 import uic
@@ -14,6 +16,7 @@ from PyQt5.QtGui import *
 
 # MEDUSA general
 import constants, resources, exceptions, accounts_manager, app_manager
+import updates_manager
 from gui import gui_utils as gu
 from acquisition import lsl_utils
 from gui.plots_panel import plots_panel
@@ -39,19 +42,22 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         QMainWindow.__init__(self)
         self.setupUi(self)
 
+        # Load version
+        self.release_info = self.get_release_info()
+
         # Qt parameters
         self.setWindowIcon(QIcon('%s/medusa_task_icon.png' %
                                  constants.IMG_FOLDER))
         self.setWindowTitle('MEDUSA© Platform %s [%s]' %
-                            (constants.MEDUSA_VERSION,
-                             constants.MEDUSA_VERSION_NAME))
+                            (self.release_info['version'],
+                             self.release_info['name']))
         self.setFocusPolicy(Qt.StrongFocus)
         self.setAttribute(Qt.WA_DeleteOnClose)
         # self.setWindowFlags(Qt.FramelessWindowHint)
 
         # Tell windows that this application is not pythonw.exe so it can
         # have its own icon
-        medusaid = u'gib.medusa.' + constants.MEDUSA_VERSION
+        medusaid = u'gib.medusa.' + self.release_info['version']
         ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(medusaid)
 
         # Initial sizes
@@ -62,7 +68,7 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         self.reset_sizes()
 
         # Splash screen
-        splash_screen = SplashScreen()
+        splash_screen = SplashScreen(self.release_info)
         splash_screen.set_state(0, "Reading articles...")
 
         # Instantiate accounts manager
@@ -95,6 +101,7 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         # Initialize important variables
         self.working_lsl_streams = None
         self.apps_manager = None
+        self.updates_manager = None
 
         # Reset panels
         self.reset_panels()
@@ -158,12 +165,16 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         self.set_up_lsl_config()
         # Apps panel
         self.apps_manager = app_manager.AppManager(
-            self.accounts_manager, self.medusa_interface)
+            self.accounts_manager, self.medusa_interface, self.release_info)
         self.apps_panel_widget = None
         self.set_up_apps_panel()
         # Plots dashboard
         self.plots_panel_widget = None
         self.set_up_plots_panel()
+        # Instantiate updates manager
+        self.updates_manager = updates_manager.UpdatesManager(
+            self.medusa_interface, self.release_info)
+        self.updates_manager.check_for_updates()
 
     @exceptions.error_handler(scope='general')
     def set_up_medusa_interface_listener(self, interface_queue):
@@ -282,6 +293,26 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         # d_key = key_event.key()
         # self.print_log(d_key, style={'color': 'green'})
         pass
+
+    def get_release_info(self):
+        try:
+            with open('../version', 'r') as f:
+                release_info = dict(zip(['tag_name', 'name', 'date'],
+                                        f.read().split('\n')))
+                release_tag_split = release_info['tag_name'].split('.')
+                release_info['version'] = release_tag_split[0]
+                release_info['major_patch'] = release_tag_split[1]
+                release_info['minor_patch'] = release_tag_split[2]
+        except Exception as e:
+            release_info = dict()
+            release_info['tag_name'] = 'Dev.0.0'
+            release_info['name'] = 'Development'
+            release_info['date'] = str(datetime.date.today())
+            release_tag_split = release_info['tag_name'].split('.')
+            release_info['version'] = release_tag_split[0]
+            release_info['major_patch'] = release_tag_split[1]
+            release_info['minor_patch'] = release_tag_split[2]
+        return release_info
 
     # =============================== MENU BAR =============================== #
     @exceptions.error_handler(scope='general')
@@ -510,7 +541,9 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
     @exceptions.error_handler(scope='general')
     def open_help_about(self, checked=None):
         dialog = AboutDialog(
-            alias=self.accounts_manager.current_session.user_info['alias'])
+            alias=self.accounts_manager.current_session.user_info['alias'],
+            release_info=self.release_info
+        )
         dialog.exec_()
 
     # ======================= PLOTS PANEL FUNCTIONS ========================== #
@@ -921,7 +954,7 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
 
 class AboutDialog(QDialog, gui_about):
 
-    def __init__(self, parent=None, alias=''):
+    def __init__(self, release_info, parent=None, alias=''):
         QDialog.__init__(self, parent)
         self.setWindowFlags(
             self.windowFlags() & ~Qt.WindowContextHelpButtonHint)
@@ -932,9 +965,9 @@ class AboutDialog(QDialog, gui_about):
         self.setWindowTitle('About MEDUSA')
 
         # Details
-        self.label_date.setText('Built on ' + constants.MEDUSA_VERSION_DATE)
-        self.label_version.setText(constants.MEDUSA_VERSION + ' [' +
-                                   constants.MEDUSA_VERSION_NAME + ']')
+        self.label_date.setText('Built on ' + release_info['date'])
+        self.label_version.setText(release_info['version'] + ' [' +
+                                   release_info['name'] + ']')
         self.label_license.setText('Licensed to ' + alias)
 
         # Textbrowser
@@ -960,11 +993,12 @@ class AboutDialog(QDialog, gui_about):
 
 class SplashScreen:
 
-    def __init__(self):
+    def __init__(self, release_info):
         """ Sets the initial splash screen while it loads things."""
         # Attaching the splash image
-        splash_image = QPixmap('gui/images/medusa_splash_' +
-                               constants.MEDUSA_VERSION + '.png')
+        self.release_info = release_info
+        img_path = glob.glob('gui/images/medusa_splash_*.png')[0]
+        splash_image = QPixmap(img_path)
         self.splash_screen = QSplashScreen(splash_image,
                                            Qt.WindowStaysOnTopHint)
         self.splash_screen.setStyleSheet("QSplashScreen { margin-right: 0px; "

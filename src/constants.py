@@ -2,10 +2,6 @@
 
 Attributes
 ----------
-MEDUSA_VERSION: str
-    Version of Medusa following the semantic version scheme:
-    MAJOR.MINOR.PATCH-tag
-
 LSL_CONFIG_FILE: str
     Default path for the LSL config file to use on Medusa start
 PLOTS_CONFIG_FILE
@@ -44,10 +40,6 @@ MEDUSA_LSL_TYPES: dict
     the values are the class in MEDUSA Kernel that refer to.
 
 """
-# ============================== MEDUSA VERSION ============================== #
-MEDUSA_VERSION = 'v2022'
-MEDUSA_VERSION_NAME = 'CHAOS'
-MEDUSA_VERSION_DATE = '18 May, 2022'
 
 # =============================== DEFAULT PATHS ============================== #
 # Config files

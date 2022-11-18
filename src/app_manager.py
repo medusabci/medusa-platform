@@ -14,10 +14,11 @@ from gui.qt_widgets import dialogs
 
 class AppManager:
 
-    def __init__(self, accounts_manager, medusa_interface):
+    def __init__(self, accounts_manager, medusa_interface, release_info):
         # Get installed apps
         self.accounts_manager = accounts_manager
         self.medusa_interface = medusa_interface
+        self.release_info = release_info
         self.apps_config_file_path = self.accounts_manager.wrap_path(
             constants.APPS_CONFIG_FILE)
         self.apps_folder = self.accounts_manager.wrap_path('apps')
@@ -120,12 +121,12 @@ class AppManager:
                             raise Exception('App %s is already installed' %
                                             info['name'])
                         # Check target version of the platform
-                        if info['target'] != constants.MEDUSA_VERSION:
+                        if info['target'] != self.release_info['version']:
                             # todo: convert to dialog
                             self.medusa_interface.log(
                                 'This app has been designed for MEDUSA Platform'
                                 ' %s. Correct operation is not guaranteed' %
-                                info['target'])
+                                info['target'], style='warning')
                         # Move files from temp dir to final dir
                         dest_dir = '%s/%s' % (self.apps_folder, info['id'])
                         shutil.move(temp_dir, dest_dir)
