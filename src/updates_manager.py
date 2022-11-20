@@ -89,17 +89,19 @@ class UpdatesManager:
             zf_info_list = zf.infolist()
             root_path = zf_info_list[0].filename
             for zf_info_file in zf_info_list[1:]:
+                print(zf_info_file.filename)
                 file_path = pathlib.Path(zf_info_file.filename)
                 rel_path = file_path.relative_to(root_path)
                 real_ext_path = os.path.normpath(
                     '%s/%s' % (mds_path, rel_path))
                 # zf_info_file.filename = rel_path
                 ext_path = zf.extract(zf_info_file, path=mds_path)
-                # Check if file already exists
-                if os.path.isdir(real_ext_path):
-                    shutil.rmtree(real_ext_path)
-                elif os.path.isfile(real_ext_path):
+                # Check if its a file that already exists and delete it
+                if os.path.isfile(real_ext_path):
                     os.remove(real_ext_path)
+                # Check if its a directory and continue
+                if os.path.isdir(real_ext_path):
+                    continue
                 # Move file
                 shutil.move(ext_path, real_ext_path)
             shutil.rmtree('%s/%s' % (mds_path, root_path))
