@@ -12,7 +12,6 @@ import urllib
 import webbrowser
 from logging.handlers import QueueHandler
 # EXTERNAL MODULES
-import zipfile
 
 from PyQt5 import uic
 from PyQt5.QtWidgets import *
@@ -23,6 +22,7 @@ import resources
 from gui import gui_utils as gu
 from gui.qt_widgets import dialogs
 import constants, exceptions
+from gui.qt_widgets.dialogs import ThreadProgressDialog
 
 ui_plots_panel_widget = \
     uic.loadUiType('gui/ui_files/apps_panel_widget.ui')[0]
@@ -324,20 +324,9 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
         self.apps_panel_grid_widget.find_app(curr_text)
 
     @exceptions.error_handler(scope='general')
-    def progress_install_app(self, listener):
-        # Wait for the number of files to unpack
-        started = False
-        n_files = None
-        while not started:
-            log_elements = str(listener.get()).split(', ')
-            for e in log_elements:
-                if e.startswith('"Starting:'):
-                    n_files = int(e.split(' ')[-2])
-                    started = True
-        # Initialize progress dialog
-        self.progress_dialog = ProgressDialog(n_files, listener,
-                                              self.theme_colors,
-                                              action='install')
+    def installation_finished(self):
+        # Update apps panel
+        self.update_apps_panel()
 
     @exceptions.error_handler(scope='general')
     def install_app(self, checked=None):
@@ -350,27 +339,19 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
                                                directory=directory,
                                                filter=filt)[0]
         if app_file != '':
-            # Prepare queue logger
-            log_queue = queue.Queue(-1)
-            queue_handler = QueueHandler(log_queue)
-            logger = logging.getLogger("install_app")
-            logger.setLevel(logging.INFO)
-            logger.addHandler(queue_handler)
 
-            # Install function
-            working_threads = []
-            T1 = threading.Thread(target=self.apps_manager.install_app_bundle,
-                                  args=(app_file, logger))
-            T1.start()
-            working_threads.append(T1)
+            # Initialize progress dialog
+            self.progress_dialog = ThreadProgressDialog(
+                window_title='Installing app...',
+                min_pbar_value=0, max_pbar_value=100,
+                theme_colors=self.theme_colors)
+            self.progress_dialog.done.connect(self.installation_finished)
+            self.progress_dialog.show()
 
-            # Progress dialog
-            self.progress_install_app(log_queue)
-
-            for t in working_threads:
-                t.join()
-            # Update apps panel
-            self.update_apps_panel()
+            # Install
+            th = threading.Thread(target=self.apps_manager.install_app_bundle,
+                                  args=(app_file, self.progress_dialog))
+            th.start()
 
     @exceptions.error_handler(scope='general')
     def about_app(self, app_key):
@@ -400,19 +381,6 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
             'Update', self.theme_colors)
 
     @exceptions.error_handler(scope='general')
-    def progress_package_app(self, app_id, listener):
-        # Copy tree
-        app_path = os.path.join(os.getcwd(), '%s/%s' %
-                                (self.apps_manager.apps_folder, app_id))
-        # Get number of files in directory and subdirectories
-        n_files = sum(len(files) for _, _, files in os.walk(app_path))
-        n_files += sum(len(dirnames) for _, dirnames, _ in os.walk(app_path))
-        # Initialize progress dialog
-        self.progress_dialog = ProgressDialog(n_files, listener,
-                                                     self.theme_colors,
-                                                     action='package')
-
-    @exceptions.error_handler(scope='general')
     def package_app(self, app_key):
         # Choose path
         filt = "MEDUSA app (*.zip)"
@@ -425,25 +393,26 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
             base_name = os.path.basename(app_file).split('.zip')[0]
             output_path = '%s/%s' % (dir_name, base_name)
 
-            # Prepare queue logger
+            # Create queue logger
             log_queue = queue.Queue(-1)
             queue_handler = QueueHandler(log_queue)
             logger = logging.getLogger("package_app")
             logger.setLevel(logging.INFO)
             logger.addHandler(queue_handler)
 
+            # Initialize progress dialog
+            self.progress_dialog = ThreadProgressDialog(
+                window_title='Packaging app...',
+                min_pbar_value=0, max_pbar_value=100,
+                theme_colors=self.theme_colors)
+            self.progress_dialog.done.connect(self.installation_finished)
+            self.progress_dialog.show()
+
             # Package function
-            working_threads = []
-            T1 = threading.Thread(target=self.apps_manager.package_app,
-                                  args=(app_key, output_path, logger))
-            T1.start()
-            working_threads.append(T1)
-
-            # Progress dialog
-            self.progress_package_app(app_key, log_queue)
-
-            for t in working_threads:
-                t.join()
+            th = threading.Thread(
+                target=self.apps_manager.package_app,
+                args=(app_key, output_path, logger, self.progress_dialog))
+            th.start()
 
     @exceptions.error_handler(scope='general')
     def uninstall_app(self, app_key):
@@ -464,103 +433,6 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
                 theme_colors=self.theme_colors)
         # Update apps panel
         self.update_apps_panel()
-
-
-ui_packaging = uic.loadUiType("gui/ui_files/packaging.ui")[0]
-
-
-class ProgressDialog(QDialog, ui_packaging):
-    close_signal = pyqtSignal(object)
-
-    def __init__(self, n_files, log_queue, theme_colors=None, action='package'):
-        """Class constructor
-
-        Parameters
-        ----------
-        n_files: int
-            Number of files in app folder
-        log_queue: queue
-            Queue to which the logger sends information on the progress
-             of the packing.
-        theme_colors: dict or None
-            Theme colors
-        """
-
-        QDialog.__init__(self)
-        self.setWindowFlags(self.windowFlags() &
-                            ~Qt.WindowContextHelpButtonHint)
-        self.setupUi(self)
-
-        # Initialize the gui dialog
-        self.theme_colors = gu.get_theme_colors('dark') if \
-            theme_colors is None else theme_colors
-        self.stl = gu.set_css_and_theme(self, self.theme_colors)
-        medusa_task_icon = QIcon('%s/medusa_favicon.png' %
-                                 constants.IMG_FOLDER)
-        self.setWindowIcon(medusa_task_icon)
-        self.setWindowTitle("MEDUSA©")
-
-        # Attributes
-        self.n_files = n_files
-        self.packaging_finished = False
-        self.log_queue = log_queue
-        self.changes_made = True
-        self.action = action
-
-        # Text of dialog
-        if self.action == 'package':
-            self.label.setText("Packaging MEDUSA App...")
-        elif self.action == 'install':
-            self.label.setText("Installing MEDUSA App...")
-
-        # Connections
-        self.pbar.setRange(0, self.n_files)
-        QTimer.singleShot(100, self.check_packaging_progress)
-
-        # Show
-        self.setWindowFlags(self.windowFlags() | Qt.WindowStaysOnTopHint)
-        self.setModal(True)
-        self.exec_()
-
-    def check_packaging_progress(self):
-        try:
-            num_files_packaged = 0
-            while not self.packaging_finished:
-                time.sleep(0.1)
-                num_files_packaged = self.log_queue.qsize() - 1
-                self.pbar.setValue(num_files_packaged)
-                if num_files_packaged >= self.n_files:
-                    self.packaging_finished = True
-            self.close()
-        except Exception as ex:
-            raise ex
-
-    def closeEvent(self, event):
-        """ Overrides the closeEvent in order to show the confirmation dialog.
-        """
-        if self.changes_made:
-            retval = self.close_dialog()
-            if retval:
-                self.close_signal.emit(None)
-                event.accept()
-            else:
-                event.ignore()
-
-    def close_dialog(self):
-        """ Shows a confirmation dialog that notifies the user that the
-        packaging process has finished
-
-        Returns
-        -------
-        output value: boolean
-            True when user click OK button.
-        """
-        if self.action == 'package':
-            message = "MEDUSA App packaged!"
-        elif self.action == 'install':
-            message = "MEDUSA App installed!"
-        res = dialogs.info_dialog(message, 'MEDUSA')
-        return res
 
 
 class AppsPanelGridWidget(QWidget):

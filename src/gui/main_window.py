@@ -4,6 +4,7 @@ import os, sys
 import multiprocessing as mp
 import json, traceback
 import ctypes
+import threading
 import webbrowser
 import datetime
 
@@ -17,6 +18,7 @@ from PyQt5.QtGui import *
 # MEDUSA general
 import constants, resources, exceptions, accounts_manager, app_manager
 import updates_manager
+import utils
 from gui import gui_utils as gu
 from acquisition import lsl_utils
 from gui.plots_panel import plots_panel
@@ -27,6 +29,7 @@ from gui.log_panel import log_panel
 from gui.user_profile import login
 from gui.user_profile import user_profile
 from gui.qt_widgets.dialogs import info_dialog, error_dialog
+from gui.qt_widgets.dialogs import ThreadProgressDialog
 
 # Load the .ui file
 gui_main_user_interface = uic.loadUiType("gui/ui_files/main_window.ui")[0]
@@ -174,7 +177,24 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         # Instantiate updates manager
         self.updates_manager = updates_manager.UpdatesManager(
             self.medusa_interface, self.release_info)
-        self.updates_manager.check_for_updates()
+        update, latest_version_info = self.updates_manager.check_for_updates()
+        if update:
+            # Initialize progress dialog
+            self.progress_dialog = ThreadProgressDialog(
+                window_title='Updating...',
+                min_pbar_value=0, max_pbar_value=100,
+                theme_colors=self.theme_colors)
+            self.progress_dialog.done.connect(self.update_finished)
+            self.progress_dialog.show()
+
+            th = threading.Thread(target=self.updates_manager.update_version,
+                                  args=(latest_version_info,
+                                        self.progress_dialog))
+            th.start()
+
+    @exceptions.error_handler(scope='general')
+    def update_finished(self):
+        utils.restart()
 
     @exceptions.error_handler(scope='general')
     def set_up_medusa_interface_listener(self, interface_queue):

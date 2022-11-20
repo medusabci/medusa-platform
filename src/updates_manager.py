@@ -35,59 +35,54 @@ class UpdatesManager:
         if self.release_info['version'] == 'Dev':
             return
         # Check for updates
-        versions = utils.get_medusa_repo_releases_info(depth=0)
-        latest_version = versions[self.release_info['version']]
+        versions_info = utils.get_medusa_repo_releases_info(depth=0)
+        latest_version_info = versions_info[self.release_info['version']]
         update = False
-        if int(latest_version['major_patch']) > \
+        if int(latest_version_info['major_patch']) > \
                 int(self.release_info['major_patch']):
             update = dialogs.confirmation_dialog(
                 'MEDUSA Platform %s is out! You want to update?' %
                 self.release_info['tag_name'], 'Major update available'
             )
-        elif int(latest_version['minor_patch']) > \
+        elif int(latest_version_info['minor_patch']) > \
                 int(self.release_info['minor_patch']):
             update = dialogs.confirmation_dialog(
                 'MEDUSA Platform %s is out! You want to update?' %
                 self.release_info['tag_name'], 'Minor update available'
             )
+        return update, latest_version_info
 
-        if update:
-            self.update_version(latest_version['tag_name'])
-
-    def update_version(self, tag_name):
-        # TODO: Update medusa
-        # Download last release
-        self.__update_medusa_source(tag_name)
-        # Restar medusa
-        utils.restart()
-        pass
-
-    def __update_medusa_source(self, tag_name):
+    def update_version(self, latest_version_info, progress_dialog):
         # Temp file
         temp_medusa_src_file = tempfile.TemporaryFile()
         mds_path = os.path.dirname(os.getcwd())
         # Get latest MEDUSA release
         uri = "https://api.github.com/repos/medusabci/" \
-              "medusa-platform/zipball/%s" % tag_name
+              "medusa-platform/zipball/%s" % latest_version_info['tag_name']
         headers = {}
         # Download zip
+        progress_dialog.update_action('Downloading files...')
         with requests.get(uri, headers=headers, stream=True) as r:
             # Download zip file and store in temp file
+            total_bytes = int(r.headers['Content-Length']) \
+                if 'Content-Length' in r.headers else 140
             bytes_down = 0
             for data in r.iter_content(chunk_size=int(1e6)):
                 bytes_down += len(data)
-                # Update progress bar
-                # pct = int(bytes_down / 1e6 / self.ZIPBALL_SIZE * 100)
-                # self.update_progress_bar(
-                #     "(1/4) Downloading MEDUSA %s (%i%%)..." %
-                #     (self.mds_release_info['depth_0_tag'], pct),
-                #     pct / 100 * 25)
+                print('%.2f / %.2f (%.2f%%)MB' %
+                      ((bytes_down / int(1e6)),
+                       (total_bytes / int(1e6)),
+                       (bytes_down//total_bytes*100)))
+                progress_dialog.update_value(int(bytes_down/total_bytes*80))
                 temp_medusa_src_file.write(data)
-                print('%.2f MB' % (bytes_down / int(1e6)))
         # Extract zip
+        progress_dialog.update_action('Extracting files...')
+        progress_dialog.update_value(80)
         with zipfile.ZipFile(temp_medusa_src_file) as zf:
             zf_info_list = zf.infolist()
             root_path = zf_info_list[0].filename
+            n_files = len(zf_info_list)
+            file_counter = 0
             for zf_info_file in zf_info_list[1:]:
                 file_path = pathlib.Path(zf_info_file.filename)
                 rel_path = file_path.relative_to(root_path)
@@ -97,14 +92,26 @@ class UpdatesManager:
                 ext_path = zf.extract(zf_info_file, path=mds_path)
                 # Check if its a file that already exists and delete it
                 if os.path.isfile(real_ext_path):
-                    os.remove(real_ext_path)
+                    # os.remove(real_ext_path)
+                    pass
                 # Check if its a directory and continue
                 if os.path.isdir(real_ext_path):
                     continue
                 # Move file
-                shutil.move(ext_path, real_ext_path)
+                # shutil.move(ext_path, real_ext_path)
+                # Update progress dialog
+                file_counter += 1
+                progress_dialog.update_value(80 + (file_counter/n_files*20))
             shutil.rmtree('%s/%s' % (mds_path, root_path))
-        # Close file
+        # Close temp file
         temp_medusa_src_file.close()
+        # Generate version file
+        with open('%s/version' % mds_path, 'w') as f:
+            f.write('\n'.join([latest_version_info['depth_2_tag'],
+                               latest_version_info['name'],
+                               latest_version_info['date']]))
+        # Update progress bar
+        progress_dialog.update_action('Finished')
+        progress_dialog.update_value(100)
 
 

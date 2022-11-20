@@ -1,5 +1,6 @@
 # BUILT-IN MODULES
-import shutil, json, os, glob, re
+import shutil, json, os, glob, re, time
+import threading
 from datetime import datetime
 import zipfile, tempfile
 from io import BytesIO
@@ -60,7 +61,10 @@ class AppManager:
                 continue
             req = re.split('<|<=|!=|==|>=|>|~=|===', r)
             app_reqs[req[0]] = req[1] if len(req) > 1 else None
-        # Check
+        # Check if there are something to install
+        if len(app_reqs) == 0:
+            return 'not-required'
+        # Check requirements
         confirmation = list()
         for req_name, req_version in app_reqs.items():
             if req_name in current_pkgs:
@@ -76,14 +80,15 @@ class AppManager:
                     confirmation.append(True)
             else:
                 confirmation.append(True)
-        return all(confirmation)
+        return 'conflict' if not all(confirmation) else 'proceed'
 
     def install_app_dependencies(self, app_dir):
         # Get medusa and requirements paths
         mds_path = '\\'.join(os.path.abspath(__file__).split('\\')[:-2])
         req_path = os.path.normpath('src/%s/requirements.txt' % app_dir)
         # Check dependencies
-        if self.check_app_dependencies(app_dir):
+        check = self.check_app_dependencies(app_dir)
+        if check == 'proceed':
             # Write bat file with the commands to install python dependencies
             cmds = list()
             cmds.append('%s:' % mds_path.split(':')[0])
@@ -92,14 +97,18 @@ class AppManager:
             cmds.append('pip install -r %s' % req_path)
             # Execute
             utils.execute_shell_commands(cmds)
-        else:
+        elif check == 'conflict':
             msg = """The dependencies were not installed to avoid conflicts
              between apps. You'll need to handle them manually if necessary"""
             self.medusa_interface.log(msg, style='warning')
+        else:
+            pass
 
-    def install_app_bundle(self, bundle_path, logger):
+    def install_app_bundle(self, bundle_path, progress_dialog):
         try:
             # Install app (extract zip)
+            progress_dialog.update_action('Checking license...')
+            progress_dialog.update_value(0)
             with zipfile.ZipFile(bundle_path) as bundle:
                 token = bundle.read('token').decode()
                 license_key = \
@@ -107,13 +116,18 @@ class AppManager:
                 f = Fernet(license_key)
                 app = BytesIO(f.decrypt(bundle.read('app')))
                 with zipfile.ZipFile(app) as app_zf:
+                    progress_dialog.update_action('Extracting app...')
+                    progress_dialog.update_value(5)
                     with tempfile.TemporaryDirectory() as temp_dir:
-                        # Notify the number of files in app zip
-                        logger.info(f"Starting: {len(app_zf.namelist())} files",)
                         # Extract app files
+                        n_files = len(app_zf.namelist())
+                        file_counter = 0
                         for member in app_zf.namelist():
                             app_zf.extract(member, temp_dir)
-                            logger.info("adding '%s'", member)
+                            file_counter += 1
+                            progress_dialog.update_value(
+                                5 + file_counter//n_files*85)
+                            progress_dialog.update_log(member)
                         with open('%s/info' % temp_dir, 'r') as f:
                             info = json.load(f)
                         # Check the app id
@@ -128,17 +142,23 @@ class AppManager:
                                 ' %s. Correct operation is not guaranteed' %
                                 info['target'], style='warning')
                         # Move files from temp dir to final dir
+                        progress_dialog.update_action(
+                            'Moving to destination folder...')
                         dest_dir = '%s/%s' % (self.apps_folder, info['id'])
                         shutil.move(temp_dir, dest_dir)
+                        progress_dialog.update_value(95)
                         # Install dependencies
+                        progress_dialog.update_action(
+                            'Installing dependencies...')
                         self.install_app_dependencies(dest_dir)
-                        # Finish
-                        logger.info("Finished")
+                        progress_dialog.update_action('Finished!')
+                        progress_dialog.update_value(100)
                 # Update apps file
                 info['installation-date'] = self.get_date_today()
                 self.apps_dict[info['id']] = info
                 self.update_apps_file()
         except Exception as e:
+            progress_dialog.reject()
             self.handle_exception(e)
 
     def install_app_template(self, app_id, app_name, app_extension,
@@ -175,12 +195,36 @@ class AppManager:
         self.apps_dict[info['id']] = info
         self.update_apps_file()
 
-    def package_app(self, app_key, output_path, logger):
+    def package_app(self, app_key, output_path, logger, progress_dialog):
+        # Get input dir
         input_dir = '%s/%s' % (self.apps_folder, app_key)
+        # Get number of files in directory and subdirectories
+        n_files = sum(len(files) for _, _, files in os.walk(input_dir))
+        n_files += sum(len(dirnames) for _, dirnames, _ in os.walk(input_dir))
+        # Start event listener
+        th = threading.Thread(target=self.package_event_listener,
+                              args=(n_files, logger, progress_dialog))
+        th.start()
+        # Start packaging
         shutil.make_archive(base_name=output_path,
                             format='zip',
                             root_dir=input_dir,
                             logger=logger)
+        th.join()
+
+    def package_event_listener(self, n_files, logger, progress_dialog):
+        # Read logger events
+        progress_dialog.update_action('Creating app bundle...')
+        num_files_packaged = 0
+        while num_files_packaged < n_files:
+            time.sleep(0.1)
+            while not logger.handlers[0].queue.empty():
+                num_files_packaged += 1
+                progress_dialog.update_log(
+                    logger.handlers[0].queue.get().getMessage())
+                progress_dialog.update_value(
+                    int(num_files_packaged / n_files * 100))
+        progress_dialog.update_action('Finished!')
 
     def uninstall_app(self, app_key):
         # Remove directory
