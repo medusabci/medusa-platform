@@ -64,16 +64,17 @@ class UpdatesManager:
         progress_dialog.update_action('Downloading files...')
         with requests.get(uri, headers=headers, stream=True) as r:
             # Download zip file and store in temp file
-            total_bytes = int(r.headers['Content-Length']) \
-                if 'Content-Length' in r.headers else 140
             bytes_down = 0
             for data in r.iter_content(chunk_size=int(1e6)):
+                # Message
+                if bytes_down == 0:
+                    total_bytes = int(r.headers['Content-Length'])
+                    progress_dialog.update_log('Download size: %.2f MB' %
+                                               (total_bytes / 1e6))
+                # Update progress bar
                 bytes_down += len(data)
-                print('%.2f / %.2f (%.2f%%)MB' %
-                      ((bytes_down / int(1e6)),
-                       (total_bytes / int(1e6)),
-                       (bytes_down//total_bytes*100)))
                 progress_dialog.update_value(int(bytes_down/total_bytes*80))
+                # Save data
                 temp_medusa_src_file.write(data)
         # Extract zip
         progress_dialog.update_action('Extracting files...')
@@ -88,20 +89,20 @@ class UpdatesManager:
                 rel_path = file_path.relative_to(root_path)
                 real_ext_path = os.path.normpath(
                     '%s/%s' % (mds_path, rel_path))
-                # zf_info_file.filename = rel_path
                 ext_path = zf.extract(zf_info_file, path=mds_path)
                 # Check if its a file that already exists and delete it
                 if os.path.isfile(real_ext_path):
-                    # os.remove(real_ext_path)
+                    os.remove(real_ext_path)
                     pass
                 # Check if its a directory and continue
                 if os.path.isdir(real_ext_path):
                     continue
                 # Move file
-                # shutil.move(ext_path, real_ext_path)
+                shutil.move(ext_path, real_ext_path)
                 # Update progress dialog
                 file_counter += 1
-                progress_dialog.update_value(80 + (file_counter/n_files*20))
+                progress_dialog.update_value(
+                    int(80 + (file_counter/n_files*20)))
             shutil.rmtree('%s/%s' % (mds_path, root_path))
         # Close temp file
         temp_medusa_src_file.close()
