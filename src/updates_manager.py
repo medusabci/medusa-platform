@@ -65,15 +65,15 @@ class UpdatesManager:
         with requests.get(uri, headers=headers, stream=True) as r:
             # Download zip file and store in temp file
             bytes_down = 0
+            total_bytes = int(r.headers['Content-Length']) \
+                if 'Content-Length' in r.headers else 140
+            progress_dialog.update_log('Download size: %.2f MB' %
+                                       (total_bytes / 1e6))
             for data in r.iter_content(chunk_size=int(1e6)):
-                # Message
-                if bytes_down == 0:
-                    total_bytes = int(r.headers['Content-Length'])
-                    progress_dialog.update_log('Download size: %.2f MB' %
-                                               (total_bytes / 1e6))
                 # Update progress bar
                 bytes_down += len(data)
-                progress_dialog.update_value(int(bytes_down/total_bytes*80))
+                progress_dialog.update_value(
+                    int(bytes_down / total_bytes * 80))
                 # Save data
                 temp_medusa_src_file.write(data)
         # Extract zip
