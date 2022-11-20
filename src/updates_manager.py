@@ -92,8 +92,10 @@ class UpdatesManager:
                 ext_path = zf.extract(zf_info_file, path=mds_path)
                 # Check if its a file that already exists and delete it
                 if os.path.isfile(real_ext_path):
-                    os.remove(real_ext_path)
-                    pass
+                    try:
+                        os.remove(real_ext_path)
+                    except PermissionError as e:
+                        continue
                 # Check if its a directory and continue
                 if os.path.isdir(real_ext_path):
                     continue
