@@ -89,7 +89,6 @@ class UpdatesManager:
             zf_info_list = zf.infolist()
             root_path = zf_info_list[0].filename
             for zf_info_file in zf_info_list[1:]:
-                print(zf_info_file.filename)
                 file_path = pathlib.Path(zf_info_file.filename)
                 rel_path = file_path.relative_to(root_path)
                 real_ext_path = os.path.normpath(
