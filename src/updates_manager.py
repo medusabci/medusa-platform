@@ -33,7 +33,7 @@ class UpdatesManager:
     def check_for_updates(self):
         # Check development
         if self.release_info['version'] == 'Dev':
-            return
+            return False, None
         # Check for updates
         versions_info = utils.get_medusa_repo_releases_info(depth=0)
         latest_version_info = versions_info[self.release_info['version']]
