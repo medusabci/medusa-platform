@@ -261,9 +261,9 @@ class App(resources.AppSkeleton):
         exp_data = components.CustomExperimentData(
             **self.app_settings.to_serializable_obj()
         )
-        # EEG data
+        # Signal
         lsl_worker = self.get_lsl_worker()
-        eeg = components.CustomBiosignal(
+        signal = components.CustomBiosignal(
             timestamps=lsl_worker.timestamps,
             data=lsl_worker.data,
             fs=lsl_worker.receiver.fs,
@@ -275,7 +275,7 @@ class App(resources.AppSkeleton):
             description=file_info['description'],
             date=time.strftime("%d-%m-%Y %H:%M", time.localtime())
         )
-        rec.add_biosignal(eeg)
+        rec.add_biosignal(signal)
         rec.add_experiment_data(exp_data)
         rec.save(file_info['path'])
         # Print a message
