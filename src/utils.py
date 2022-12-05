@@ -128,10 +128,9 @@ def get_medusa_repo_releases_info(depth, repo='medusa-platform'):
             - Depth=2 returns all versions (e.g., v2022.1.0, v2022.1.1)
     repo: string
         Repository name in GitHub
-
     """
-    # TODO: If you change this function, update also in MEDUSA installer and
-    #   MEDUSA web!
+    # TODO: If you change this function, update also in MEDUSA Installer and
+    #   MEDUSA Platform!
     # Get MEDUSA releases
     uri = "https://api.github.com/repos/medusabci/%s/releases" % repo
     # Token
@@ -148,16 +147,19 @@ def get_medusa_repo_releases_info(depth, repo='medusa-platform'):
         github_releases_info[i]['description'] = descr
         github_releases_info[i]['params'] = params
         # Get publishing date
-        d = datetime.datetime.strptime(
-            github_releases_info[i]["published_at"], "%Y-%m-%dT%H:%M:%SZ")
+        d = datetime.datetime.strptime(github_releases_info[i]["published_at"],
+                                       "%Y-%m-%dT%H:%M:%SZ")
         github_releases_info[i]['date'] = d.strftime("%Y-%m-%d")
         # Split version
-        tag_split = github_releases_info[i]['tag_name'].split('.')
-        github_releases_info[i]['version'] = tag_split[0]
-        github_releases_info[i]['major_patch'] = int(
-            tag_split[1] if len(tag_split) >= 2 else 0)
-        github_releases_info[i]['minor_patch'] = int(
-            tag_split[2] if len(tag_split) >= 3 else 0)
+        tag_version = github_releases_info[i]['tag_name'].split('-')
+        tag_version_stage = '' if len(tag_version) == 1 else tag_version[1]
+        tag_version_split = tag_version[0].split('.')
+        github_releases_info[i]['stage'] = tag_version_stage
+        github_releases_info[i]['version'] = tag_version_split[0]
+        github_releases_info[i]['major_patch'] = \
+            int(tag_version_split[1] if len(tag_version_split) >= 2 else 0)
+        github_releases_info[i]['minor_patch'] = \
+            int(tag_version_split[2] if len(tag_version_split) >= 3 else 0)
         # 3 different tags depending on the required depth of the version
         depth_0_tag = '%s' % github_releases_info[i]['version']
         github_releases_info[i]['depth_0_tag'] = depth_0_tag

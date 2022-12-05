@@ -26,6 +26,16 @@
      <item row="0" column="1">
       <widget class="QLineEdit" name="lineEdit_app_id"/>
      </item>
+     <item row="1" column="0">
+      <widget class="QLabel" name="label_3">
+       <property name="text">
+        <string>Name</string>
+       </property>
+      </widget>
+     </item>
+     <item row="1" column="1">
+      <widget class="QLineEdit" name="lineEdit_app_name"/>
+     </item>
      <item row="3" column="0">
       <widget class="QLabel" name="label_2">
        <property name="text">
@@ -52,15 +62,8 @@
        </item>
       </widget>
      </item>
-     <item row="1" column="0">
-      <widget class="QLabel" name="label_3">
-       <property name="text">
-        <string>Name</string>
-       </property>
-      </widget>
-     </item>
-     <item row="1" column="1">
-      <widget class="QLineEdit" name="lineEdit_app_name"/>
+     <item row="2" column="1">
+      <widget class="QLineEdit" name="lineEdit_app_extension"/>
      </item>
      <item row="2" column="0">
       <widget class="QLabel" name="label_4">
@@ -68,9 +71,6 @@
         <string>Extension</string>
        </property>
       </widget>
-     </item>
-     <item row="2" column="1">
-      <widget class="QLineEdit" name="lineEdit_app_extension"/>
      </item>
     </layout>
    </item>

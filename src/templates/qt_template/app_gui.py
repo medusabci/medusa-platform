@@ -73,13 +73,12 @@ class AppGui(QtWidgets.QMainWindow):
         self.working_thread = AppGuiWorker(
             app_settings, run_state,
             self.queue_from_manager, self.queue_to_manager)
-        self.working_thread.update_eeg_samples_signal_handler.connect(
-            self.update_eeg_samples_signal_handler)
+        self.working_thread.update_response_signal.connect(
+            self.update_response_handler)
         self.working_thread.start()
 
         # Show application
-        self.setWindowFlags(self.windowFlags() |
-                            Qt.WindowStaysOnTopHint)
+        self.setWindowFlags(self.windowFlags() | Qt.WindowStaysOnTopHint)
         self.show()
 
     def handle_exception(self, ex):
@@ -92,8 +91,8 @@ class AppGui(QtWidgets.QMainWindow):
                 self.close()
 
     @pyqtSlot(int)
-    def update_eeg_samples_signal_handler(self, eeg_samples):
-        self.spin_box.setValue(eeg_samples)
+    def update_response_handler(self, value):
+        self.spin_box.setValue(value)
 
     def close_forced(self):
         self.is_close_forced = True
@@ -128,7 +127,7 @@ class AppGui(QtWidgets.QMainWindow):
 
 class AppGuiWorker(QThread):
 
-    update_eeg_samples_signal_handler = pyqtSignal(int)
+    update_response_signal = pyqtSignal(int)
 
     def __init__(self, app_settings, run_state, queue_from_manager,
                  queue_to_manager):
@@ -157,8 +156,7 @@ class AppGuiWorker(QThread):
                     resp = self.queue_from_manager.get()
                     # print('\t>> Response: ' + str(resp))
                     if resp['event_type'] == 'update_response':
-                        self.update_eeg_samples_signal_handler.emit(
-                            resp['data'])
+                        self.update_response_signal.emit(resp['data'])
         except Exception as ex:
             ex = exceptions.MedusaException(
                 ex, importance='critical',
