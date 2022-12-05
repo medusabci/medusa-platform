@@ -130,7 +130,7 @@ def get_medusa_repo_releases_info(depth, repo='medusa-platform'):
         Repository name in GitHub
     """
     # TODO: If you change this function, update also in MEDUSA Installer and
-    #   MEDUSA Platform!
+    #   MEDUSA Web!
     # Get MEDUSA releases
     uri = "https://api.github.com/repos/medusabci/%s/releases" % repo
     # Token
