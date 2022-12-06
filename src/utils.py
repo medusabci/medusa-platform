@@ -114,7 +114,8 @@ def decode_github_release_info(release_body):
     return descr, params
 
 
-def get_medusa_repo_releases_info(depth, repo='medusa-platform'):
+def get_medusa_repo_releases_info(depth, repo='medusa-platform',
+                                  exclude_non_final=True):
     """Function to get the medusa versions from github with different depths.
 
     Parameters
@@ -128,6 +129,9 @@ def get_medusa_repo_releases_info(depth, repo='medusa-platform'):
             - Depth=2 returns all versions (e.g., v2022.1.0, v2022.1.1)
     repo: string
         Repository name in GitHub
+    exclude_non_final: bool
+        If True, the returned dict excludes non-final versions (e.g.,
+        v2023-beta, v2023.1-alpha)
     """
     # TODO: If you change this function, update also in MEDUSA Installer and
     #   MEDUSA Web!
@@ -170,7 +174,10 @@ def get_medusa_repo_releases_info(depth, repo='medusa-platform'):
                                     github_releases_info[i]['major_patch'],
                                     github_releases_info[i]['minor_patch'])
         github_releases_info[i]['depth_2_tag'] = depth_2_tag
-        # Add release. Only the most updated versions is added taking into
+        # Check if the release is final
+        if exclude_non_final and tag_version_stage != '':
+            continue
+        # Add release. Only the most updated versions are added taking into
         # account the depth
         if depth == 0:
             if depth_0_tag in releases_info:
@@ -179,6 +186,11 @@ def get_medusa_repo_releases_info(depth, repo='medusa-platform'):
                 if github_releases_info[i]['major_patch'] > \
                         releases_info[depth_0_tag]['major_patch']:
                     releases_info[depth_0_tag] = github_releases_info[i]
+                elif github_releases_info[i]['major_patch'] == \
+                        releases_info[depth_0_tag]['major_patch']:
+                    if github_releases_info[i]['minor_patch'] > \
+                            releases_info[depth_0_tag]['minor_patch']:
+                        releases_info[depth_0_tag] = github_releases_info[i]
             else:
                 releases_info[depth_0_tag] = github_releases_info[i]
         elif depth == 1:

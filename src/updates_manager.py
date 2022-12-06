@@ -66,7 +66,9 @@ class UpdatesManager:
             # Download zip file and store in temp file
             bytes_down = 0
             total_bytes = int(r.headers['Content-Length']) \
-                if 'Content-Length' in r.headers else 140
+                if 'Content-Length' in r.headers else 0
+            if total_bytes == 0:
+                total_bytes = 140
             progress_dialog.update_log('Download size: %.2f MB' %
                                        (total_bytes / 1e6))
             for data in r.iter_content(chunk_size=int(1e6)):

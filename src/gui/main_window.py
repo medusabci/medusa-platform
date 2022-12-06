@@ -191,6 +191,7 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
                                   args=(latest_version_info,
                                         self.progress_dialog))
             th.start()
+            th.join()
 
     @exceptions.error_handler(scope='general')
     def update_finished(self):
