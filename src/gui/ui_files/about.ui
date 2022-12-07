@@ -27,7 +27,7 @@
   </property>
   <property name="styleSheet">
    <string notr="true">QDialog {
-	border-image: url(&quot;gui/images/medusa_v2022_chaos_about.png&quot;);
+	border-image: url(&quot;gui/images/medusa_about_v2023.png&quot;);
 }
 
 QLabel {
@@ -37,10 +37,10 @@ color: white;
   <widget class="QWidget" name="verticalLayoutWidget">
    <property name="geometry">
     <rect>
-     <x>460</x>
-     <y>110</y>
-     <width>371</width>
-     <height>391</height>
+     <x>510</x>
+     <y>130</y>
+     <width>291</width>
+     <height>371</height>
     </rect>
    </property>
    <layout class="QVBoxLayout" name="verticalLayout">

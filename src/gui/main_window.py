@@ -7,6 +7,7 @@ import ctypes
 import threading
 import webbrowser
 import datetime
+from time import sleep
 
 # EXTERNAL MODULES
 from PyQt5 import uic
@@ -72,7 +73,7 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
 
         # Splash screen
         splash_screen = SplashScreen(self.release_info)
-        splash_screen.set_state(0, "Reading articles...")
+        splash_screen.set_state(0, "Initializing...")
 
         # Instantiate accounts manager
         self.accounts_manager = accounts_manager.AccountsManager()
@@ -86,7 +87,7 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         # Menu and toolbar action initializing
         self.set_up_menu_bar_main()
         self.set_up_tool_bar_main()
-        splash_screen.set_state(20, "Reading articles...")
+        splash_screen.set_state(25, "Setting everything up...")
 
         # State constants shared across medusa. See constants.py for more info
         self.plot_state = mp.Value('i', constants.PLOT_STATE_OFF)
@@ -98,25 +99,25 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         self.medusa_interface_listener = None
         self.set_up_medusa_interface_listener(self.interface_queue)
         self.medusa_interface = resources.MedusaInterface(self.interface_queue)
-        splash_screen.set_state(40, "Reading articles...")
+        splash_screen.set_state(50, "Loading resources...")
 
         # Instantiate updates managers
         self.updates_manager = updates_manager.UpdatesManager(
             self.medusa_interface, self.release_info)
-        splash_screen.set_state(60, "Reading articles...")
+        splash_screen.set_state(75, "Checking for updates...")
 
         # Reset panels
         self.working_lsl_streams = None
         self.apps_manager = None
         self.reset_panels()
-        splash_screen.set_state(80, "Reading articles...")
+        splash_screen.set_state(100, "Tidying up the panels...")
 
         # Set up
+        sleep(1)
+        splash_screen.hide()
+
         self.set_status('Ready')
         self.show()
-
-        splash_screen.set_state(100, "Reading articles...")
-        splash_screen.hide()
 
         # User account
         self.set_up_user_account()
@@ -1002,8 +1003,8 @@ class AboutDialog(QDialog, gui_about):
             '<style>%s</style></head><body>%s</body></html>'
         style = 'p, li { white-space: pre-wrap; } p { font-family: "Roboto ' \
                 'Mono"; font-size:8pt; color: white;} a {text-decoration: ' \
-                'none; color:#ff1ae0;}'
-        body_ = '<p>Developed by (MSc) Eduardo Santamaría-Vázquez & (PhD) ' \
+                'none; color:#55aa00;}'
+        body_ = '<br><p>Developed by (MSc) Eduardo Santamaría-Vázquez & (PhD) ' \
                 'Víctor Martínez-Cagigal.<br><br>' \
                 'More information at <a ' \
                 'href="https://medusabci.com/">www.medusabci.com</a><br><br' \
@@ -1021,7 +1022,7 @@ class SplashScreen:
         """ Sets the initial splash screen while it loads things."""
         # Attaching the splash image
         self.release_info = release_info
-        img_path = glob.glob('gui/images/medusa_splash_*.png')[0]
+        img_path = glob.glob('gui/images/medusa_splash_v2023.png')[0]
         splash_image = QPixmap(img_path)
         self.splash_screen = QSplashScreen(splash_image,
                                            Qt.WindowStaysOnTopHint)
@@ -1034,22 +1035,23 @@ class SplashScreen:
         self.splash_progbar.setStyleSheet(
             "QProgressBar{ "
             "height: 8px; "
+            "width: 360px;"
             "margin-right: -5px;"
             "padding-right: 0px;"
             "color: none; "
             "border: 1px solid transparent; "
             "background: rgba(0,0,0,0); "
-            "margin-left: 330px; "
-            "margin-top: 337px;"
+            "margin-left: 440px; "
+            "margin-top: 330px;"
             "}" +
-            "QProgressBar::chunk{ background: white; }")
+            "QProgressBar::chunk{ background: #04211a; }")
         # Creating the progress text
         self.splash_text = QLabel('Making a PhD thesis...')
-        self.splash_text.setStyleSheet("color: white; "
+        self.splash_text.setStyleSheet("color: #04211a; "
                                        "font-size: 8pt; "
                                        "font-weight: bold; "
-                                       "margin-top: 390px; "
-                                       "margin-left: 318px; "
+                                       "margin-top: 360px; "
+                                       "margin-left: 500px; "
                                        "font-family: sans-serif, "
                                        "Helvetica, Arial; "
                                        "text-align: left;")

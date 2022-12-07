@@ -54,7 +54,7 @@ class UserProfileDialog(QtWidgets.QDialog, ui_main_dialog):
             self.user_session = user_session
             self.label_alias.setText('Logged as <a '
                                      'href="www.medusabci.com/home" '
-                                     'style="color:#ff1ae0;">@%s</a>' %
+                                     'style="color:#55aa00;">@%s</a>' %
                                      self.user_session.user_info['alias'])
             # User info
             self.label_name.setText(self.user_session.user_info['name'])

@@ -50,7 +50,6 @@
         </property>
         <property name="font">
          <font>
-          <family>Roboto Mono</family>
           <pointsize>18</pointsize>
           <bold>true</bold>
          </font>
@@ -72,9 +71,7 @@
          </sizepolicy>
         </property>
         <property name="font">
-         <font>
-          <family>Roboto Mono</family>
-         </font>
+         <font/>
         </property>
         <property name="text">
          <string>Sign in to your account</string>
@@ -98,9 +95,7 @@
       <item>
        <widget class="QLabel" name="label_error_msg">
         <property name="font">
-         <font>
-          <family>Roboto Mono</family>
-         </font>
+         <font/>
         </property>
         <property name="text">
          <string/>
@@ -116,7 +111,6 @@
          <widget class="QRadioButton" name="radioButton_remember">
           <property name="font">
            <font>
-            <family>Roboto Mono</family>
             <bold>true</bold>
            </font>
           </property>
@@ -131,15 +125,13 @@
         <item>
          <widget class="QLabel" name="label_forgot_password">
           <property name="font">
-           <font>
-            <family>Roboto Mono</family>
-           </font>
+           <font/>
           </property>
           <property name="layoutDirection">
            <enum>Qt::LeftToRight</enum>
           </property>
           <property name="text">
-           <string>&lt;a href=&quot;http://www.medusabci.com/reset-password/&quot; style=&quot;color: #ff1ae0&quot;&gt;Forgot your password?&lt;/a&gt;</string>
+           <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;a href=&quot;http://www.medusabci.com/reset-password/&quot;&gt;&lt;span style=&quot; text-decoration: underline; color:#55aa00;&quot;&gt;Forgot your password?&lt;/span&gt;&lt;/a&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
           </property>
           <property name="alignment">
            <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
@@ -163,9 +155,7 @@
         <item>
          <widget class="QLabel" name="label_4">
           <property name="font">
-           <font>
-            <family>Roboto Mono</family>
-           </font>
+           <font/>
           </property>
           <property name="text">
            <string>Not a member yet?</string>
@@ -179,12 +169,11 @@
          <widget class="QLabel" name="label_5">
           <property name="font">
            <font>
-            <family>Roboto Mono</family>
             <bold>true</bold>
            </font>
           </property>
           <property name="text">
-           <string>&lt;a href=&quot;http://www.medusabci.com/signup/&quot; style=&quot;color: #ff1ae0&quot;&gt;Create your account&lt;/a&gt;</string>
+           <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;a href=&quot;http://www.medusabci.com/signup/&quot;&gt;&lt;span style=&quot; text-decoration: underline; color:#55aa00;&quot;&gt;Create your account&lt;/span&gt;&lt;/a&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
           </property>
           <property name="openExternalLinks">
            <bool>true</bool>

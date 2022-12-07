@@ -636,7 +636,15 @@ Style of the user login and profile
 ============================================================================= */
 
 #qdialog_login {
-    border-image: url("gui/images/medusa_platform_login.png");
+    border-image: url("gui/images/medusa_v2023_login.png");
+}
+
+#login_container {
+    color: black;
+}
+
+#login_container a {
+    color: #55aa00;
 }
 
 #login_container {
@@ -661,7 +669,7 @@ Style of the user login and profile
 }
 
 .profile-link {
-    color: #ff1ae0!important;
+    color: #55aa00 !important;
     font-family: "Roboto Mono";
     font-size: 9pt;
     text-decoration: underline;
