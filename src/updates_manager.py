@@ -22,6 +22,7 @@ class UpdatesManager:
         # Attributes
         self.medusa_interface = medusa_interface
         self.release_info = release_info
+        self.versions_info = utils.get_medusa_repo_releases_info(depth=0)
         # Server and database name
         self.url_server = 'https://www.medusabci.com/api'
         # self.url_server = 'http://localhost/api'
@@ -35,8 +36,7 @@ class UpdatesManager:
         if self.release_info['version'] == 'Dev':
             return False, None
         # Check for updates
-        versions_info = utils.get_medusa_repo_releases_info(depth=0)
-        latest_version_info = versions_info[self.release_info['version']]
+        latest_version_info = self.versions_info[self.release_info['version']]
         update = False
         if int(latest_version_info['major_patch']) > \
                 int(self.release_info['major_patch']):

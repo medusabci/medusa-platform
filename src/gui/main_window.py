@@ -76,7 +76,6 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
 
         # Instantiate accounts manager
         self.accounts_manager = accounts_manager.AccountsManager()
-        splash_screen.set_state(20, "Reading articles...")
 
         # Get gui settings of the user
         self.gui_config = None
@@ -87,7 +86,7 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         # Menu and toolbar action initializing
         self.set_up_menu_bar_main()
         self.set_up_tool_bar_main()
-        splash_screen.set_state(40, "Reading articles...")
+        splash_screen.set_state(20, "Reading articles...")
 
         # State constants shared across medusa. See constants.py for more info
         self.plot_state = mp.Value('i', constants.PLOT_STATE_OFF)
@@ -99,14 +98,16 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         self.medusa_interface_listener = None
         self.set_up_medusa_interface_listener(self.interface_queue)
         self.medusa_interface = resources.MedusaInterface(self.interface_queue)
+        splash_screen.set_state(40, "Reading articles...")
+
+        # Instantiate updates managers
+        self.updates_manager = updates_manager.UpdatesManager(
+            self.medusa_interface, self.release_info)
         splash_screen.set_state(60, "Reading articles...")
 
-        # Initialize important variables
+        # Reset panels
         self.working_lsl_streams = None
         self.apps_manager = None
-        self.updates_manager = None
-
-        # Reset panels
         self.reset_panels()
         splash_screen.set_state(80, "Reading articles...")
 
@@ -119,11 +120,6 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
 
         # User account
         self.set_up_user_account()
-
-        # Instantiate updates manager
-        self.updates_manager = updates_manager.UpdatesManager(
-            self.medusa_interface, self.release_info)
-        self.check_updates()
 
     @exceptions.error_handler(scope='general')
     def reset_sizes(self):
@@ -311,6 +307,8 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         # Check session
         if not self.accounts_manager.check_session():
             self.open_login_window()
+        else:
+            self.check_updates()
 
     def keyPressEvent(self, key_event):
         # TODO: define some shortcuts
@@ -460,6 +458,7 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         if self.login_window.success:
             self.accounts_manager.on_login()
             self.reset_panels()
+            self.check_updates()
         else:
             self.close()
 
@@ -840,6 +839,12 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
             # Close medusa interface queue
             self.medusa_interface_listener.terminate()
             self.interface_queue.close()
+            # Get active threads
+            # active_th = threading.enumerate()
+            # for thread in active_th:
+            #     if thread.name not in ('MainThread', 'pydevd.Writer',
+            #                            'pydevd.Reader', 'pydevd.CommandThread'):
+            #         thread.join()
             # let the window close
             event.accept()
 
