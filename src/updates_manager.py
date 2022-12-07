@@ -42,13 +42,13 @@ class UpdatesManager:
                 int(self.release_info['major_patch']):
             update = dialogs.confirmation_dialog(
                 'MEDUSA Platform %s is out! You want to update?' %
-                self.release_info['tag_name'], 'Major update available'
+                latest_version_info['tag_name'], 'Major update available'
             )
         elif int(latest_version_info['minor_patch']) > \
                 int(self.release_info['minor_patch']):
             update = dialogs.confirmation_dialog(
                 'MEDUSA Platform %s is out! You want to update?' %
-                self.release_info['tag_name'], 'Minor update available'
+                latest_version_info['tag_name'], 'Minor update available'
             )
         return update, latest_version_info
 

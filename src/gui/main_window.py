@@ -120,6 +120,11 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         # User account
         self.set_up_user_account()
 
+        # Instantiate updates manager
+        self.updates_manager = updates_manager.UpdatesManager(
+            self.medusa_interface, self.release_info)
+        self.check_updates()
+
     @exceptions.error_handler(scope='general')
     def reset_sizes(self):
         # Define size and splitters
@@ -174,9 +179,8 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         # Plots dashboard
         self.plots_panel_widget = None
         self.set_up_plots_panel()
-        # Instantiate updates manager
-        self.updates_manager = updates_manager.UpdatesManager(
-            self.medusa_interface, self.release_info)
+
+    def check_updates(self):
         update, latest_version_info = self.updates_manager.check_for_updates()
         if update:
             # Initialize progress dialog
@@ -191,7 +195,7 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
                                   args=(latest_version_info,
                                         self.progress_dialog))
             th.start()
-            th.join()
+        return update
 
     @exceptions.error_handler(scope='general')
     def update_finished(self):
