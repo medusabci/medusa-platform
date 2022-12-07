@@ -839,12 +839,6 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
             # Close medusa interface queue
             self.medusa_interface_listener.terminate()
             self.interface_queue.close()
-            # Get active threads
-            # active_th = threading.enumerate()
-            # for thread in active_th:
-            #     if thread.name not in ('MainThread', 'pydevd.Writer',
-            #                            'pydevd.Reader', 'pydevd.CommandThread'):
-            #         thread.join()
             # let the window close
             event.accept()
 
