@@ -1,14 +1,8 @@
-matplotlib
-numpy
-pandas
 Pillow
 pylsl
 PyQt5
 pyqtgraph
-scikit-learn
-scipy
-six
-medusa-kernel
 jinja2
 requests
 cryptography
+medusa-kernel
