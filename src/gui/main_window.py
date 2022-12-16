@@ -1032,6 +1032,7 @@ class SplashScreen:
 
         # Creating the progress bar
         self.splash_progbar = QProgressBar(self.splash_screen)
+        self.splash_progbar.setTextVisible(False)
         self.splash_progbar.setStyleSheet(
             "QProgressBar{ "
             "height: 8px; "
