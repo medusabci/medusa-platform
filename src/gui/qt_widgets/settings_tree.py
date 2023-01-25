@@ -2,7 +2,168 @@ from PyQt5.QtCore import (QAbstractItemModel, QItemSelectionModel,
                           QModelIndex, Qt)
 from PyQt5.QtWidgets import QApplication, QMainWindow
 from PyQt5 import QtWidgets, QtCore
-from medusa.components import SettingsTreeItem
+from medusa.components import SerializableComponent
+from collections import OrderedDict
+from copy import deepcopy
+
+
+class SettingsItem(SerializableComponent):
+    """General class to represent settings field.
+        """
+
+    def __init__(self, key, info, value_type, value):
+        """Class constructor.
+
+        Parameters
+        ----------
+        key: str
+            Tree item key
+        info: str
+            Information about this item
+        value_type: str ['string'|'number'|'boolean'|'dict'|'list'], optional
+            Type of the data stored in attribute value. Leave to None if the
+            item is going to be a tree.
+        value: str, int, float, bool, dict or list, optional
+            Tree item value. It must be one of the JSON types to be compatible
+            with serialization. Leave to None if the item is going to be a tree.
+        """
+        # Init attributes
+        self.item_type = 'field'
+        self.key = key
+        self.info = info
+        self.value_type = None
+        self.value = None
+        self.set_data(value=value, value_type=value_type)
+
+    def set_data(self, value, value_type=None):
+        """Adds tree item to the tree. Use this function to build a custom tree.
+
+        Parameters
+        ----------
+        value: str, int, float, bool, dict or list
+            Tree item value. It must be one of the JSON types to be compatible
+            with serialization. If list or dict, the items must be of type
+            SettingsTreeItem.
+        value_type: str ['string'|'number'|'boolean'|'dict'|'list']
+            Type of the data stored in attribute value. If a list is provided,
+            several data types are accepted for attribute value.
+        """
+        # Check errors
+        if value_type == 'string':
+            if value is not None:
+                assert isinstance(value, str), \
+                    'Parameter value must be of type %s' % str
+        elif value_type == 'number':
+            if value is not None:
+                assert isinstance(value, int) or isinstance(value, float), \
+                    'Parameter value must be of types %s or %s' % \
+                    (int, float)
+        elif value_type == 'boolean':
+            if value is not None:
+                assert isinstance(value, bool), \
+                    'Parameter value must be of type %s' % bool
+        elif value_type == 'list':
+            if value is not None:
+                assert isinstance(value, list), \
+                    'Parameter value must be of type %s' % list
+        elif value_type == 'dict':
+            if value is not None:
+                assert isinstance(value, dict), \
+                    'Parameter value must be of type %s' % dict
+        elif value_type is None:
+            if self.value_type is None:
+                raise ValueError('The type must be specified')
+            else:
+                value_type = self.value_type
+        else:
+            raise ValueError('Unknown value_type %s. Read the docs!' % value_type)
+
+        self.value_type = value_type
+        self.value = value
+
+    def to_serializable_obj(self):
+        return self.__dict__
+
+    @classmethod
+    def from_serializable_obj(cls, data):
+        return cls(data['key'], data['info'], data['value_type'], data['value'])
+
+
+class SettingsTree(SerializableComponent):
+    """General class to represent settings tree.
+    """
+    def __init__(self, key, info):
+        """Class constructor.
+
+        Parameters
+        ----------
+        key: str
+            Tree item key
+        info: str
+            Information about this item
+        """
+        # Init attributes
+        self.item_type = 'tree'
+        self.key = key
+        self.info = info
+        self.items = OrderedDict()
+
+    def add_item(self, item):
+        """Adds tree item to the tree. Use this function to build a custom tree.
+        Take into account that if this function is used, attributes value and
+        type will be set to None.
+
+        Parameters
+        ----------
+        item: SettingsTree or SettingsItem
+            Tree item to add
+        """
+        # Check errors
+        if item.key in self.items:
+            raise ValueError('There is already an item with key %s' % item.key)
+
+        # Add item
+        if isinstance(item, SettingsTree):
+            pass
+        elif isinstance(item, SettingsItem):
+            pass
+        else:
+            raise ValueError('Parameter item must be of type %s or %s' %
+                             (type(SettingsTree), type(SettingsItem)))
+        self.items[item.key] = item
+
+    def find_item(self, key):
+        """Looks for an item in this Tree. To find items in subtrees, use syntax item_tree1:item_tree2:...:item_key"""
+        key_split = key.split(':')
+        items = self.items
+        for key in key_split:
+            if key not in items:
+                raise KeyError()
+            if isinstance(items[key], SettingsTree):
+                items = items[key].items
+            else:
+                return items[key]
+
+    def count_items(self):
+        return len(self.items)
+
+    def to_serializable_obj(self):
+        ser_obj = deepcopy(self.__dict__)
+        for k, v in ser_obj['items'].items():
+            ser_obj['items'][k] = v.to_serializable_obj()
+        return ser_obj
+
+    @classmethod
+    def from_serializable_obj(cls, data):
+        tree = cls(data['key'], data['info'])
+        for k, item in data['items'].items():
+            if item['item_type'] == 'tree':
+                tree.items[k] = SettingsTree.from_serializable_obj(item)
+            elif item['item_type'] == 'field':
+                tree.items[k] = SettingsItem.from_serializable_obj(item)
+            else:
+                raise ValueError('Malformed SettingsTree')
+        return tree
 
 
 class TreeItem:
@@ -84,7 +245,7 @@ class TreeModel(QAbstractItemModel):
         headers = ("Key", "Value", "Type", "Info")
         root_data = [header for header in headers]
         self.root_item = TreeItem(root_data)
-        self.orig_settings_tree = data
+        self.settings_tree = data
         self.set_settings_tree(data, self.root_item)
 
     def flags(self, index):
@@ -93,6 +254,9 @@ class TreeModel(QAbstractItemModel):
         return Qt.ItemIsEditable | super(TreeModel, self).flags(index)
 
     def data(self, index, role):
+        """Returns the data of one column only if its valid and has DisplayRole or EditRole. It is called when the
+        columns are resized to contents, but I don't fully understand why.
+        """
         if not index.isValid():
             return None
         if role != Qt.DisplayRole and role != Qt.EditRole:
@@ -103,16 +267,54 @@ class TreeModel(QAbstractItemModel):
     def setData(self, index, value, role=Qt.EditRole):
         if role != Qt.EditRole:
             return False
-        item = self.getItem(index)
-        result = item.set_data(index.column(), value)
+        # Update TreeModel
+        model_item = self.getItem(index)
+        result = model_item.set_data(index.column(), value)
         if result:
             self.dataChanged.emit(index, index)
+        # Update SettingsTree
+        keys = list()
+        parent = model_item
+        while True:
+            keys.append(parent.data(0))
+            parent = parent.parent()
+            if parent is None:
+                break
+        keys.reverse()
+        key = ':'.join(keys[1:])
+        settings_item = self.settings_tree.find_item(key)
+        if settings_item.item_type == 'field':
+            # If the item is a field
+            if settings_item.value_type == 'list':
+                # If the item is a list
+                if settings_item.key == keys[-1]:
+                    # If the item is the whole list
+                    field_to_update = ['key', 'value', 'value_type', 'info'][index.column()]
+                    settings_item.__dict__[field_to_update] = value
+                else:
+                    # If the item is a list item
+                    settings_item.value[int(keys[-1])] = value
+            elif settings_item.value_type == 'dict':
+                # If the item is a dict
+                if settings_item.key == keys[-1]:
+                    # If the item is the whole dict
+                    field_to_update = ['key', 'value', 'value_type', 'info'][index.column()]
+                    settings_item.__dict__[field_to_update] = value
+                else:
+                    # If the item is dict entry
+                    settings_item.value[keys[-1]] = value
+            else:
+                # If the item is a tree
+                field_to_update = ['key', 'value', 'value_type', 'info'][index.column()]
+                settings_item.__dict__[field_to_update] = value
+        else:
+            field_to_update = ['key', 'info'][index.column()]
+            settings_item.__dict__[field_to_update] = value
         return result
 
     def headerData(self, section, orientation, role=Qt.DisplayRole):
         if orientation == Qt.Horizontal and role == Qt.DisplayRole:
             return self.root_item.data(section)
-        return None
 
     def setHeaderData(self, section, orientation, value, role=Qt.EditRole):
         if role != Qt.EditRole or orientation != Qt.Horizontal:
@@ -190,98 +392,55 @@ class TreeModel(QAbstractItemModel):
 
     def set_child_data(self, ch, ch_key, ch_info, ch_val_type, ch_value):
         ch.set_data(0, ch_key)
+        ch.set_data(1, ch_value)
         ch.set_data(3, ch_info)
         ch.set_data(2, ch_val_type)
-        ch.set_data(1, ch_value)
 
     def set_settings_tree(self, data, parent):
-        for item in data.items:
-            if item.value_type == 'string' or \
-                    item.value_type == 'number' or \
-                    item.value_type == 'boolean':
-                parent.insert_children(parent.child_count(), 1,
-                                       self.root_item.column_count())
-                self.set_child_data(
-                    parent.child(parent.child_count() - 1),
-                    item.key, item.info, item.value_type, item.value)
-            elif item.value_type == 'dict':
-                parent.insert_children(parent.child_count(), 1,
-                                       self.root_item.column_count())
+        for key, item in data.items.items():
+            if isinstance(item, SettingsTree):
+                # Append child
+                parent.insert_children(parent.child_count(), 1, self.root_item.column_count())
                 new_parent = parent.child(parent.child_count() - 1)
-                self.set_child_data(new_parent, item.key, item.info,
-                                    item.value_type, item.value)
-                for child_key, child_item in item.value.items():
-                    new_parent.insert_children(new_parent.child_count(), 1,
-                                               self.root_item.column_count())
-                    self.set_child_data(
-                        new_parent.child(new_parent.child_count() - 1),
-                        child_key, child_item.info,
-                        child_item.value_type, child_item.value)
-            elif item.value_type == 'list':
-                parent.insert_children(parent.child_count(), 1,
-                                       self.root_item.column_count())
-                new_parent = parent.child(parent.child_count() - 1)
-                self.set_child_data(new_parent, item.key, item.info,
-                                    item.value_type, item.value)
-                for child_key, child_item in enumerate(item.value):
-                    new_parent.insert_children(new_parent.child_count(), 1,
-                                               self.root_item.column_count())
-                    self.set_child_data(
-                        new_parent.child(new_parent.child_count() - 1),
-                        child_key, child_item.info,
-                        child_item.value_type, child_item.value)
-            elif item.is_tree():
-                parent.insert_children(parent.child_count(), 1,
-                                       self.root_item.column_count())
-                new_parent = parent.child(parent.child_count() - 1)
-                self.set_child_data(new_parent, item.key, item.info,
-                                    item.value_type, item.value)
+                # Set data, leaving type and value empty
+                self.set_child_data(new_parent, item.key, item.info, '', '')
+                # Set settings tree
                 self.set_settings_tree(item, new_parent)
+            elif isinstance(item, SettingsItem):
+                if item.value_type == 'string' or \
+                        item.value_type == 'number' or \
+                        item.value_type == 'boolean':
+                    # Append child
+                    parent.insert_children(parent.child_count(), 1, self.root_item.column_count())
+                    field = parent.child(parent.child_count() - 1)
+                    # Set data
+                    self.set_child_data(field, item.key, item.info, item.value_type, item.value)
+                elif item.value_type == 'dict':
+                    parent.insert_children(parent.child_count(), 1,
+                                           self.root_item.column_count())
+                    new_parent = parent.child(parent.child_count() - 1)
+                    self.set_child_data(new_parent, item.key, item.info,
+                                        item.value_type, item.value)
+                    for child_key, child_value in item.value.items():
+                        new_parent.insert_children(new_parent.child_count(), 1,
+                                                   self.root_item.column_count())
+                        self.set_child_data(
+                            new_parent.child(new_parent.child_count() - 1),
+                            child_key, '', '', child_value)
+                elif item.value_type == 'list':
+                    parent.insert_children(parent.child_count(), 1,
+                                           self.root_item.column_count())
+                    new_parent = parent.child(parent.child_count() - 1)
+                    self.set_child_data(new_parent, item.key, item.info,
+                                        item.value_type, item.value)
+                    for child_key, child_value in enumerate(item.value):
+                        new_parent.insert_children(new_parent.child_count(), 1,
+                                                   self.root_item.column_count())
+                        self.set_child_data(
+                            new_parent.child(new_parent.child_count() - 1),
+                            str(child_key), '', '', child_value)
             else:
                 raise ValueError('Malformed MDSJson file')
-
-    def add_item_data(self, data, item):
-        item_key = item.data(0)
-        item_value = item.data(1)
-        item_type = item.data(2)
-        item_info = item.data(3)
-        if item_type == 'string' or \
-                item_type == 'number' or \
-                item_type == 'boolean':
-            data.add_item(
-                SettingsTreeItem(item_key, item_info, item_type, item_value))
-        elif item_type == 'dict':
-            item_value = dict()
-            for i in range(item.child_count()):
-                child_item = item.child(i)
-                item_value[child_item.data(0)] = SettingsTreeItem(
-                    child_item.data(0), child_item.data(3),
-                    child_item.data(2), child_item.data(1))
-            data.add_item(
-                SettingsTreeItem(item_key, item_info, item_type, item_value))
-        elif item_type == 'list':
-            item_value = list()
-            for i in range(item.child_count()):
-                child_item = item.child(i)
-                item_value.append(
-                    SettingsTreeItem(i, child_item.data(3), child_item.data(
-                        2), child_item.data(1)))
-            data.add_item(
-                SettingsTreeItem(item_key, item_info, item_type, item_value))
-        elif item_type is None:
-            child_data = SettingsTreeItem(item_key, item_info,
-                                          item_type, item_value)
-            for i in range(item.child_count()):
-                child_data = self.add_item_data(child_data, item.child(i))
-        else:
-            raise ValueError('Malformed MDSJson file')
-        return data
-
-    def to_settings_tree(self):
-        data = self.orig_settings_tree
-        for i in range(self.root_item.child_count()):
-            data = self.add_item_data(data, self.root_item.child(i))
-        return data
 
 
 class MainWindow(QMainWindow):
@@ -311,7 +470,7 @@ class MainWindow(QMainWindow):
 
     def setupUi(self, MainWindow):
         MainWindow.setObjectName("MainWindow")
-        MainWindow.resize(573, 468)
+        MainWindow.resize(QtWidgets.QDesktopWidget().availableGeometry(self).size() * 0.5)
         self.centralwidget = QtWidgets.QWidget(MainWindow)
         self.centralwidget.setObjectName("centralwidget")
         self.vboxlayout = QtWidgets.QVBoxLayout(self.centralwidget)
@@ -389,12 +548,9 @@ class MainWindow(QMainWindow):
 
     def print_json(self):
         try:
-            data = self.view.model().to_settings_tree()
-            ser_data = data.to_serializable_obj()
-            data2 = SettingsTreeItem.from_serializable_obj(ser_data)
-            # Print JSON
             import json
-            print(json.dumps(ser_data, indent=4))
+            settings_tree = self.view.model().settings_tree
+            print(json.dumps(settings_tree.to_serializable_obj(), indent=4))
         except Exception as e:
             print(e)
 
@@ -412,10 +568,10 @@ class MainWindow(QMainWindow):
 
             for column in range(model.columnCount(index)):
                 child = model.index(0, column, index)
-                model.setData(child, "[No data]", Qt.EditRole)
+                model.setData(child, '', Qt.EditRole)
                 if model.headerData(column, Qt.Horizontal) is None:
                     model.setHeaderData(
-                        column, Qt.Horizontal, "[No header]", Qt.EditRole)
+                        column, Qt.Horizontal, '', Qt.EditRole)
             self.view.selectionModel().setCurrentIndex(
                 model.index(0, 0, index), QItemSelectionModel.ClearAndSelect)
             self.updateActions()
@@ -429,9 +585,7 @@ class MainWindow(QMainWindow):
 
             changed = model.insertColumn(column + 1)
             if changed:
-                model.setHeaderData(column + 1, Qt.Horizontal, "[No header]",
-                        Qt.EditRole)
-
+                model.setHeaderData(column + 1, Qt.Horizontal, '', Qt.EditRole)
             self.updateActions()
 
             return changed
@@ -445,12 +599,11 @@ class MainWindow(QMainWindow):
 
             if not model.insertRow(index.row()+1, index.parent()):
                 return
-
             self.updateActions()
 
             for column in range(model.columnCount(index.parent())):
                 child = model.index(index.row()+1, column, index.parent())
-                model.setData(child, "[No data]", Qt.EditRole)
+                model.setData(child, '', Qt.EditRole)
         except Exception as e:
             print(e)
 
@@ -501,32 +654,28 @@ class MainWindow(QMainWindow):
 
 
 if __name__ == '__main__':
-    import sys
+
+    import sys, json
 
     # =========================== SettingsTreeItem =========================== #
     # Create settings
-    settings = SettingsTreeItem('settings', 'General settings')
+    settings = SettingsTree('settings', 'General settings')
     # Preprocessing settings
-    prep_sett = SettingsTreeItem('prep_settings', 'Preprocessing settings')
-    prep_sett.add_item(SettingsTreeItem('fs', 'Sample rate', 'number', 256))
-    prep_sett.add_item(SettingsTreeItem('n_cha', 'Channels', 'number', 256))
+    prep_sett = SettingsTree('prep_settings', 'Preprocessing settings')
+    prep_sett.add_item(SettingsItem('fs', 'Sample rate', 'number', 256))
+    prep_sett.add_item(SettingsItem('n_cha', 'Number of channels', 'number', 4))
+    prep_sett.add_item(SettingsItem('l_cha', 'Labels of the channels', 'list', ['Fz', 'Cz', 'Pz', 'Oz']))
+    filt_sett = SettingsTree('filt_settings', 'Filter settings')
+    filt_sett.add_item(SettingsItem('apply_filt', 'Apply filter?', 'boolean', False))
+    filt_sett.add_item(SettingsItem('cutoff', 'Cutoff frequencies', 'dict', {'low': 0.1, 'high': 30}))
+    prep_sett.add_item(filt_sett)
     settings.add_item(prep_sett)
-    # Plot settings
-    plot_sett = SettingsTreeItem('plot_settings', 'Plot settings')
-    line_sett = SettingsTreeItem('line_settings', 'Line settings')
-    line_sett.add_item(SettingsTreeItem('line_width', 'Plot line width',
-                                        'number', 1))
-    line_sett.add_item(SettingsTreeItem('line_color', 'Plot line color',
-                                        'string', '#00000'))
-    plot_sett.add_item(line_sett)
-    plot_sett.add_item(SettingsTreeItem(
-        'plot_types', 'Plot types', 'list',
-        [SettingsTreeItem(None, None, 'string', 'EEGPlot'),
-         SettingsTreeItem(None, None, 'string', 'PSDPlot')]))
-    settings.add_item(plot_sett)
+
+    settings_ser_obj = json.dumps(settings.to_serializable_obj(), indent=4)
+    settings_from_ser_obj = SettingsTree.from_serializable_obj(json.loads(settings_ser_obj))
 
     # ================================ QT APP ================================ #
     app = QApplication(sys.argv)
-    window = MainWindow(settings)
+    window = MainWindow(settings_from_ser_obj)
     window.show()
     sys.exit(app.exec_())

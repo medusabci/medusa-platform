@@ -65,8 +65,9 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(medusaid)
 
         # Initial sizes
-        self.default_width = 1600
-        self.default_height = 900
+        self.window_size = QDesktopWidget().availableGeometry(self).size() * 0.75
+        self.default_width = self.window_size.width()
+        self.default_height = self.window_size.height()
         self.default_splitter_ratio = 0.36
         self.default_splitter_2_ratio = 0.28
         self.reset_sizes()
