@@ -43,7 +43,7 @@ class LSLConfig(QtWidgets.QDialog, ui_main_dialog):
             self.theme = 'dark'
             self.theme_colors = theme_colors
             self.stl = gu.set_css_and_theme(self, self.theme_colors)
-            self.setWindowIcon(QtGui.QIcon('%s/medusa_favicon.png' %
+            self.setWindowIcon(QtGui.QIcon('%s/medusa_task_icon.png' %
                                constants.IMG_FOLDER))
             self.setWindowTitle('Lab streaming layer (LSL) settings')
             # Set up tables

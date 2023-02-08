@@ -44,7 +44,7 @@ class LoginDialog(QtWidgets.QDialog, ui_main_dialog):
             theme_colors is None else theme_colors
         self.stl = gui_utils.set_css_and_theme(self, self.theme_colors)
 
-        medusa_task_icon = QtGui.QIcon('%s/medusa_favicon.png' %
+        medusa_task_icon = QtGui.QIcon('%s/medusa_task_icon.png' %
                                        constants.IMG_FOLDER)
         self.setWindowIcon(medusa_task_icon)
         self.setWindowTitle('Log in to MEDUSA©')
