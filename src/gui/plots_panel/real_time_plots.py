@@ -10,21 +10,26 @@ from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
 from PyQt5.QtGui import QFont
 from scipy import signal as scp_signal
-# MEDUSA-CORE MODULES
+import matplotlib
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
+# MEDUSA-PLATFORM MODULES
 from acquisition import lsl_utils, real_time_preprocessing
 import constants
-# MEDUSA-PLATFORM MODULES
-import medusa
+# MEDUSA-CORE MODULES
+from medusa import meeg
+from medusa.plots.topographic_plots import plot_topography, plot_head
 
 
 class RealTimePlot(ABC):
 
     def __init__(self, uid, plot_state, medusa_interface, theme):
         super().__init__()
-        # Components and settings
+        # Parameters
         self.uid = uid
         self.plot_state = plot_state
         self.medusa_interface = medusa_interface
+        self.theme = theme
+        # Init variables
         self.ready = False
         self.preprocessing_settings = None
         self.visualization_settings = None
@@ -34,23 +39,58 @@ class RealTimePlot(ABC):
         self.preprocessor = None
         self.worker = None
         self.init_time = None
-        # Create widget
-        self.widget = pg.PlotWidget()
-        self.widget.setSizePolicy(QSizePolicy.Ignored,
-                                  QSizePolicy.Ignored)
-        self.plot_item = self.widget.getPlotItem()
-        self.plot_item_view_box = self.plot_item.getViewBox()
-        # Get axis
-        self.y_axis = self.plot_item.getAxis('left')
-        self.x_axis = self.plot_item.getAxis('bottom')
-        # Style and theme
-        self.theme = theme
-        self.background_color = theme['THEME_BG_DARK']
-        self.curve_color = theme['THEME_SIGNAL_CURVE']
-        self.offset_color = theme['THEME_SIGNAL_OFFSET']
-        self.widget.setBackground(self.background_color)
-        self.curve_width = 1
-        self.offset_width = 1
+        self.widget = None
+
+    def handle_exception(self, ex):
+        self.medusa_interface.error(ex)
+
+    def set_ready(self):
+        self.ready = True
+
+    def set_settings(self, signal_settings, plot_settings):
+        """Set settings dicts"""
+        self.check_settings(signal_settings, plot_settings)
+        self.preprocessing_settings = signal_settings
+        self.visualization_settings = plot_settings
+
+    def get_settings(self):
+        """Create de default settings dict"""
+        settings = {
+            'preprocessing_settings': self.preprocessing_settings,
+            'visualization_settings': self.visualization_settings
+        }
+        return settings
+
+    def set_receiver(self, lsl_stream_info):
+        """Create a new receiver for each plot
+
+        Parameters
+        ----------
+        lsl_stream_info: lsl_utils.LSLStreamWrapper
+            LSL stream (medusa wrapper)
+        """
+        if self.check_signal(lsl_stream_info.medusa_type):
+            self.lsl_stream_info = lsl_stream_info
+            self.receiver = lsl_utils.LSLStreamReceiver(self.lsl_stream_info)
+
+    def get_widget(self):
+        return self.widget
+
+    def start(self):
+        self.preprocessor = real_time_preprocessing.PlotsRealTimePreprocessor(
+            self.preprocessing_settings)
+        self.init_plot()
+        self.worker = RealTimePlotWorker(self.plot_state,
+                                         self.receiver,
+                                         self.preprocessor)
+        self.worker.update.connect(self.update_plot)
+        self.worker.error.connect(self.handle_exception)
+        self.worker.start()
+
+    def destroy_plot(self):
+        self.init_time = None
+        self.widget.clear()
+        self.clear_plot()
 
     @staticmethod
     @abstractmethod
@@ -93,8 +133,68 @@ class RealTimePlot(ABC):
         """
         raise NotImplemented
 
-    def set_ready(self):
-        self.ready = True
+
+class TopographyPlot(RealTimePlot):
+
+    def __init__(self, uid, plot_state, medusa_interface, theme):
+        super().__init__(uid, plot_state, medusa_interface, theme)
+        # Create canvas
+        # Initialize Variables
+        self.standard = '10-05'
+        self.ch_labels = ['F3', 'FZ', 'F4', 'C3', 'CZ', 'C4', 'P3', 'PZ', 'P4']
+        self.channel_set = meeg.EEGChannelSet()
+        self.channel_set.set_standard_montage(l_cha=self.ch_labels,
+                                              standard=self.standard, )
+        self.fig, self.axes = plot_head(self.channel_set, show=False,)
+
+        # Create widget
+        self.widget = FigureCanvasQTAgg(self.fig)
+
+    @staticmethod
+    def get_default_settings():
+        preprocessing_settings = {}
+        visualization_settings = {}
+        return preprocessing_settings, visualization_settings
+
+    @staticmethod
+    def check_settings(signal_settings, plot_settings):
+        return True
+
+    @staticmethod
+    def check_signal(signal_type):
+        return True
+
+    def init_plot(self):
+        pass
+
+    def update_plot(self, chunk_times, chunk_signal):
+        pass
+
+    def clear_plot(self):
+        pass
+
+
+class RealTimePlotPyQtGraph(RealTimePlot, ABC):
+
+    def __init__(self, uid, plot_state, medusa_interface, theme):
+        super().__init__(uid, plot_state, medusa_interface, theme)
+        # Create widget
+        self.widget = pg.PlotWidget()
+        self.widget.setSizePolicy(QSizePolicy.Ignored,
+                                  QSizePolicy.Ignored)
+        self.plot_item = self.widget.getPlotItem()
+        self.plot_item_view_box = self.plot_item.getViewBox()
+        # Get axis
+        self.y_axis = self.plot_item.getAxis('left')
+        self.x_axis = self.plot_item.getAxis('bottom')
+        # Style and theme
+        self.theme = theme
+        self.background_color = theme['THEME_BG_DARK']
+        self.curve_color = theme['THEME_SIGNAL_CURVE']
+        self.offset_color = theme['THEME_SIGNAL_OFFSET']
+        self.widget.setBackground(self.background_color)
+        self.curve_width = 1
+        self.offset_width = 1
 
     def set_titles(self, plot_title, x_axis_title, y_axis_title):
         self.widget.setTitle(plot_title)
@@ -107,56 +207,8 @@ class RealTimePlot(ABC):
         self.widget.getAxis("bottom").setTickFont(fn)
         self.widget.getAxis("left").setTickFont(fn)
 
-    def set_settings(self, signal_settings, plot_settings):
-        """Set settings dicts"""
-        self.check_settings(signal_settings, plot_settings)
-        self.preprocessing_settings = signal_settings
-        self.visualization_settings = plot_settings
 
-    def set_receiver(self, lsl_stream_info):
-        """Create a new receiver for each plot
-
-        Parameters
-        ----------
-        lsl_stream_info: lsl_utils.LSLStreamWrapper
-            LSL stream (medusa wrapper)
-        """
-        if self.check_signal(lsl_stream_info.medusa_type):
-            self.lsl_stream_info = lsl_stream_info
-            self.receiver = lsl_utils.LSLStreamReceiver(self.lsl_stream_info)
-
-    def get_settings(self):
-        """Create de default settings dict"""
-        settings = {
-            'preprocessing_settings': self.preprocessing_settings,
-            'visualization_settings': self.visualization_settings
-        }
-        return settings
-
-    def get_widget(self):
-        return self.widget
-
-    def start(self):
-        self.preprocessor = real_time_preprocessing.PlotsRealTimePreprocessor(
-            self.preprocessing_settings)
-        self.init_plot()
-        self.worker = RealTimePlotWorker(self.plot_state,
-                                         self.receiver,
-                                         self.preprocessor)
-        self.worker.update.connect(self.update_plot)
-        self.worker.error.connect(self.handle_exception)
-        self.worker.start()
-
-    def destroy_plot(self):
-        self.init_time = None
-        self.widget.clear()
-        self.clear_plot()
-
-    def handle_exception(self, ex):
-        self.medusa_interface.error(ex)
-
-
-class TimePlotMultichannel(RealTimePlot):
+class TimePlotMultichannel(RealTimePlotPyQtGraph):
 
     def __init__(self, uid, plot_state, queue_to_medusa, theme):
         super().__init__(uid, plot_state, queue_to_medusa, theme)
@@ -1107,5 +1159,10 @@ __plots_info__ = [
         'uid': 'PSDPlot',
         'description': 'Plot to represent the power spectral density.',
         'class': PSDPlot
+    },
+    {
+        'uid': 'TopographyPlot',
+        'description': 'Real time topography plot for M/EEG signals.',
+        'class': TopographyPlot
     }
 ]
