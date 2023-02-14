@@ -3,6 +3,8 @@ import time
 from abc import ABC, abstractmethod
 import weakref
 import traceback
+
+import matplotlib.pyplot as plt
 # EXTERNAL MODULES
 import numpy as np
 import pyqtgraph as pg
@@ -18,6 +20,7 @@ import constants
 # MEDUSA-CORE MODULES
 from medusa import meeg
 from medusa.plots.topographic_plots import plot_topography, plot_head
+from medusa.local_activation import spectral_parameteres
 
 
 class RealTimePlot(ABC):
@@ -89,7 +92,6 @@ class RealTimePlot(ABC):
 
     def destroy_plot(self):
         self.init_time = None
-        self.widget.clear()
         self.clear_plot()
 
     @staticmethod
@@ -141,19 +143,53 @@ class TopographyPlot(RealTimePlot):
         # Create canvas
         # Initialize Variables
         self.standard = '10-05'
-        self.ch_labels = ['F3', 'FZ', 'F4', 'C3', 'CZ', 'C4', 'P3', 'PZ', 'P4']
+        # self.ch_labels = ['F3', 'FZ', 'F4', 'C3', 'CZ', 'C4', 'P3', 'PZ', 'P4']
         self.channel_set = meeg.EEGChannelSet()
-        self.channel_set.set_standard_montage(l_cha=self.ch_labels,
-                                              standard=self.standard, )
-        self.fig, self.axes = plot_head(self.channel_set, show=False,)
+        # self.channel_set.set_standard_montage(l_cha=self.receiver.l_cha,
+        #                                       standard=self.standard, )
+        # self.fig, self.axes = plot_head(self.channel_set, show=False,
+        #                                 plot_channels=False,)
+        # self.fig, self.axes = plt.subplots()
+        # Graph variables
+        self.win_s = None
+        self.interp_p = None
+        self.cmap = None
+        self.show_channels = None
+        self.show_clabel = None
+        self.time_in_graph = None
+        self.sig_in_graph = None
 
         # Create widget
-        self.widget = FigureCanvasQTAgg(self.fig)
-
+        # self.widget = FigureCanvasQTAgg(self.fig)
+        self.widget = None
     @staticmethod
     def get_default_settings():
-        preprocessing_settings = {}
-        visualization_settings = {}
+        preprocessing_settings = {
+            'frequency-filter': {
+                'apply': True,
+                'type': 'highpass',
+                'cutoff-freq': [1],
+                'order': 5
+            },
+            'notch-filter': {
+                'apply': True,
+                'freq': 50,
+                'bandwidth': [-0.5, 0.5],
+                'order': 5
+            },
+            'PSD': {
+                'time-window': 2,
+                'welch_overlap_pct': 25,
+                'welch_seg_len_pct': 50,
+                'power-range': [4, 8]}
+        }
+        visualization_settings = {
+            'title': '<b>TopoPlot</b>',
+            'interpolation-points': 350,
+            'color-map': 'seismic',
+            'show channel labels': True,
+            'show channels': True
+        }
         return preprocessing_settings, visualization_settings
 
     @staticmethod
@@ -162,13 +198,80 @@ class TopographyPlot(RealTimePlot):
 
     @staticmethod
     def check_signal(signal_type):
-        return True
+        if signal_type != 'EEG':
+            raise ValueError('Only EEG signals are supported for the moment')
+        else:
+            return True
 
     def init_plot(self):
-        pass
+        # Update variables
+        self.channel_set.set_standard_montage(l_cha=self.receiver.l_cha,
+                                              standard=self.standard, )
+        self.fig, self.axes = plot_head(self.channel_set, show=False,
+                                        plot_channels=False)
+        self.widget = FigureCanvasQTAgg(self.fig)
+
+        self.win_s = int(self.preprocessing_settings['PSD']['time-window']\
+                         * self.receiver.fs)
+        self.interp_p = self.visualization_settings['interpolation-points']
+        self.cmap = self.visualization_settings['color-map']
+        self.show_clabel = self.visualization_settings['show channel labels']
+        self.show_channels = self.visualization_settings['show channels']
+        # Update view box menu
+        # self.plot_item_view_box.menu.set_channel_list()
+        self.time_in_graph = np.zeros(1)
+        self.sig_in_graph = np.zeros([1, self.receiver.n_cha])
+
+    def append_data(self, chunk_times, chunk_signal):
+        self.time_in_graph = np.hstack((self.time_in_graph, chunk_times))
+        if len(self.time_in_graph) >= self.win_s:
+            self.time_in_graph = self.time_in_graph[-self.win_s:]
+        self.sig_in_graph = np.vstack((self.sig_in_graph, chunk_signal))
+        if len(self.sig_in_graph) >= self.win_s:
+            self.sig_in_graph = self.sig_in_graph[-self.win_s:]
+        return self.time_in_graph.copy(), self.sig_in_graph.copy()
+
+    def set_data(self, values):
+        if np.all(values == np.zeros(len(values))):
+            pass
+        else:
+            self.widget.figure.clear()
+            self.fig,_,_ = plot_topography(
+                channel_set=self.channel_set,values=values,
+                plot_channels=self.show_channels,plot_clabels=self.show_clabel,
+                interp_points=self.interp_p,cmap=self.cmap,show=False,
+                fig=self.fig,show_colorbar=False,axes=self.axes)
+            self.fig.axes[0].remove()
+            self.fig.canvas.update()
 
     def update_plot(self, chunk_times, chunk_signal):
-        pass
+        try:
+            # Append new data and get safe copy
+            x_in_graph, sig_in_graph = \
+                self.append_data(chunk_times, chunk_signal)
+            # Compute PSD
+            welch_seg_len = np.round(
+                self.preprocessing_settings['PSD'][
+                    'welch_seg_len_pct'] / 100.0 *
+                sig_in_graph.shape[0]).astype(int)
+            welch_overlap = np.round(
+                self.preprocessing_settings['PSD'][
+                    'welch_overlap_pct'] / 100.0 *
+                welch_seg_len).astype(int)
+            welch_ndft = welch_seg_len
+            print(len(sig_in_graph))
+            _, psd = scp_signal.welch(
+                sig_in_graph, fs=self.receiver.fs,
+                nperseg=welch_seg_len, noverlap=welch_overlap,
+                nfft=welch_ndft, axis=0)
+            # Compute power
+            power_values = spectral_parameteres.absolute_band_power(
+                psd=psd[None, :, :], fs=self.receiver.fs,
+                target_band=self.preprocessing_settings['PSD']['power-range'])
+            # Set data
+            self.set_data(power_values)
+        except Exception as e:
+            self.handle_exception(e)
 
     def clear_plot(self):
         pass
@@ -446,7 +549,7 @@ class TimePlotMultichannel(RealTimePlotPyQtGraph):
             self.handle_exception(e)
 
     def clear_plot(self):
-        pass
+        self.widget.clear()
 
 
 class PSDPlotMultichannel(RealTimePlot):
@@ -658,7 +761,7 @@ class PSDPlotMultichannel(RealTimePlot):
             self.handle_exception(e)
 
     def clear_plot(self):
-        pass
+        self.widget.clear()
 
 
 class TimePlot(RealTimePlot):
@@ -891,7 +994,7 @@ class TimePlot(RealTimePlot):
             self.handle_exception(e)
 
     def clear_plot(self):
-        pass
+        self.widget.clear()
 
 
 class PSDPlot(RealTimePlot):
@@ -1095,7 +1198,7 @@ class PSDPlot(RealTimePlot):
             self.handle_exception(e)
 
     def clear_plot(self):
-        pass
+        self.widget.clear()
 
 
 class RealTimePlotWorker(QThread):
