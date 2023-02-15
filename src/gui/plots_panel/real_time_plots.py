@@ -3,8 +3,7 @@ import time
 from abc import ABC, abstractmethod
 import weakref
 import traceback
-
-import matplotlib.pyplot as plt
+import threading
 # EXTERNAL MODULES
 import numpy as np
 import pyqtgraph as pg
@@ -12,14 +11,14 @@ from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
 from PyQt5.QtGui import QFont
 from scipy import signal as scp_signal
-import matplotlib
+from matplotlib.figure import Figure
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 # MEDUSA-PLATFORM MODULES
 from acquisition import lsl_utils, real_time_preprocessing
 import constants
 # MEDUSA-CORE MODULES
 from medusa import meeg
-from medusa.plots.topographic_plots import plot_topography, plot_head
+from medusa.plots import head_plots
 from medusa.local_activation import spectral_parameteres
 
 
@@ -140,17 +139,10 @@ class TopographyPlot(RealTimePlot):
 
     def __init__(self, uid, plot_state, medusa_interface, theme):
         super().__init__(uid, plot_state, medusa_interface, theme)
-        # Create canvas
-        # Initialize Variables
-        self.standard = '10-05'
-        # self.ch_labels = ['F3', 'FZ', 'F4', 'C3', 'CZ', 'C4', 'P3', 'PZ', 'P4']
-        self.channel_set = meeg.EEGChannelSet()
-        # self.channel_set.set_standard_montage(l_cha=self.receiver.l_cha,
-        #                                       standard=self.standard, )
-        # self.fig, self.axes = plot_head(self.channel_set, show=False,
-        #                                 plot_channels=False,)
-        # self.fig, self.axes = plt.subplots()
         # Graph variables
+        self.fig = None
+        self.axes = None
+        self.channel_set = None
         self.win_s = None
         self.interp_p = None
         self.cmap = None
@@ -158,10 +150,17 @@ class TopographyPlot(RealTimePlot):
         self.show_clabel = None
         self.time_in_graph = None
         self.sig_in_graph = None
+        self.head_handles = None
+        self.topography_handles = None
 
         # Create widget
-        # self.widget = FigureCanvasQTAgg(self.fig)
-        self.widget = None
+        fig = Figure()
+        fig.add_subplot(111)
+        fig.tight_layout()
+        fig.patch.set_color(self.theme['THEME_BG_DARK'])
+        # fig.patch.set_alpha(0.0)
+        self.widget = FigureCanvasQTAgg(fig)
+
     @staticmethod
     def get_default_settings():
         preprocessing_settings = {
@@ -181,14 +180,17 @@ class TopographyPlot(RealTimePlot):
                 'time-window': 2,
                 'welch_overlap_pct': 25,
                 'welch_seg_len_pct': 50,
-                'power-range': [4, 8]}
+                'power-range': [8, 13]}
         }
         visualization_settings = {
             'title': '<b>TopoPlot</b>',
-            'interpolation-points': 350,
+            'interp-points': 100,
             'color-map': 'seismic',
-            'show channel labels': True,
-            'show channels': True
+            'channel-standard': '10-05',
+            'show-channel-labels': True,
+            'show-channels': True,
+            'plot-skin': True,
+            'skin-color': 'yellow'
         }
         return preprocessing_settings, visualization_settings
 
@@ -204,21 +206,23 @@ class TopographyPlot(RealTimePlot):
             return True
 
     def init_plot(self):
-        # Update variables
-        self.channel_set.set_standard_montage(l_cha=self.receiver.l_cha,
-                                              standard=self.standard, )
-        self.fig, self.axes = plot_head(self.channel_set, show=False,
-                                        plot_channels=False)
-        self.widget = FigureCanvasQTAgg(self.fig)
-
-        self.win_s = int(self.preprocessing_settings['PSD']['time-window']\
+        # Create widget
+        self.channel_set = meeg.EEGChannelSet()
+        self.channel_set.set_standard_montage(
+            l_cha=self.receiver.l_cha,
+            standard=self.visualization_settings['channel-standard'])
+        self.head_handles = head_plots.plot_head(
+            axes=self.widget.figure.axes[0],
+            channel_set=self.channel_set,
+            plot_ch_points=self.visualization_settings['show-channels'],
+            plot_ch_labels=self.visualization_settings['show-channel-labels'],
+            plot_skin=self.visualization_settings['show-channel-labels'],
+            skin_color=self.visualization_settings['skin-color']
+        )
+        # Signal processing
+        self.win_s = int(self.preprocessing_settings['PSD']['time-window'] \
                          * self.receiver.fs)
-        self.interp_p = self.visualization_settings['interpolation-points']
-        self.cmap = self.visualization_settings['color-map']
-        self.show_clabel = self.visualization_settings['show channel labels']
-        self.show_channels = self.visualization_settings['show channels']
         # Update view box menu
-        # self.plot_item_view_box.menu.set_channel_list()
         self.time_in_graph = np.zeros(1)
         self.sig_in_graph = np.zeros([1, self.receiver.n_cha])
 
@@ -231,19 +235,6 @@ class TopographyPlot(RealTimePlot):
             self.sig_in_graph = self.sig_in_graph[-self.win_s:]
         return self.time_in_graph.copy(), self.sig_in_graph.copy()
 
-    def set_data(self, values):
-        if np.all(values == np.zeros(len(values))):
-            pass
-        else:
-            self.widget.figure.clear()
-            self.fig,_,_ = plot_topography(
-                channel_set=self.channel_set,values=values,
-                plot_channels=self.show_channels,plot_clabels=self.show_clabel,
-                interp_points=self.interp_p,cmap=self.cmap,show=False,
-                fig=self.fig,show_colorbar=False,axes=self.axes)
-            self.fig.axes[0].remove()
-            self.fig.canvas.update()
-
     def update_plot(self, chunk_times, chunk_signal):
         try:
             # Append new data and get safe copy
@@ -251,30 +242,39 @@ class TopographyPlot(RealTimePlot):
                 self.append_data(chunk_times, chunk_signal)
             # Compute PSD
             welch_seg_len = np.round(
-                self.preprocessing_settings['PSD'][
-                    'welch_seg_len_pct'] / 100.0 *
-                sig_in_graph.shape[0]).astype(int)
+                self.preprocessing_settings['PSD']['welch_seg_len_pct'] / 100.0
+                * sig_in_graph.shape[0]).astype(int)
             welch_overlap = np.round(
-                self.preprocessing_settings['PSD'][
-                    'welch_overlap_pct'] / 100.0 *
-                welch_seg_len).astype(int)
+                self.preprocessing_settings['PSD']['welch_overlap_pct'] / 100.0
+                * welch_seg_len).astype(int)
             welch_ndft = welch_seg_len
-            print(len(sig_in_graph))
             _, psd = scp_signal.welch(
                 sig_in_graph, fs=self.receiver.fs,
                 nperseg=welch_seg_len, noverlap=welch_overlap,
                 nfft=welch_ndft, axis=0)
             # Compute power
             power_values = spectral_parameteres.absolute_band_power(
-                psd=psd[None, :, :], fs=self.receiver.fs,
+                psd=psd[np.newaxis, :, :], fs=self.receiver.fs,
                 target_band=self.preprocessing_settings['PSD']['power-range'])
-            # Set data
-            self.set_data(power_values)
+            # Plot topography
+            if self.topography_handles is not None:
+                head_plots.remove_handles(self.topography_handles)
+            self.topography_handles = head_plots.plot_topography(
+                axes=self.widget.figure.axes[0],
+                channel_set=self.channel_set,
+                values=power_values,
+                interp_points=self.visualization_settings['interp-points'],
+                cmap=self.cmap,
+                show_colorbar=False,
+                plot_extra=False)
+            self.widget.draw()
         except Exception as e:
             self.handle_exception(e)
 
     def clear_plot(self):
-        pass
+        if self.topography_handles is not None:
+            head_plots.remove_handles(self.topography_handles)
+        self.topography_handles = None
 
 
 class RealTimePlotPyQtGraph(RealTimePlot, ABC):
@@ -295,9 +295,11 @@ class RealTimePlotPyQtGraph(RealTimePlot, ABC):
         self.background_color = theme['THEME_BG_DARK']
         self.curve_color = theme['THEME_SIGNAL_CURVE']
         self.offset_color = theme['THEME_SIGNAL_OFFSET']
+        self.marker_color = theme['THEME_SIGNAL_MARKER']
         self.widget.setBackground(self.background_color)
         self.curve_width = 1
         self.offset_width = 1
+        self.marker_width = 2
 
     def set_titles(self, plot_title, x_axis_title, y_axis_title):
         self.widget.setTitle(plot_title)
@@ -321,6 +323,8 @@ class TimePlotMultichannel(RealTimePlotPyQtGraph):
         self.sig_in_graph = None
         self.curves = None
         self.offsets = None
+        self.marker = None
+        self.pointer = None
         self.cha_separation = None
         self.win_t = None
         self.subsample_factor = None
@@ -380,6 +384,7 @@ class TimePlotMultichannel(RealTimePlotPyQtGraph):
             }
         }
         visualization_settings = {
+            'mode': 'clinical',
             'seconds_displayed': 5,
             'subsample_factor': 2,
             'scaling': {
@@ -400,6 +405,10 @@ class TimePlotMultichannel(RealTimePlotPyQtGraph):
         if visualization_settings['subsample_factor'] < 1:
             raise ValueError('The subsample factor must be '
                              'equal or greater than 1\n')
+        possible_modes = ['geek', 'clinical']
+        if visualization_settings['mode'] not in possible_modes:
+            raise ValueError('Unknown plot mode %s. Possible options: %s' %
+                             (visualization_settings['mode'], possible_modes))
 
     @staticmethod
     def check_signal(signal_type):
@@ -432,6 +441,12 @@ class TimePlotMultichannel(RealTimePlotPyQtGraph):
         for i in range(self.receiver.n_cha):
             self.offsets.append(self.widget.plot(pen=offset_pen))
             self.curves.append(self.widget.plot(pen=curve_pen))
+        if self.visualization_settings['mode'] == 'clinical':
+            marker_pen = pg.mkPen(color=self.marker_color,
+                                  width=self.marker_width,
+                                  style=Qt.SolidLine)
+            self.marker = pg.InfiniteLine(pos=0, angle=90, pen=marker_pen)
+            self.pointer = 0
         # Draw y axis
         self.draw_y_axis_ticks()
         # Signal plotted
@@ -458,26 +473,59 @@ class TimePlotMultichannel(RealTimePlotPyQtGraph):
         # Draw x axis ticks (time)
         n_ticks = 4
         x = np.arange(x_in_graph.shape[0])
-        step = x_in_graph.shape[0] // n_ticks
-        margin_last_tick = (3 * x_in_graph.shape[0] // 100) + 1
-        x_ticks_pos = [x[i * step] for i in range(n_ticks)]
-        x_ticks_pos.append(x[n_ticks * step - margin_last_tick])
-        x_ticks_val = ['%.1f' % x_in_graph[i * step] for i in range(n_ticks)]
-        x_ticks_val.append(
-            '%.1f' % x_in_graph[n_ticks * step - margin_last_tick])
-        self.x_axis.setTicks([[(x_ticks_pos[i], str(x_ticks_val[i])) for
-                               i in range(n_ticks + 1)]])
+        if self.visualization_settings['mode'] == 'geek':
+            step = x_in_graph.shape[0] // n_ticks
+            margin_last_tick = (3 * x_in_graph.shape[0] // 100) + 1
+            x_ticks_pos = [x[i * step] for i in range(n_ticks)]
+            x_ticks_pos.append(x[n_ticks * step - margin_last_tick])
+            x_ticks_val = ['%.1f' % x_in_graph[i * step] for i in range(n_ticks)]
+            x_ticks_val.append(
+                '%.1f' % x_in_graph[n_ticks * step - margin_last_tick])
+            self.x_axis.setTicks([[(x_ticks_pos[i], str(x_ticks_val[i])) for
+                                   i in range(n_ticks + 1)]])
+        elif self.visualization_settings['mode'] == 'clinical':
+            x_tick_pos = self.pointer // self.subsample_factor
+            x_tick_val = '%.1f' % self.time_in_graph[self.pointer - 1]
+            self.x_axis.setTicks([[(x_tick_pos, x_tick_val)]])
         self.plot_item.setXRange(x[0], x[-1], padding=0)
 
     def append_data(self, chunk_times, chunk_signal):
-        self.time_in_graph = np.hstack((self.time_in_graph, chunk_times))
-        self.sig_in_graph = np.vstack((self.sig_in_graph, chunk_signal))
-        abs_time_in_graph = self.time_in_graph - self.time_in_graph[0]
-        if abs_time_in_graph[-1] >= self.win_t:
-            cut_idx = np.argmin(np.abs(abs_time_in_graph -
-                                       (abs_time_in_graph[-1] - self.win_t)))
-            self.time_in_graph = self.time_in_graph[cut_idx:]
-            self.sig_in_graph = self.sig_in_graph[cut_idx:]
+        n_samp = len(chunk_times)
+        if self.visualization_settings['mode'] == 'geek':
+            self.time_in_graph = np.hstack((self.time_in_graph, chunk_times))
+            self.sig_in_graph = np.vstack((self.sig_in_graph, chunk_signal))
+            abs_time_in_graph = self.time_in_graph - self.time_in_graph[0]
+            if abs_time_in_graph[-1] >= self.win_t:
+                cut_idx = np.argmin(np.abs(abs_time_in_graph -
+                                           (abs_time_in_graph[-1] - self.win_t)))
+                self.time_in_graph = self.time_in_graph[cut_idx:]
+                self.sig_in_graph = self.sig_in_graph[cut_idx:]
+        elif self.visualization_settings['mode'] == 'clinical':
+            if len(self.time_in_graph) < self.win_s:
+                self.time_in_graph = np.hstack(
+                    (self.time_in_graph, chunk_times))
+                self.sig_in_graph = np.vstack(
+                    (self.sig_in_graph, chunk_signal))
+                self.pointer += n_samp
+            else:
+                if self.pointer >= self.win_s:
+                    self.pointer = 0
+                if self.pointer + n_samp < len(self.time_in_graph):
+                    self.time_in_graph[
+                        self.pointer:self.pointer+n_samp] = chunk_times
+                    self.sig_in_graph[
+                        self.pointer:self.pointer+n_samp, :] = chunk_signal
+                else:
+                    n_samp_remaining = len(
+                        self.time_in_graph[self.pointer:])
+                    self.time_in_graph[
+                        self.pointer:] = chunk_times[:n_samp_remaining]
+                    self.sig_in_graph[
+                        self.pointer:, :] = chunk_signal[:n_samp_remaining]
+                    self.pointer += n_samp_remaining
+                    self.append_data(chunk_times[n_samp_remaining:],
+                                     chunk_signal[n_samp_remaining:, :])
+                self.pointer += n_samp
 
         # return self.time_in_graph.copy(), self.sig_in_graph.copy()
         return self.time_in_graph, self.sig_in_graph
@@ -510,6 +558,8 @@ class TimePlotMultichannel(RealTimePlotPyQtGraph):
             temp = (temp + self.cha_separation * i)
             self.curves[i].setData(x=x, y=temp)
             self.offsets[i].setData(x=x, y=self.cha_separation * i * off_y)
+        if self.visualization_settings['mode'] == 'clinical':
+            self.marker.setPos(self.pointer // self.subsample_factor)
 
     def autoscale(self, y_in_graph):
         scaling_sett = self.visualization_settings['scaling']
@@ -523,14 +573,15 @@ class TimePlotMultichannel(RealTimePlotPyQtGraph):
                 self.draw_y_axis_ticks()
 
     def update_plot(self, chunk_times, chunk_signal):
-        """
-        This function updates the data in the graph. Notice that channel 0 is
+        """This function updates the data in the graph. Notice that channel 0 is
         drew up in the chart, whereas the last channel is in the bottom.
         """
         try:
             # Init time
             if self.init_time is None:
                 self.init_time = chunk_times[0]
+                if self.visualization_settings['mode'] == 'clinical':
+                    self.widget.addItem(self.marker)
             # Temporal series are always plotted from zero.
             chunk_times = np.array(chunk_times) - self.init_time
             # Append new data and get safe copy
@@ -552,7 +603,7 @@ class TimePlotMultichannel(RealTimePlotPyQtGraph):
         self.widget.clear()
 
 
-class PSDPlotMultichannel(RealTimePlot):
+class PSDPlotMultichannel(RealTimePlotPyQtGraph):
 
     def __init__(self, uid, plot_state, queue_to_medusa, theme):
         super().__init__(uid, plot_state, queue_to_medusa, theme)
@@ -764,7 +815,7 @@ class PSDPlotMultichannel(RealTimePlot):
         self.widget.clear()
 
 
-class TimePlot(RealTimePlot):
+class TimePlot(RealTimePlotPyQtGraph):
 
     def __init__(self, uid, plot_state, queue_to_medusa, theme):
         super().__init__(uid, plot_state, queue_to_medusa, theme)
@@ -773,7 +824,9 @@ class TimePlot(RealTimePlot):
         self.win_s = None
         self.time_in_graph = None
         self.sig_in_graph = None
+        self.pointer = None
         self.curve = None
+        self.marker = None
         self.y_range = None
         self.subsample_factor = None
         # Custom menu
@@ -836,6 +889,7 @@ class TimePlot(RealTimePlot):
             }
         }
         visualization_settings = {
+            'mode': 'clinical',
             'init_channel_label': None,
             'seconds_displayed': 5,
             'subsample_factor': 2,
@@ -857,6 +911,10 @@ class TimePlot(RealTimePlot):
         if visualization_settings['subsample_factor'] < 1:
             raise ValueError('The subsample factor must be '
                              'equal or greater than 1\n')
+        possible_modes = ['geek', 'clinical']
+        if visualization_settings['mode'] not in possible_modes:
+            raise ValueError('Unknown plot mode %s. Possible options: %s' %
+                             (visualization_settings['mode'], possible_modes))
 
     @staticmethod
     def check_signal(signal_type):
@@ -882,7 +940,7 @@ class TimePlot(RealTimePlot):
         # Update variables
         self.win_t = self.visualization_settings['seconds_displayed']
         self.subsample_factor = self.visualization_settings['subsample_factor']
-        self.win_s = int(self.win_t * self.receiver.fs)
+        self.win_s = int(self.win_t * self.receiver.fs / self.subsample_factor)
         self.y_range = self.visualization_settings['scaling']['initial_y_range']
         # Update view box menu
         self.plot_item_view_box.menu.set_channel_list()
@@ -895,6 +953,12 @@ class TimePlot(RealTimePlot):
                              width=self.curve_width,
                              style=Qt.SolidLine)
         self.curve = self.widget.plot(pen=curve_pen)
+        if self.visualization_settings['mode'] == 'clinical':
+            marker_pen = pg.mkPen(color=self.marker_color,
+                                  width=self.marker_width,
+                                  style=Qt.SolidLine)
+            self.marker = pg.InfiniteLine(pos=0, angle=90, pen=marker_pen)
+            self.pointer = 0
         # Draw y axis
         self.draw_y_axis_ticks()
         # Signal plotted
@@ -908,32 +972,68 @@ class TimePlot(RealTimePlot):
                                      padding=0)
 
     def draw_x_axis_ticks(self, x_in_graph):
-        # Draw x axis ticks (time)
+        """Controls the X axis visualization (e.g., ticks, range, etc)"""
         n_ticks = 4
         x = np.arange(x_in_graph.shape[0])
-        step = x_in_graph.shape[0] // n_ticks
-        margin_last_tick = (3 * x_in_graph.shape[0] // 100) + 1
-        x_ticks_pos = [x[i * step] for i in range(n_ticks)]
-        x_ticks_pos.append(x[n_ticks * step - margin_last_tick])
-        x_ticks_val = ['%.1f' % x_in_graph[i * step] for i in range(n_ticks)]
-        x_ticks_val.append(
-            '%.1f' % x_in_graph[n_ticks * step - margin_last_tick])
-        self.x_axis.setTicks([[(x_ticks_pos[i], str(x_ticks_val[i])) for
-                               i in range(n_ticks + 1)]])
+        if self.visualization_settings['mode'] == 'geek':
+            step = x_in_graph.shape[0] // n_ticks
+            margin_last_tick = (3 * x_in_graph.shape[0] // 100) + 1
+            x_ticks_pos = [x[i * step] for i in range(n_ticks)]
+            x_ticks_pos.append(x[n_ticks * step - margin_last_tick])
+            x_ticks_val = ['%.1f' % x_in_graph[i * step] for i in
+                           range(n_ticks)]
+            x_ticks_val.append(
+                '%.1f' % x_in_graph[n_ticks * step - margin_last_tick])
+            self.x_axis.setTicks([[(x_ticks_pos[i], str(x_ticks_val[i])) for
+                                   i in range(n_ticks + 1)]])
+        elif self.visualization_settings['mode'] == 'clinical':
+            x_tick_pos = self.pointer // self.subsample_factor
+            x_tick_val = '%.1f' % self.time_in_graph[self.pointer-1]
+            self.x_axis.setTicks([[(x_tick_pos, x_tick_val)]])
         self.plot_item.setXRange(x[0], x[-1], padding=0)
 
     def append_data(self, chunk_times, chunk_signal):
-        self.time_in_graph = np.hstack((self.time_in_graph, chunk_times))
-        if len(self.time_in_graph) >= self.win_s:
-            self.time_in_graph = self.time_in_graph[-self.win_s:]
-        self.sig_in_graph = np.vstack((self.sig_in_graph, chunk_signal))
-        if len(self.sig_in_graph) >= self.win_s:
-            self.sig_in_graph = self.sig_in_graph[-self.win_s:]
+        n_samp = len(chunk_times)
+        if self.visualization_settings['mode'] == 'geek':
+            self.time_in_graph = np.hstack((self.time_in_graph, chunk_times))
+            if len(self.time_in_graph) >= self.win_s:
+                self.time_in_graph = self.time_in_graph[-self.win_s:]
+            self.sig_in_graph = np.vstack((self.sig_in_graph, chunk_signal))
+            if len(self.sig_in_graph) >= self.win_s:
+                self.sig_in_graph = self.sig_in_graph[-self.win_s:]
+        elif self.visualization_settings['mode'] == 'clinical':
+            if len(self.time_in_graph) < self.win_s:
+                self.time_in_graph = np.hstack(
+                    (self.time_in_graph, chunk_times))
+                self.sig_in_graph = np.vstack(
+                    (self.sig_in_graph, chunk_signal))
+                self.pointer += n_samp
+            else:
+                if self.pointer >= self.win_s:
+                    self.pointer = 0
+                if self.pointer + n_samp < len(self.time_in_graph):
+                    self.time_in_graph[
+                        self.pointer:self.pointer + n_samp] = chunk_times
+                    self.sig_in_graph[
+                        self.pointer:self.pointer + n_samp, :] = chunk_signal
+                else:
+                    n_samp_remaining = len(
+                        self.time_in_graph[self.pointer:])
+                    self.time_in_graph[
+                        self.pointer:] = chunk_times[:n_samp_remaining]
+                    self.sig_in_graph[
+                        self.pointer:, :] = chunk_signal[:n_samp_remaining]
+                    self.pointer += n_samp_remaining
+                    self.append_data(chunk_times[n_samp_remaining:],
+                                     chunk_signal[n_samp_remaining:, :])
+                self.pointer += n_samp
         return self.time_in_graph.copy(), self.sig_in_graph.copy()
 
     def set_data(self, x_in_graph, sig_in_graph):
         x = np.arange(x_in_graph.shape[0])
         self.curve.setData(x=x, y=sig_in_graph)
+        if self.visualization_settings['mode'] == 'clinical':
+            self.marker.setPos(self.pointer // self.subsample_factor)
 
     def subsample(self, x_in_graph, sig_in_graph):
         if self.subsample_factor > 1:
@@ -968,14 +1068,12 @@ class TimePlot(RealTimePlot):
                 self.draw_y_axis_ticks()
 
     def update_plot(self, chunk_times, chunk_signal):
-        """
-        This function updates the data in the graph. Notice that channel 0 is
-        drew up in the chart, whereas the last channel is in the bottom.
-        """
         try:
             # Init time
             if self.init_time is None:
                 self.init_time = chunk_times[0]
+                if self.visualization_settings['mode'] == 'clinical':
+                    self.widget.addItem(self.marker)
             # Temporal series are always plotted from zero.
             chunk_times = np.array(chunk_times) - self.init_time
             # Append new data and get safe copy
@@ -997,7 +1095,7 @@ class TimePlot(RealTimePlot):
         self.widget.clear()
 
 
-class PSDPlot(RealTimePlot):
+class PSDPlot(RealTimePlotPyQtGraph):
 
     def __init__(self, uid, plot_state, queue_to_medusa, theme):
         super().__init__(uid, plot_state, queue_to_medusa, theme)
