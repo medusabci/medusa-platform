@@ -157,10 +157,10 @@ class PlotsPanelWidget(QWidget, ui_plots_panel_widget):
                 try:
                     # Create plot
                     self.plots_handlers[plot_uid] = plot_info['class'](
-                        plot_uid,
-                        self.plot_state,
-                        self.medusa_interface,
-                        self.theme_colors)
+                        uid=plot_uid,
+                        plot_state=self.plot_state,
+                        medusa_interface=self.medusa_interface,
+                        theme_colors=self.theme_colors)
                     # Set settings
                     self.plots_handlers[plot_uid].set_settings(
                         plot_settings['preprocessing_settings'],

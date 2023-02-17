@@ -24,13 +24,13 @@ from medusa.local_activation import spectral_parameteres
 
 class RealTimePlot(ABC):
 
-    def __init__(self, uid, plot_state, medusa_interface, theme):
+    def __init__(self, uid, plot_state, medusa_interface, theme_colors):
         super().__init__()
         # Parameters
         self.uid = uid
         self.plot_state = plot_state
         self.medusa_interface = medusa_interface
-        self.theme = theme
+        self.theme_colors = theme_colors
         # Init variables
         self.ready = False
         self.preprocessing_settings = None
@@ -137,8 +137,8 @@ class RealTimePlot(ABC):
 
 class TopographyPlot(RealTimePlot):
 
-    def __init__(self, uid, plot_state, medusa_interface, theme):
-        super().__init__(uid, plot_state, medusa_interface, theme)
+    def __init__(self, uid, plot_state, medusa_interface, theme_colors):
+        super().__init__(uid, plot_state, medusa_interface, theme_colors)
         # Graph variables
         self.fig = None
         self.axes = None
@@ -157,9 +157,11 @@ class TopographyPlot(RealTimePlot):
         fig = Figure()
         fig.add_subplot(111)
         fig.tight_layout()
-        fig.patch.set_color(self.theme['THEME_BG_DARK'])
+        fig.patch.set_color(self.theme_colors['THEME_BG_DARK'])
         # fig.patch.set_alpha(0.0)
         self.widget = FigureCanvasQTAgg(fig)
+        # Important to avoid minimum size of the figure!!
+        self.widget.figure.set_size_inches(0, 0)
 
     @staticmethod
     def get_default_settings():
@@ -220,8 +222,8 @@ class TopographyPlot(RealTimePlot):
             skin_color=self.visualization_settings['skin-color']
         )
         # Signal processing
-        self.win_s = int(self.preprocessing_settings['PSD']['time-window'] \
-                         * self.receiver.fs)
+        self.win_s = int(
+            self.preprocessing_settings['PSD']['time-window']*self.receiver.fs)
         # Update view box menu
         self.time_in_graph = np.zeros(1)
         self.sig_in_graph = np.zeros([1, self.receiver.n_cha])
@@ -275,12 +277,13 @@ class TopographyPlot(RealTimePlot):
         if self.topography_handles is not None:
             head_plots.remove_handles(self.topography_handles)
         self.topography_handles = None
+        self.widget.draw()
 
 
 class RealTimePlotPyQtGraph(RealTimePlot, ABC):
 
-    def __init__(self, uid, plot_state, medusa_interface, theme):
-        super().__init__(uid, plot_state, medusa_interface, theme)
+    def __init__(self, uid, plot_state, medusa_interface, theme_colors):
+        super().__init__(uid, plot_state, medusa_interface, theme_colors)
         # Create widget
         self.widget = pg.PlotWidget()
         self.widget.setSizePolicy(QSizePolicy.Ignored,
@@ -291,11 +294,11 @@ class RealTimePlotPyQtGraph(RealTimePlot, ABC):
         self.y_axis = self.plot_item.getAxis('left')
         self.x_axis = self.plot_item.getAxis('bottom')
         # Style and theme
-        self.theme = theme
-        self.background_color = theme['THEME_BG_DARK']
-        self.curve_color = theme['THEME_SIGNAL_CURVE']
-        self.offset_color = theme['THEME_SIGNAL_OFFSET']
-        self.marker_color = theme['THEME_SIGNAL_MARKER']
+        self.theme = theme_colors
+        self.background_color = theme_colors['THEME_BG_DARK']
+        self.curve_color = theme_colors['THEME_SIGNAL_CURVE']
+        self.offset_color = theme_colors['THEME_SIGNAL_OFFSET']
+        self.marker_color = theme_colors['THEME_SIGNAL_MARKER']
         self.widget.setBackground(self.background_color)
         self.curve_width = 1
         self.offset_width = 1
@@ -315,8 +318,8 @@ class RealTimePlotPyQtGraph(RealTimePlot, ABC):
 
 class TimePlotMultichannel(RealTimePlotPyQtGraph):
 
-    def __init__(self, uid, plot_state, queue_to_medusa, theme):
-        super().__init__(uid, plot_state, queue_to_medusa, theme)
+    def __init__(self, uid, plot_state, medusa_interface, theme_colors):
+        super().__init__(uid, plot_state, medusa_interface, theme_colors)
         # Graph variables
         self.win_s = None
         self.time_in_graph = None
@@ -605,8 +608,8 @@ class TimePlotMultichannel(RealTimePlotPyQtGraph):
 
 class PSDPlotMultichannel(RealTimePlotPyQtGraph):
 
-    def __init__(self, uid, plot_state, queue_to_medusa, theme):
-        super().__init__(uid, plot_state, queue_to_medusa, theme)
+    def __init__(self, uid, plot_state, medusa_interface, theme_colors):
+        super().__init__(uid, plot_state, medusa_interface, theme_colors)
         # Graph variables
         self.win_t = None
         self.win_s = None
@@ -817,8 +820,8 @@ class PSDPlotMultichannel(RealTimePlotPyQtGraph):
 
 class TimePlot(RealTimePlotPyQtGraph):
 
-    def __init__(self, uid, plot_state, queue_to_medusa, theme):
-        super().__init__(uid, plot_state, queue_to_medusa, theme)
+    def __init__(self, uid, plot_state, medusa_interface, theme_colors):
+        super().__init__(uid, plot_state, medusa_interface, theme_colors)
         # Graph variables
         self.win_t = None
         self.win_s = None
@@ -1097,8 +1100,8 @@ class TimePlot(RealTimePlotPyQtGraph):
 
 class PSDPlot(RealTimePlotPyQtGraph):
 
-    def __init__(self, uid, plot_state, queue_to_medusa, theme):
-        super().__init__(uid, plot_state, queue_to_medusa, theme)
+    def __init__(self, uid, plot_state, medusa_interface, theme_colors):
+        super().__init__(uid, plot_state, medusa_interface, theme_colors)
         # Graph variables
         self.win_t = None
         self.win_s = None
@@ -1322,10 +1325,13 @@ class RealTimePlotWorker(QThread):
                 # Get chunks
                 chunk_data, chunk_times = self.receiver.get_chunk()
                 chunk_data = self.preprocessor.transform(chunk_data)
-                # Check if the plot is ready to receive data
-                self.update.emit(chunk_times, chunk_data)
+                # Check if the plot is ready to receive data (sometimes get
+                # chunk takes a while and the user presses the button in
+                # between)
+                if self.plot_state.value == constants.PLOT_STATE_ON:
+                    self.update.emit(chunk_times, chunk_data)
                 # Wait a bit
-                time.sleep(0.1)
+                time.sleep(len(chunk_data) / self.receiver.fs)
         except Exception as e:
             self.error.emit(e)
 
