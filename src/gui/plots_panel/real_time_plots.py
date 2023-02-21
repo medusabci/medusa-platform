@@ -135,6 +135,7 @@ class RealTimePlot(ABC):
         """
         raise NotImplemented
 
+
 class HeadPlot(RealTimePlot):
     def __init__(self, uid, plot_state, medusa_interface, theme_colors):
         super().__init__(uid, plot_state, medusa_interface, theme_colors)
@@ -170,6 +171,7 @@ class HeadPlot(RealTimePlot):
             raise ValueError('Only EEG signals are supported for the moment')
         else:
             return True
+
     def init_head_plot(self):
         # Create widget
         self.channel_set = meeg.EEGChannelSet()
@@ -184,6 +186,12 @@ class HeadPlot(RealTimePlot):
             plot_skin=self.visualization_settings['plot-skin'],
             skin_color=self.visualization_settings['skin-color']
         )
+        # Set title
+        title = self.visualization_settings['title']
+        title = self.receiver.lsl_stream_info.medusa_uid if title == 'auto' \
+            else title
+        self.widget.figure.suptitle(
+            title, color=self.theme_colors['THEME_TEXT_LIGHT'])
 
     def append_data(self, chunk_times, chunk_signal):
         self.time_in_graph = np.hstack((self.time_in_graph, chunk_times))
@@ -204,10 +212,12 @@ class HeadPlot(RealTimePlot):
         self.plot_handles = None
         self.widget.draw()
 
+
 class TopographyPlot(HeadPlot):
 
     def __init__(self, uid, plot_state, medusa_interface, theme_colors):
         super().__init__(uid, plot_state, medusa_interface, theme_colors)
+
     @staticmethod
     def get_default_settings():
         preprocessing_settings = {
@@ -231,14 +241,14 @@ class TopographyPlot(HeadPlot):
         }
         visualization_settings = {
             'update-rate': 0.2,
-            'title': '<b>TopoPlot</b>',
             'interp-points': 100,
             'color-map': 'seismic',
             'channel-standard': '10-05',
             'show-channel-labels': True,
             'show-channels': True,
             'plot-skin': True,
-            'skin-color': 'yellow'
+            'skin-color': '#ffad91',
+            'title': 'auto',
         }
         return preprocessing_settings, visualization_settings
 
@@ -298,11 +308,13 @@ class TopographyPlot(HeadPlot):
         except Exception as e:
             self.handle_exception(e)
 
+
 class ConnectivityPlot(HeadPlot):
 
     def __init__(self, uid, plot_state, medusa_interface, theme_colors):
         super().__init__(uid, plot_state, medusa_interface, theme_colors)
         self.clim = None
+
     @staticmethod
     def get_default_settings():
         preprocessing_settings = {
@@ -325,20 +337,20 @@ class ConnectivityPlot(HeadPlot):
                 'band-range': [8, 13]}
         }
         visualization_settings = {
-            'title': '<b>ConnectivityPlot</b>',
             'update-rate': 0.2,
             'color-map': 'seismic',
             'channel-standard': '10-05',
             'show-channel-labels': True,
             'show-channels': True,
             'plot-skin': True,
-            'skin-color': 'yellow'
+            'skin-color': '#ffad91',
+            'title': 'auto',
         }
         return preprocessing_settings, visualization_settings
 
     @staticmethod
     def check_settings(signal_settings, plot_settings):
-        allowed_conn_metrics = ['aec','plv','pli','wpli']
+        allowed_conn_metrics = ['aec', 'plv', 'pli', 'wpli']
         if signal_settings['Connectivity']\
             ['conn_metric'] not in allowed_conn_metrics:
             raise ValueError("Connectivity metric selected not implemented."
@@ -401,6 +413,7 @@ class ConnectivityPlot(HeadPlot):
                 self.widget.draw()
         except Exception as e:
             self.handle_exception(e)
+
 
 class RealTimePlotPyQtGraph(RealTimePlot, ABC):
 
