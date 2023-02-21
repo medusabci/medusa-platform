@@ -384,7 +384,7 @@ class ConnectivityPlot(HeadPlot):
 
                 # Apply threshold
                 if self.preprocessing_settings['Connectivity']['threshold'] is not None:
-                    th_idx = adj_mat > np.percentile(adj_mat,
+                    th_idx = np.abs(adj_mat) > np.percentile(np.abs(adj_mat),
                             self.preprocessing_settings['Connectivity']['threshold']
                             )
                     adj_mat = adj_mat * th_idx
