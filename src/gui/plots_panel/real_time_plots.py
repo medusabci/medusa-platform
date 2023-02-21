@@ -304,12 +304,27 @@ class RealTimePlotPyQtGraph(RealTimePlot, ABC):
         self.offset_width = 1
         self.marker_width = 2
 
-    def set_titles(self, plot_title, x_axis_title, y_axis_title):
-        self.widget.setTitle(plot_title)
-        self.widget.setLabel('bottom', text=x_axis_title[0],
-                             units=x_axis_title[1])
-        self.widget.setLabel('left', text=y_axis_title[0],
-                             units=y_axis_title[1])
+    def set_titles(self, title, x_axis_label, y_axis_label):
+        title = self.receiver.lsl_stream_info.medusa_uid if title == 'auto' \
+            else title
+        if y_axis_label['units'] == 'auto':
+            try:
+                cha_units = [self.receiver.lsl_stream_info.cha_info[0]['units']
+                             for x in self.receiver.lsl_stream_info.cha_info]
+                if all(cha_units[0] == units for units in cha_units):
+                    units = cha_units[0]
+                else:
+                    units = ''
+            except Exception as e:
+                units = ''
+            y_axis_label = '%s (%s)' % \
+                           (y_axis_label['text'], units)
+        else:
+            y_axis_label = '%s (%s)' % (y_axis_label['text'],
+                                        y_axis_label['units'])
+        self.widget.setTitle(title)
+        self.widget.setLabel('bottom', text=x_axis_label)
+        self.widget.setLabel('left', text=y_axis_label)
         fn = QFont()
         fn.setBold(True)
         self.widget.getAxis("bottom").setTickFont(fn)
@@ -388,17 +403,20 @@ class TimePlotMultichannel(RealTimePlotPyQtGraph):
         }
         visualization_settings = {
             'mode': 'clinical',
-            'seconds_displayed': 5,
+            'seconds_displayed': 10,
             'subsample_factor': 2,
             'scaling': {
+                'scale': 1,
                 'apply_autoscale': True,
                 'n_std_tolerance_autoscale': 1.25,
                 'std_factor_separation_autoscale': 5,
-                'initial_channel_separation': 150,
             },
-            'title': '<b>TimePlotMultichannel</b>',
-            'x_axis_label': ['<b>Time</b>', 's'],
-            'y_axis_label': ['<b>Signal</b>', 'V'],
+            'title': 'auto',
+            'x_axis_label': '<b>Time</b> (s)',
+            'y_axis_label': {
+                'text': '<b>Signal</b>',
+                'units': 'auto'
+            }
         }
         return preprocessing_settings, visualization_settings
 
@@ -428,7 +446,7 @@ class TimePlotMultichannel(RealTimePlotPyQtGraph):
                         self.visualization_settings['y_axis_label'])
         # Update variables
         self.cha_separation = \
-            self.visualization_settings['scaling']['initial_channel_separation']
+            self.visualization_settings['scaling']['scale']
         self.win_t = self.visualization_settings['seconds_displayed']
         self.subsample_factor = self.visualization_settings['subsample_factor']
         self.win_s = int(self.win_t * self.receiver.fs / self.subsample_factor)
@@ -675,27 +693,31 @@ class PSDPlotMultichannel(RealTimePlotPyQtGraph):
             }
         }
         visualization_settings = {
-            'psd_window_seconds': 5,
+            'x_range': [0.1, 30],
             'scaling': {
+                'scale': 1,
                 'apply_autoscale': True,
                 'n_std_tolerance_autoscale': 1.25,
-                'std_factor_separation_autoscale': 5,
-                'initial_channel_separation': 10e-3,
+                'std_factor_separation_autoscale': 5
             },
+            'psd_window_seconds': 5,
             'welch_overlap_pct': 25,
             'welch_seg_len_pct': 50,
-            'x_range': [0.1, 30],
-            'y_range': 'auto',
             'init_channel_label': None,
-            'title': '<b>PSDPlotMultichannel</b>',
-            'x_axis_label': ['<b>Frequency</b>', 'Hz'],
-            'y_axis_label': ['<b>Power</b>', '<math>V<sup>2</sup>/Hz</math>'],
+            'title': 'auto',
+            'x_axis_label': '<b>Frequency</b> (Hz)',
+            'y_axis_label': {
+                'text': '<b>Power</b>',
+                'units': '<math>V<sup>2</sup>/Hz</math>',
+            }
         }
         return preprocessing_settings, visualization_settings
 
     @staticmethod
     def check_settings(preprocessing_settings, visualization_settings):
-        pass
+        if isinstance(visualization_settings['scaling']['scale'], list):
+            raise ValueError('Incorrect configuration. Parameter scaling/scale'
+                             'must be a number.')
 
     @staticmethod
     def check_signal(signal_type):
@@ -712,7 +734,7 @@ class PSDPlotMultichannel(RealTimePlotPyQtGraph):
                         self.visualization_settings['y_axis_label'])
         # Update variables
         self.cha_separation = \
-            self.visualization_settings['scaling']['initial_channel_separation']
+            self.visualization_settings['scaling']['scale']
         self.win_t = self.visualization_settings['psd_window_seconds']
         self.win_s = int(self.win_t * self.receiver.fs)
         self.n_samples_psd = self.win_s
@@ -893,18 +915,21 @@ class TimePlot(RealTimePlotPyQtGraph):
         }
         visualization_settings = {
             'mode': 'clinical',
-            'init_channel_label': None,
-            'seconds_displayed': 5,
+            'seconds_displayed': 10,
             'subsample_factor': 2,
             'scaling': {
+                'scale': [-1, 1],
                 'apply_autoscale': True,
                 'n_std_tolerance_autoscale': 1.25,
-                'std_factor_separation_autoscale': 5,
-                'initial_y_range': [-1, 1],
+                'std_factor_separation_autoscale': 5
             },
-            'title': '<b>TimePlot</b>',
-            'x_axis_label': ['<b>Time</b>', 's'],
-            'y_axis_label': ['<b>Signal</b>', 'V'],
+            'init_channel_label': None,
+            'title': 'auto',
+            'x_axis_label': '<b>Time</b> (s)',
+            'y_axis_label': {
+                'text': '<b>Signal</b>',
+                'units': 'V'
+            }
         }
         return preprocessing_settings, visualization_settings
 
@@ -944,7 +969,10 @@ class TimePlot(RealTimePlotPyQtGraph):
         self.win_t = self.visualization_settings['seconds_displayed']
         self.subsample_factor = self.visualization_settings['subsample_factor']
         self.win_s = int(self.win_t * self.receiver.fs / self.subsample_factor)
-        self.y_range = self.visualization_settings['scaling']['initial_y_range']
+        self.y_range = self.visualization_settings['scaling']['scale']
+        self.y_range = self.visualization_settings['scaling']['scale']
+        if not isinstance(self.y_range, list):
+            self.y_range = [-self.y_range, self.y_range]
         # Update view box menu
         self.plot_item_view_box.menu.set_channel_list()
         init_cha_label = self.visualization_settings['init_channel_label']
@@ -1170,20 +1198,23 @@ class PSDPlot(RealTimePlotPyQtGraph):
             }
         }
         visualization_settings = {
-            'init_channel_label': None,
-            'psd_window_seconds': 5,
+            'x_range': [0.1, 30],
             'scaling': {
+                'scale': [0, 1],
                 'apply_autoscale': True,
                 'n_std_tolerance_autoscale': 1.25,
                 'std_factor_separation_autoscale': 5,
-                'initial_y_range': [0, 10e-3],
             },
+            'psd_window_seconds': 5,
             'welch_overlap_pct': 25,
             'welch_seg_len_pct': 50,
-            'x_range': [0.1, 30],
-            'title': '<b>PSDPlotMultichannel</b>',
-            'x_axis_label': ['<b>Frequency</b>', 'Hz'],
-            'y_axis_label': ['<b>Power</b>', 'V^2/Hz'],
+            'init_channel_label': None,
+            'title': 'auto',
+            'x_axis_label': '<b>Frequency</b> (Hz)',
+            'y_axis_label': {
+                'text': '<b>Power</b>',
+                'units': '<math>V<sup>2</sup>/Hz</math>'
+            }
         }
         return preprocessing_settings, visualization_settings
 
@@ -1216,7 +1247,9 @@ class PSDPlot(RealTimePlotPyQtGraph):
         self.win_t = self.visualization_settings['psd_window_seconds']
         self.win_s = int(self.win_t * self.receiver.fs)
         self.n_samples_psd = self.win_s
-        self.y_range = self.visualization_settings['scaling']['initial_y_range']
+        self.y_range = self.visualization_settings['scaling']['scale']
+        if not isinstance(self.y_range, list):
+            self.y_range = [-self.y_range, self.y_range]
         # Update view box menu
         self.plot_item_view_box.menu.set_channel_list()
         init_cha_label = self.visualization_settings['init_channel_label']
