@@ -483,6 +483,7 @@ class TimePlotMultichannel(RealTimePlotPyQtGraph):
         self.subsample_factor = None
         # Custom menu
         self.plot_item_view_box = None
+        self.widget.wheelEvent = self.mouse_wheel_event
 
     class TimePlotMultichannelViewBoxMenu(QMenu):
         """ This class inherits from GMenu and implements the menu that appears
@@ -519,6 +520,13 @@ class TimePlotMultichannel(RealTimePlotPyQtGraph):
         self.plot_item_view_box = self.widget.getPlotItem().getViewBox()
         # Set the customized menu in the graph
         self.plot_item_view_box.menu = self.TimePlotMultichannelViewBoxMenu(self)
+
+    def mouse_wheel_event(self, event):
+        if event.angleDelta().y() > 0:
+            self.cha_separation /= 1.5
+        else:
+            self.cha_separation *= 1.5
+        self.draw_y_axis_ticks()
 
     @staticmethod
     def get_default_settings():
@@ -730,7 +738,7 @@ class TimePlotMultichannel(RealTimePlotPyQtGraph):
 
     def update_plot(self, chunk_times, chunk_signal):
         """This function updates the data in the graph. Notice that channel 0 is
-        drew up in the chart, whereas the last channel is in the bottom.
+        drawn up in the chart, whereas the last channel is in the bottom.
         """
         try:
             # Init time
@@ -774,6 +782,7 @@ class PSDPlotMultichannel(RealTimePlotPyQtGraph):
         self.n_samples_psd = None
         # Custom menu
         self.plot_item_view_box = None
+        self.widget.wheelEvent = self.mouse_wheel_event
 
     class PSDPlotMultichannelViewBoxMenu(QMenu):
         """ This class inherits from GMenu and implements the menu that appears
@@ -810,6 +819,13 @@ class PSDPlotMultichannel(RealTimePlotPyQtGraph):
         self.plot_item_view_box = self.widget.getPlotItem().getViewBox()
         # Set the customized menu in the graph
         self.plot_item_view_box.menu = self.PSDPlotMultichannelViewBoxMenu(self)
+
+    def mouse_wheel_event(self, event):
+        if event.angleDelta().y() > 0:
+            self.cha_separation /= 1.5
+        else:
+            self.cha_separation *= 1.5
+        self.draw_y_axis_ticks()
 
     @staticmethod
     def get_default_settings():
@@ -991,6 +1007,7 @@ class TimePlot(RealTimePlotPyQtGraph):
         self.subsample_factor = None
         # Custom menu
         self.plot_item_view_box = None
+        self.widget.wheelEvent = self.mouse_wheel_event
 
     class TimePlotViewBoxMenu(QMenu):
         """This class inherits from GMenu and implements the menu that appears
@@ -1031,6 +1048,14 @@ class TimePlot(RealTimePlotPyQtGraph):
         self.plot_item_view_box = self.plot_item.getViewBox()
         # Set the customized menu in the graph
         self.plot_item_view_box.menu = self.TimePlotViewBoxMenu(self)
+
+    def mouse_wheel_event(self, event):
+        if event.angleDelta().y() > 0:
+            self.y_range = [r / 1.5 for r in self.y_range]
+
+        else:
+            self.y_range = [r * 1.5 for r in self.y_range]
+        self.draw_y_axis_ticks()
 
     @staticmethod
     def get_default_settings():
@@ -1105,7 +1130,6 @@ class TimePlot(RealTimePlotPyQtGraph):
         self.subsample_factor = self.visualization_settings['subsample_factor']
         self.win_s = int(self.win_t * self.receiver.fs / self.subsample_factor)
         self.y_range = self.visualization_settings['scaling']['scale']
-        self.y_range = self.visualization_settings['scaling']['scale']
         if not isinstance(self.y_range, list):
             self.y_range = [-self.y_range, self.y_range]
         # Update view box menu
@@ -1132,10 +1156,9 @@ class TimePlot(RealTimePlotPyQtGraph):
         self.sig_in_graph = np.zeros([1, self.receiver.n_cha])
 
     def draw_y_axis_ticks(self):
-        if self.receiver.n_cha > 1:
-            self.plot_item.setYRange(self.y_range[0],
-                                     self.y_range[1],
-                                     padding=0)
+        self.plot_item.setYRange(self.y_range[0],
+                                 self.y_range[1],
+                                 padding=0)
 
     def draw_x_axis_ticks(self, x_in_graph):
         """Controls the X axis visualization (e.g., ticks, range, etc)"""
@@ -1275,6 +1298,7 @@ class PSDPlot(RealTimePlotPyQtGraph):
         self.y_range = None
         # Custom menu
         self.plot_item_view_box = None
+        self.widget.wheelEvent = self.mouse_wheel_event
 
     class PSDPlotViewBoxMenu(QMenu):
         """This class inherits from GMenu and implements the menu that appears
@@ -1315,6 +1339,14 @@ class PSDPlot(RealTimePlotPyQtGraph):
         self.plot_item_view_box = self.plot_item.getViewBox()
         # Set the customized menu in the graph
         self.plot_item_view_box.menu = self.PSDPlotViewBoxMenu(self)
+
+    def mouse_wheel_event(self, event):
+        if event.angleDelta().y() > 0:
+            self.y_range = [r / 1.5 for r in self.y_range]
+
+        else:
+            self.y_range = [r * 1.5 for r in self.y_range]
+        self.draw_y_axis_ticks()
 
     @staticmethod
     def get_default_settings():
@@ -1404,10 +1436,9 @@ class PSDPlot(RealTimePlotPyQtGraph):
         self.sig_in_graph = np.zeros([1, self.receiver.n_cha])
 
     def draw_y_axis_ticks(self):
-        if self.receiver.n_cha > 1:
-            self.plot_item.setYRange(self.y_range[0],
-                                     self.y_range[1],
-                                     padding=0)
+        self.plot_item.setYRange(self.y_range[0],
+                                 self.y_range[1],
+                                 padding=0)
 
     def draw_x_axis_ticks(self):
         self.plot_item.setXRange(
