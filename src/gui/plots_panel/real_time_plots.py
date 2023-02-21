@@ -20,6 +20,7 @@ import constants
 from medusa import meeg
 from medusa.plots import head_plots
 from medusa.local_activation import spectral_parameteres
+from medusa.connectivity import amplitude_connectivity, phase_connectivity
 
 
 class RealTimePlot(ABC):
@@ -134,9 +135,7 @@ class RealTimePlot(ABC):
         """
         raise NotImplemented
 
-
-class TopographyPlot(RealTimePlot):
-
+class HeadPlot(RealTimePlot):
     def __init__(self, uid, plot_state, medusa_interface, theme_colors):
         super().__init__(uid, plot_state, medusa_interface, theme_colors)
         # Graph variables
@@ -151,7 +150,9 @@ class TopographyPlot(RealTimePlot):
         self.time_in_graph = None
         self.sig_in_graph = None
         self.head_handles = None
-        self.topography_handles = None
+        self.plot_handles = None
+        self.update_samples = None
+        self.samples_counter = 0
 
         # Create widget
         fig = Figure()
@@ -163,6 +164,50 @@ class TopographyPlot(RealTimePlot):
         # Important to avoid minimum size of the figure!!
         self.widget.figure.set_size_inches(0, 0)
 
+    @staticmethod
+    def check_signal(signal_type):
+        if signal_type != 'EEG':
+            raise ValueError('Only EEG signals are supported for the moment')
+        else:
+            return True
+    def init_head_plot(self):
+        # Create widget
+        self.channel_set = meeg.EEGChannelSet()
+        self.channel_set.set_standard_montage(
+            l_cha=self.receiver.l_cha,
+            standard=self.visualization_settings['channel-standard'])
+        self.head_handles = head_plots.plot_head(
+            axes=self.widget.figure.axes[0],
+            channel_set=self.channel_set,
+            plot_ch_points=self.visualization_settings['show-channels'],
+            plot_ch_labels=self.visualization_settings['show-channel-labels'],
+            plot_skin=self.visualization_settings['plot-skin'],
+            skin_color=self.visualization_settings['skin-color']
+        )
+
+    def append_data(self, chunk_times, chunk_signal):
+        self.time_in_graph = np.hstack((self.time_in_graph, chunk_times))
+        if len(self.time_in_graph) >= self.win_s:
+            self.time_in_graph = self.time_in_graph[-self.win_s:]
+        self.sig_in_graph = np.vstack((self.sig_in_graph, chunk_signal))
+        if len(self.sig_in_graph) >= self.win_s:
+            self.sig_in_graph = self.sig_in_graph[-self.win_s:]
+        return self.time_in_graph.copy(), self.sig_in_graph.copy()
+
+    def update_plot(self, chunk_times, chunk_signal):
+        """Init the plot. It's called before starting the worker"""
+        raise NotImplemented
+
+    def clear_plot(self):
+        if self.plot_handles is not None:
+            head_plots.remove_handles(self.plot_handles)
+        self.plot_handles = None
+        self.widget.draw()
+
+class TopographyPlot(HeadPlot):
+
+    def __init__(self, uid, plot_state, medusa_interface, theme_colors):
+        super().__init__(uid, plot_state, medusa_interface, theme_colors)
     @staticmethod
     def get_default_settings():
         preprocessing_settings = {
@@ -185,6 +230,7 @@ class TopographyPlot(RealTimePlot):
                 'power-range': [8, 13]}
         }
         visualization_settings = {
+            'update-rate': 0.2,
             'title': '<b>TopoPlot</b>',
             'interp-points': 100,
             'color-map': 'seismic',
@@ -200,85 +246,161 @@ class TopographyPlot(RealTimePlot):
     def check_settings(signal_settings, plot_settings):
         return True
 
-    @staticmethod
-    def check_signal(signal_type):
-        if signal_type != 'EEG':
-            raise ValueError('Only EEG signals are supported for the moment')
-        else:
-            return True
-
     def init_plot(self):
-        # Create widget
-        self.channel_set = meeg.EEGChannelSet()
-        self.channel_set.set_standard_montage(
-            l_cha=self.receiver.l_cha,
-            standard=self.visualization_settings['channel-standard'])
-        self.head_handles = head_plots.plot_head(
-            axes=self.widget.figure.axes[0],
-            channel_set=self.channel_set,
-            plot_ch_points=self.visualization_settings['show-channels'],
-            plot_ch_labels=self.visualization_settings['show-channel-labels'],
-            plot_skin=self.visualization_settings['show-channel-labels'],
-            skin_color=self.visualization_settings['skin-color']
-        )
+        self.init_head_plot()
         # Signal processing
         self.win_s = int(
             self.preprocessing_settings['PSD']['time-window']*self.receiver.fs)
+        self.update_samples = int(
+            self.visualization_settings['update-rate']*self.receiver.fs)
         # Update view box menu
         self.time_in_graph = np.zeros(1)
         self.sig_in_graph = np.zeros([1, self.receiver.n_cha])
-
-    def append_data(self, chunk_times, chunk_signal):
-        self.time_in_graph = np.hstack((self.time_in_graph, chunk_times))
-        if len(self.time_in_graph) >= self.win_s:
-            self.time_in_graph = self.time_in_graph[-self.win_s:]
-        self.sig_in_graph = np.vstack((self.sig_in_graph, chunk_signal))
-        if len(self.sig_in_graph) >= self.win_s:
-            self.sig_in_graph = self.sig_in_graph[-self.win_s:]
-        return self.time_in_graph.copy(), self.sig_in_graph.copy()
 
     def update_plot(self, chunk_times, chunk_signal):
         try:
             # Append new data and get safe copy
             x_in_graph, sig_in_graph = \
                 self.append_data(chunk_times, chunk_signal)
-            # Compute PSD
-            welch_seg_len = np.round(
-                self.preprocessing_settings['PSD']['welch_seg_len_pct'] / 100.0
-                * sig_in_graph.shape[0]).astype(int)
-            welch_overlap = np.round(
-                self.preprocessing_settings['PSD']['welch_overlap_pct'] / 100.0
-                * welch_seg_len).astype(int)
-            welch_ndft = welch_seg_len
-            _, psd = scp_signal.welch(
-                sig_in_graph, fs=self.receiver.fs,
-                nperseg=welch_seg_len, noverlap=welch_overlap,
-                nfft=welch_ndft, axis=0)
-            # Compute power
-            power_values = spectral_parameteres.absolute_band_power(
-                psd=psd[np.newaxis, :, :], fs=self.receiver.fs,
-                target_band=self.preprocessing_settings['PSD']['power-range'])
-            # Plot topography
-            if self.topography_handles is not None:
-                head_plots.remove_handles(self.topography_handles)
-            self.topography_handles = head_plots.plot_topography(
-                axes=self.widget.figure.axes[0],
-                channel_set=self.channel_set,
-                values=power_values,
-                interp_points=self.visualization_settings['interp-points'],
-                cmap=self.cmap,
-                show_colorbar=False,
-                plot_extra=False)
-            self.widget.draw()
+            # Check if the amount of chunk samples received are equal
+            # to update samples
+            self.samples_counter += len(chunk_times)
+            if self.samples_counter >= self.update_samples:
+                self.samples_counter = 0
+                # Compute PSD
+                welch_seg_len = np.round(
+                    self.preprocessing_settings['PSD']['welch_seg_len_pct'] / 100.0
+                    * sig_in_graph.shape[0]).astype(int)
+                welch_overlap = np.round(
+                    self.preprocessing_settings['PSD']['welch_overlap_pct'] / 100.0
+                    * welch_seg_len).astype(int)
+                welch_ndft = welch_seg_len
+                _, psd = scp_signal.welch(
+                    sig_in_graph, fs=self.receiver.fs,
+                    nperseg=welch_seg_len, noverlap=welch_overlap,
+                    nfft=welch_ndft, axis=0)
+                # Compute power
+                power_values = spectral_parameteres.absolute_band_power(
+                    psd=psd[np.newaxis, :, :], fs=self.receiver.fs,
+                    target_band=self.preprocessing_settings['PSD']['power-range'])
+                # Plot topography
+                if self.plot_handles is not None:
+                    head_plots.remove_handles(self.plot_handles)
+                self.plot_handles = head_plots.plot_topography(
+                    axes=self.widget.figure.axes[0],
+                    channel_set=self.channel_set,
+                    values=power_values,
+                    interp_points=self.visualization_settings['interp-points'],
+                    cmap=self.visualization_settings['color-map'],
+                    show_colorbar=False,
+                    plot_extra=False)
+                self.widget.draw()
         except Exception as e:
             self.handle_exception(e)
 
-    def clear_plot(self):
-        if self.topography_handles is not None:
-            head_plots.remove_handles(self.topography_handles)
-        self.topography_handles = None
-        self.widget.draw()
+class ConnectivityPlot(HeadPlot):
 
+    def __init__(self, uid, plot_state, medusa_interface, theme_colors):
+        super().__init__(uid, plot_state, medusa_interface, theme_colors)
+        self.clim = None
+    @staticmethod
+    def get_default_settings():
+        preprocessing_settings = {
+            'frequency-filter': {
+                'apply': True,
+                'type': 'highpass',
+                'cutoff-freq': [1],
+                'order': 5
+            },
+            'notch-filter': {
+                'apply': True,
+                'freq': 50,
+                'bandwidth': [-0.5, 0.5],
+                'order': 5
+            },
+            'Connectivity': {
+                'time-window': 2,
+                'conn_metric': 'aec',
+                'threshold': 50,
+                'band-range': [8, 13]}
+        }
+        visualization_settings = {
+            'title': '<b>ConnectivityPlot</b>',
+            'update-rate': 0.2,
+            'color-map': 'seismic',
+            'channel-standard': '10-05',
+            'show-channel-labels': True,
+            'show-channels': True,
+            'plot-skin': True,
+            'skin-color': 'yellow'
+        }
+        return preprocessing_settings, visualization_settings
+
+    @staticmethod
+    def check_settings(signal_settings, plot_settings):
+        allowed_conn_metrics = ['aec','plv','pli','wpli']
+        if signal_settings['Connectivity']\
+            ['conn_metric'] not in allowed_conn_metrics:
+            raise ValueError("Connectivity metric selected not implemented."
+                             "Please, select between the following:"
+                             "aec, plv, pli or plv")
+        else:
+            return True
+
+    def init_plot(self):
+        self.init_head_plot()
+        # Signal processing
+        self.win_s = int(
+            self.preprocessing_settings
+            ['Connectivity']['time-window']*self.receiver.fs)
+        self.update_samples = int(
+            self.visualization_settings['update-rate']*self.receiver.fs)
+        # Update view box menu
+        self.time_in_graph = np.zeros(1)
+        self.sig_in_graph = np.zeros([1, self.receiver.n_cha])
+        if self.preprocessing_settings['Connectivity']['conn_metric'] == 'aec':
+            self.clim = [-1,1]
+        else:
+            self.clim = [0,1]
+
+    def update_plot(self, chunk_times, chunk_signal):
+        try:
+            # Append new data and get safe copy
+            x_in_graph, sig_in_graph = \
+                self.append_data(chunk_times, chunk_signal)
+            # Check if the amount of chunk samples received are equal
+            # to update samples
+            self.samples_counter += len(chunk_times)
+            if self.samples_counter >= self.update_samples:
+                self.samples_counter = 0
+                # Compute connectivity
+                if self.preprocessing_settings\
+                    ['Connectivity']['conn_metric'] == 'aec':
+                    adj_mat = amplitude_connectivity.aec(sig_in_graph).squeeze()
+                else:
+                    adj_mat = phase_connectivity.phase_connectivity(
+                        sig_in_graph, self.preprocessing_settings['Connectivity']
+                        ['conn_metric']).squeeze()
+
+                # Apply threshold
+                if self.preprocessing_settings['Connectivity']['threshold'] is not None:
+                    th_idx = np.abs(adj_mat) > np.percentile(np.abs(adj_mat),
+                            self.preprocessing_settings['Connectivity']['threshold']
+                            )
+                    adj_mat = adj_mat * th_idx
+
+                # Plot connectivity
+                if self.plot_handles is not None:
+                    head_plots.remove_handles(self.plot_handles)
+                self.plot_handles = head_plots.plot_connectivity(
+                    axes=self.widget.figure.axes[0],
+                    channel_set=self.channel_set,
+                    adj_mat=adj_mat,
+                    cmap=self.visualization_settings['color-map'],
+                    clim=self.clim)
+                self.widget.draw()
+        except Exception as e:
+            self.handle_exception(e)
 
 class RealTimePlotPyQtGraph(RealTimePlot, ABC):
 
@@ -1404,5 +1526,10 @@ __plots_info__ = [
         'uid': 'TopographyPlot',
         'description': 'Real time topography plot for M/EEG signals.',
         'class': TopographyPlot
-    }
+    },
+    {
+        'uid': 'ConnectivityPlot',
+        'description': 'Real time connectivity plot for M/EEG signals.',
+        'class': ConnectivityPlot
+    },
 ]
