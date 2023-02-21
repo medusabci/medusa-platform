@@ -242,7 +242,7 @@ class TopographyPlot(HeadPlot):
         visualization_settings = {
             'update-rate': 0.2,
             'interp-points': 100,
-            'color-map': 'seismic',
+            'color-map': 'viridis',
             'channel-standard': '10-05',
             'show-channel-labels': True,
             'show-channels': True,
@@ -338,7 +338,7 @@ class ConnectivityPlot(HeadPlot):
         }
         visualization_settings = {
             'update-rate': 0.2,
-            'color-map': 'seismic',
+            'color-map': 'viridis',
             'channel-standard': '10-05',
             'show-channel-labels': True,
             'show-channels': True,
