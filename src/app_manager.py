@@ -157,6 +157,7 @@ class AppManager:
                 info['installation-date'] = self.get_date_today()
                 self.apps_dict[info['id']] = info
                 self.update_apps_file()
+
         except Exception as e:
             progress_dialog.reject()
             self.handle_exception(e)
