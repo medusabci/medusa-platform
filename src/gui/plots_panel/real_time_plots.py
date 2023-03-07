@@ -136,8 +136,7 @@ class RealTimePlot(ABC):
         raise NotImplemented
 
 
-class TopographyPlot(RealTimePlot):
-
+class HeadPlot(RealTimePlot):
     def __init__(self, uid, plot_state, medusa_interface, theme_colors):
         super().__init__(uid, plot_state, medusa_interface, theme_colors)
         # Graph variables
@@ -165,7 +164,6 @@ class TopographyPlot(RealTimePlot):
         self.widget = FigureCanvasQTAgg(fig)
         # Important to avoid minimum size of the figure!!
         self.widget.figure.set_size_inches(0, 0)
-        self.topo_plot = None
 
     @staticmethod
     def check_signal(signal_type):
@@ -173,6 +171,52 @@ class TopographyPlot(RealTimePlot):
             raise ValueError('Only EEG signals are supported for the moment')
         else:
             return True
+
+    def init_head_plot(self):
+        # Create widget
+        self.channel_set = meeg.EEGChannelSet()
+        self.channel_set.set_standard_montage(
+            l_cha=self.receiver.l_cha,
+            standard=self.visualization_settings['channel-standard'])
+        self.head_handles = head_plots.plot_head(
+            axes=self.widget.figure.axes[0],
+            channel_set=self.channel_set,
+            plot_ch_points=self.visualization_settings['show-channels'],
+            plot_ch_labels=self.visualization_settings['show-channel-labels'],
+            plot_skin=self.visualization_settings['plot-skin'],
+            skin_color=self.visualization_settings['skin-color']
+        )
+        # Set title
+        title = self.visualization_settings['title']
+        title = self.receiver.lsl_stream_info.medusa_uid if title == 'auto' \
+            else title
+        self.widget.figure.suptitle(
+            title, color=self.theme_colors['THEME_TEXT_LIGHT'])
+
+    def append_data(self, chunk_times, chunk_signal):
+        self.time_in_graph = np.hstack((self.time_in_graph, chunk_times))
+        if len(self.time_in_graph) >= self.win_s:
+            self.time_in_graph = self.time_in_graph[-self.win_s:]
+        self.sig_in_graph = np.vstack((self.sig_in_graph, chunk_signal))
+        if len(self.sig_in_graph) >= self.win_s:
+            self.sig_in_graph = self.sig_in_graph[-self.win_s:]
+        return self.time_in_graph.copy(), self.sig_in_graph.copy()
+
+    def update_plot(self, chunk_times, chunk_signal):
+        """Init the plot. It's called before starting the worker"""
+        raise NotImplemented
+
+    def clear_plot(self):
+        if self.plot_handles is not None:
+            head_plots.remove_handles(self.plot_handles)
+        self.plot_handles = None
+        self.widget.draw()
+
+
+class TopographyPlot(HeadPlot):
+
+    def __init__(self, uid, plot_state, medusa_interface, theme_colors):
+        super().__init__(uid, plot_state, medusa_interface, theme_colors)
 
     @staticmethod
     def get_default_settings():
@@ -196,15 +240,15 @@ class TopographyPlot(RealTimePlot):
                 'power-range': [8, 13]}
         }
         visualization_settings = {
-            "update-rate": 0.2,
-            "title": "<b>TopoPlot</b>",
-            "channel-standard": "10-05",
-            "extra_radius": 0.29,
-            "interp_points": 100,
-            "cmap": "PiYG",
-            "head_skin_color": "#E8BEAC",
-            "plot_channel_labels": True,
-            "plot_channel_points": True
+            'update-rate': 0.2,
+            'interp-points': 100,
+            'color-map': 'viridis',
+            'channel-standard': '10-05',
+            'show-channel-labels': True,
+            'show-channels': True,
+            'plot-skin': True,
+            'skin-color': '#ffad91',
+            'title': 'auto',
         }
         return preprocessing_settings, visualization_settings
 
@@ -212,27 +256,8 @@ class TopographyPlot(RealTimePlot):
     def check_settings(signal_settings, plot_settings):
         return True
 
-    def append_data(self, chunk_times, chunk_signal):
-        self.time_in_graph = np.hstack((self.time_in_graph, chunk_times))
-        if len(self.time_in_graph) >= self.win_s:
-            self.time_in_graph = self.time_in_graph[-self.win_s:]
-        self.sig_in_graph = np.vstack((self.sig_in_graph, chunk_signal))
-        if len(self.sig_in_graph) >= self.win_s:
-            self.sig_in_graph = self.sig_in_graph[-self.win_s:]
-        return self.time_in_graph.copy(), self.sig_in_graph.copy()
-
     def init_plot(self):
-        # Create widget
-        self.channel_set = meeg.EEGChannelSet()
-        self.channel_set.set_standard_montage(
-            l_cha=self.receiver.l_cha,
-            standard=self.visualization_settings['channel-standard'])
-        # Initialize
-        self.topo_plot = head_plots.TopographicPlot(
-            axes=self.widget.figure.axes[0],
-            channel_set=self.channel_set,
-            **self.visualization_settings
-        )
+        self.init_head_plot()
         # Signal processing
         self.win_s = int(
             self.preprocessing_settings['PSD']['time-window']*self.receiver.fs)
@@ -269,54 +294,26 @@ class TopographyPlot(RealTimePlot):
                     psd=psd[np.newaxis, :, :], fs=self.receiver.fs,
                     target_band=self.preprocessing_settings['PSD']['power-range'])
                 # Plot topography
-                self.topo_plot.update(values=power_values)
+                if self.plot_handles is not None:
+                    head_plots.remove_handles(self.plot_handles)
+                self.plot_handles = head_plots.plot_topography(
+                    axes=self.widget.figure.axes[0],
+                    channel_set=self.channel_set,
+                    values=power_values,
+                    interp_points=self.visualization_settings['interp-points'],
+                    cmap=self.visualization_settings['color-map'],
+                    show_colorbar=False,
+                    plot_extra=False)
                 self.widget.draw()
         except Exception as e:
             self.handle_exception(e)
 
-    def clear_plot(self):
-        self.topo_plot.clear()
-        self.widget.draw()
 
-
-class ConnectivityPlot(RealTimePlot):
+class ConnectivityPlot(HeadPlot):
 
     def __init__(self, uid, plot_state, medusa_interface, theme_colors):
         super().__init__(uid, plot_state, medusa_interface, theme_colors)
-        # Graph variables
-        self.fig = None
-        self.axes = None
-        self.channel_set = None
-        self.win_s = None
-        self.interp_p = None
-        self.cmap = None
-        self.show_channels = None
-        self.show_clabel = None
-        self.time_in_graph = None
-        self.sig_in_graph = None
-        self.head_handles = None
-        self.plot_handles = None
-        self.update_samples = None
-        self.samples_counter = 0
         self.clim = None
-
-        # Create widget
-        fig = Figure()
-        fig.add_subplot(111)
-        fig.tight_layout()
-        fig.patch.set_color(self.theme_colors['THEME_BG_DARK'])
-        # fig.patch.set_alpha(0.0)
-        self.widget = FigureCanvasQTAgg(fig)
-        # Important to avoid minimum size of the figure!!
-        self.widget.figure.set_size_inches(0, 0)
-        self.conn_plot = None
-
-    @staticmethod
-    def check_signal(signal_type):
-        if signal_type != 'EEG':
-            raise ValueError('Only EEG signals are supported for the moment')
-        else:
-            return True
 
     @staticmethod
     def get_default_settings():
@@ -340,19 +337,20 @@ class ConnectivityPlot(RealTimePlot):
                 'band-range': [8, 13]}
         }
         visualization_settings = {
-            "update-rate": 0.2,
-            "title": "<b>ConnectivityPlot</b>",
-            "channel-standard": "10-05",
-            "cmap": "RdBu",
-            "head_skin_color": "#E8BEAC",
-            "plot_channel_labels": True,
-            "plot_channel_points": True
+            'update-rate': 0.2,
+            'color-map': 'viridis',
+            'channel-standard': '10-05',
+            'show-channel-labels': True,
+            'show-channels': True,
+            'plot-skin': True,
+            'skin-color': '#ffad91',
+            'title': 'auto',
         }
         return preprocessing_settings, visualization_settings
 
     @staticmethod
     def check_settings(signal_settings, plot_settings):
-        allowed_conn_metrics = ['aec','plv','pli','wpli']
+        allowed_conn_metrics = ['aec', 'plv', 'pli', 'wpli']
         if signal_settings['Connectivity']\
             ['conn_metric'] not in allowed_conn_metrics:
             raise ValueError("Connectivity metric selected not implemented."
@@ -361,40 +359,21 @@ class ConnectivityPlot(RealTimePlot):
         else:
             return True
 
-    def append_data(self, chunk_times, chunk_signal):
-        self.time_in_graph = np.hstack((self.time_in_graph, chunk_times))
-        if len(self.time_in_graph) >= self.win_s:
-            self.time_in_graph = self.time_in_graph[-self.win_s:]
-        self.sig_in_graph = np.vstack((self.sig_in_graph, chunk_signal))
-        if len(self.sig_in_graph) >= self.win_s:
-            self.sig_in_graph = self.sig_in_graph[-self.win_s:]
-        return self.time_in_graph.copy(), self.sig_in_graph.copy()
-
     def init_plot(self):
-        # Create widget
-        self.channel_set = meeg.EEGChannelSet()
-        self.channel_set.set_standard_montage(
-            l_cha=self.receiver.l_cha,
-            standard=self.visualization_settings['channel-standard'])
-        # Initialize
-        self.conn_plot = head_plots.ConnectivityPlot(
-            axes=self.widget.figure.axes[0],
-            channel_set=self.channel_set,
-            **self.visualization_settings
-        )
+        self.init_head_plot()
         # Signal processing
         self.win_s = int(
             self.preprocessing_settings
-            ['Connectivity']['time-window'] * self.receiver.fs)
+            ['Connectivity']['time-window']*self.receiver.fs)
         self.update_samples = int(
-            self.visualization_settings['update-rate'] * self.receiver.fs)
+            self.visualization_settings['update-rate']*self.receiver.fs)
         # Update view box menu
         self.time_in_graph = np.zeros(1)
         self.sig_in_graph = np.zeros([1, self.receiver.n_cha])
         if self.preprocessing_settings['Connectivity']['conn_metric'] == 'aec':
-            self.clim = [-1, 1]
+            self.clim = [-1,1]
         else:
-            self.clim = [0, 1]
+            self.clim = [0,1]
 
     def update_plot(self, chunk_times, chunk_signal):
         try:
@@ -407,34 +386,33 @@ class ConnectivityPlot(RealTimePlot):
             if self.samples_counter >= self.update_samples:
                 self.samples_counter = 0
                 # Compute connectivity
-                if self.preprocessing_settings \
-                        ['Connectivity']['conn_metric'] == 'aec':
+                if self.preprocessing_settings\
+                    ['Connectivity']['conn_metric'] == 'aec':
                     adj_mat = amplitude_connectivity.aec(sig_in_graph).squeeze()
                 else:
                     adj_mat = phase_connectivity.phase_connectivity(
-                        sig_in_graph,
-                        self.preprocessing_settings['Connectivity']
+                        sig_in_graph, self.preprocessing_settings['Connectivity']
                         ['conn_metric']).squeeze()
 
                 # Apply threshold
-                if self.preprocessing_settings['Connectivity'][
-                    'threshold'] is not None:
-                    th_idx = adj_mat > np.percentile(adj_mat,
-                                                     self.preprocessing_settings[
-                                                         'Connectivity'][
-                                                         'threshold']
-                                                     )
+                if self.preprocessing_settings['Connectivity']['threshold'] is not None:
+                    th_idx = np.abs(adj_mat) > np.percentile(np.abs(adj_mat),
+                            self.preprocessing_settings['Connectivity']['threshold']
+                            )
                     adj_mat = adj_mat * th_idx
 
                 # Plot connectivity
-                self.conn_plot.update(adj_mat=adj_mat)
+                if self.plot_handles is not None:
+                    head_plots.remove_handles(self.plot_handles)
+                self.plot_handles = head_plots.plot_connectivity(
+                    axes=self.widget.figure.axes[0],
+                    channel_set=self.channel_set,
+                    adj_mat=adj_mat,
+                    cmap=self.visualization_settings['color-map'],
+                    clim=self.clim)
                 self.widget.draw()
         except Exception as e:
             self.handle_exception(e)
-
-    def clear_plot(self):
-        self.conn_plot.clear()
-        self.widget.draw()
 
 
 class RealTimePlotPyQtGraph(RealTimePlot, ABC):
@@ -461,12 +439,27 @@ class RealTimePlotPyQtGraph(RealTimePlot, ABC):
         self.offset_width = 1
         self.marker_width = 2
 
-    def set_titles(self, plot_title, x_axis_title, y_axis_title):
-        self.widget.setTitle(plot_title)
-        self.widget.setLabel('bottom', text=x_axis_title[0],
-                             units=x_axis_title[1])
-        self.widget.setLabel('left', text=y_axis_title[0],
-                             units=y_axis_title[1])
+    def set_titles(self, title, x_axis_label, y_axis_label):
+        title = self.receiver.lsl_stream_info.medusa_uid if title == 'auto' \
+            else title
+        if y_axis_label['units'] == 'auto':
+            try:
+                cha_units = [self.receiver.lsl_stream_info.cha_info[0]['units']
+                             for x in self.receiver.lsl_stream_info.cha_info]
+                if all(cha_units[0] == units for units in cha_units):
+                    units = cha_units[0]
+                else:
+                    units = ''
+            except Exception as e:
+                units = ''
+            y_axis_label = '%s (%s)' % \
+                           (y_axis_label['text'], units)
+        else:
+            y_axis_label = '%s (%s)' % (y_axis_label['text'],
+                                        y_axis_label['units'])
+        self.widget.setTitle(title)
+        self.widget.setLabel('bottom', text=x_axis_label)
+        self.widget.setLabel('left', text=y_axis_label)
         fn = QFont()
         fn.setBold(True)
         self.widget.getAxis("bottom").setTickFont(fn)
@@ -490,6 +483,7 @@ class TimePlotMultichannel(RealTimePlotPyQtGraph):
         self.subsample_factor = None
         # Custom menu
         self.plot_item_view_box = None
+        self.widget.wheelEvent = self.mouse_wheel_event
 
     class TimePlotMultichannelViewBoxMenu(QMenu):
         """ This class inherits from GMenu and implements the menu that appears
@@ -527,6 +521,13 @@ class TimePlotMultichannel(RealTimePlotPyQtGraph):
         # Set the customized menu in the graph
         self.plot_item_view_box.menu = self.TimePlotMultichannelViewBoxMenu(self)
 
+    def mouse_wheel_event(self, event):
+        if event.angleDelta().y() > 0:
+            self.cha_separation /= 1.5
+        else:
+            self.cha_separation *= 1.5
+        self.draw_y_axis_ticks()
+
     @staticmethod
     def get_default_settings():
         preprocessing_settings = {
@@ -545,17 +546,20 @@ class TimePlotMultichannel(RealTimePlotPyQtGraph):
         }
         visualization_settings = {
             'mode': 'clinical',
-            'seconds_displayed': 5,
+            'seconds_displayed': 10,
             'subsample_factor': 2,
             'scaling': {
+                'scale': 1,
                 'apply_autoscale': True,
                 'n_std_tolerance_autoscale': 1.25,
                 'std_factor_separation_autoscale': 5,
-                'initial_channel_separation': 150,
             },
-            'title': '<b>TimePlotMultichannel</b>',
-            'x_axis_label': ['<b>Time</b>', 's'],
-            'y_axis_label': ['<b>Signal</b>', 'V'],
+            'title': 'auto',
+            'x_axis_label': '<b>Time</b> (s)',
+            'y_axis_label': {
+                'text': '<b>Signal</b>',
+                'units': 'auto'
+            }
         }
         return preprocessing_settings, visualization_settings
 
@@ -585,7 +589,7 @@ class TimePlotMultichannel(RealTimePlotPyQtGraph):
                         self.visualization_settings['y_axis_label'])
         # Update variables
         self.cha_separation = \
-            self.visualization_settings['scaling']['initial_channel_separation']
+            self.visualization_settings['scaling']['scale']
         self.win_t = self.visualization_settings['seconds_displayed']
         self.subsample_factor = self.visualization_settings['subsample_factor']
         self.win_s = int(self.win_t * self.receiver.fs / self.subsample_factor)
@@ -734,7 +738,7 @@ class TimePlotMultichannel(RealTimePlotPyQtGraph):
 
     def update_plot(self, chunk_times, chunk_signal):
         """This function updates the data in the graph. Notice that channel 0 is
-        drew up in the chart, whereas the last channel is in the bottom.
+        drawn up in the chart, whereas the last channel is in the bottom.
         """
         try:
             # Init time
@@ -778,6 +782,7 @@ class PSDPlotMultichannel(RealTimePlotPyQtGraph):
         self.n_samples_psd = None
         # Custom menu
         self.plot_item_view_box = None
+        self.widget.wheelEvent = self.mouse_wheel_event
 
     class PSDPlotMultichannelViewBoxMenu(QMenu):
         """ This class inherits from GMenu and implements the menu that appears
@@ -815,6 +820,13 @@ class PSDPlotMultichannel(RealTimePlotPyQtGraph):
         # Set the customized menu in the graph
         self.plot_item_view_box.menu = self.PSDPlotMultichannelViewBoxMenu(self)
 
+    def mouse_wheel_event(self, event):
+        if event.angleDelta().y() > 0:
+            self.cha_separation /= 1.5
+        else:
+            self.cha_separation *= 1.5
+        self.draw_y_axis_ticks()
+
     @staticmethod
     def get_default_settings():
         preprocessing_settings = {
@@ -832,27 +844,31 @@ class PSDPlotMultichannel(RealTimePlotPyQtGraph):
             }
         }
         visualization_settings = {
-            'psd_window_seconds': 5,
+            'x_range': [0.1, 30],
             'scaling': {
+                'scale': 1,
                 'apply_autoscale': True,
                 'n_std_tolerance_autoscale': 1.25,
-                'std_factor_separation_autoscale': 5,
-                'initial_channel_separation': 10e-3,
+                'std_factor_separation_autoscale': 5
             },
+            'psd_window_seconds': 5,
             'welch_overlap_pct': 25,
             'welch_seg_len_pct': 50,
-            'x_range': [0.1, 30],
-            'y_range': 'auto',
             'init_channel_label': None,
-            'title': '<b>PSDPlotMultichannel</b>',
-            'x_axis_label': ['<b>Frequency</b>', 'Hz'],
-            'y_axis_label': ['<b>Power</b>', '<math>V<sup>2</sup>/Hz</math>'],
+            'title': 'auto',
+            'x_axis_label': '<b>Frequency</b> (Hz)',
+            'y_axis_label': {
+                'text': '<b>Power</b>',
+                'units': '<math>V<sup>2</sup>/Hz</math>',
+            }
         }
         return preprocessing_settings, visualization_settings
 
     @staticmethod
     def check_settings(preprocessing_settings, visualization_settings):
-        pass
+        if isinstance(visualization_settings['scaling']['scale'], list):
+            raise ValueError('Incorrect configuration. Parameter scaling/scale'
+                             'must be a number.')
 
     @staticmethod
     def check_signal(signal_type):
@@ -869,7 +885,7 @@ class PSDPlotMultichannel(RealTimePlotPyQtGraph):
                         self.visualization_settings['y_axis_label'])
         # Update variables
         self.cha_separation = \
-            self.visualization_settings['scaling']['initial_channel_separation']
+            self.visualization_settings['scaling']['scale']
         self.win_t = self.visualization_settings['psd_window_seconds']
         self.win_s = int(self.win_t * self.receiver.fs)
         self.n_samples_psd = self.win_s
@@ -991,6 +1007,7 @@ class TimePlot(RealTimePlotPyQtGraph):
         self.subsample_factor = None
         # Custom menu
         self.plot_item_view_box = None
+        self.widget.wheelEvent = self.mouse_wheel_event
 
     class TimePlotViewBoxMenu(QMenu):
         """This class inherits from GMenu and implements the menu that appears
@@ -1032,6 +1049,14 @@ class TimePlot(RealTimePlotPyQtGraph):
         # Set the customized menu in the graph
         self.plot_item_view_box.menu = self.TimePlotViewBoxMenu(self)
 
+    def mouse_wheel_event(self, event):
+        if event.angleDelta().y() > 0:
+            self.y_range = [r / 1.5 for r in self.y_range]
+
+        else:
+            self.y_range = [r * 1.5 for r in self.y_range]
+        self.draw_y_axis_ticks()
+
     @staticmethod
     def get_default_settings():
         preprocessing_settings = {
@@ -1050,18 +1075,21 @@ class TimePlot(RealTimePlotPyQtGraph):
         }
         visualization_settings = {
             'mode': 'clinical',
-            'init_channel_label': None,
-            'seconds_displayed': 5,
+            'seconds_displayed': 10,
             'subsample_factor': 2,
             'scaling': {
+                'scale': [-1, 1],
                 'apply_autoscale': True,
                 'n_std_tolerance_autoscale': 1.25,
-                'std_factor_separation_autoscale': 5,
-                'initial_y_range': [-1, 1],
+                'std_factor_separation_autoscale': 5
             },
-            'title': '<b>TimePlot</b>',
-            'x_axis_label': ['<b>Time</b>', 's'],
-            'y_axis_label': ['<b>Signal</b>', 'V'],
+            'init_channel_label': None,
+            'title': 'auto',
+            'x_axis_label': '<b>Time</b> (s)',
+            'y_axis_label': {
+                'text': '<b>Signal</b>',
+                'units': 'V'
+            }
         }
         return preprocessing_settings, visualization_settings
 
@@ -1101,7 +1129,9 @@ class TimePlot(RealTimePlotPyQtGraph):
         self.win_t = self.visualization_settings['seconds_displayed']
         self.subsample_factor = self.visualization_settings['subsample_factor']
         self.win_s = int(self.win_t * self.receiver.fs / self.subsample_factor)
-        self.y_range = self.visualization_settings['scaling']['initial_y_range']
+        self.y_range = self.visualization_settings['scaling']['scale']
+        if not isinstance(self.y_range, list):
+            self.y_range = [-self.y_range, self.y_range]
         # Update view box menu
         self.plot_item_view_box.menu.set_channel_list()
         init_cha_label = self.visualization_settings['init_channel_label']
@@ -1126,10 +1156,9 @@ class TimePlot(RealTimePlotPyQtGraph):
         self.sig_in_graph = np.zeros([1, self.receiver.n_cha])
 
     def draw_y_axis_ticks(self):
-        if self.receiver.n_cha > 1:
-            self.plot_item.setYRange(self.y_range[0],
-                                     self.y_range[1],
-                                     padding=0)
+        self.plot_item.setYRange(self.y_range[0],
+                                 self.y_range[1],
+                                 padding=0)
 
     def draw_x_axis_ticks(self, x_in_graph):
         """Controls the X axis visualization (e.g., ticks, range, etc)"""
@@ -1269,6 +1298,7 @@ class PSDPlot(RealTimePlotPyQtGraph):
         self.y_range = None
         # Custom menu
         self.plot_item_view_box = None
+        self.widget.wheelEvent = self.mouse_wheel_event
 
     class PSDPlotViewBoxMenu(QMenu):
         """This class inherits from GMenu and implements the menu that appears
@@ -1310,6 +1340,14 @@ class PSDPlot(RealTimePlotPyQtGraph):
         # Set the customized menu in the graph
         self.plot_item_view_box.menu = self.PSDPlotViewBoxMenu(self)
 
+    def mouse_wheel_event(self, event):
+        if event.angleDelta().y() > 0:
+            self.y_range = [r / 1.5 for r in self.y_range]
+
+        else:
+            self.y_range = [r * 1.5 for r in self.y_range]
+        self.draw_y_axis_ticks()
+
     @staticmethod
     def get_default_settings():
         preprocessing_settings = {
@@ -1327,20 +1365,23 @@ class PSDPlot(RealTimePlotPyQtGraph):
             }
         }
         visualization_settings = {
-            'init_channel_label': None,
-            'psd_window_seconds': 5,
+            'x_range': [0.1, 30],
             'scaling': {
+                'scale': [0, 1],
                 'apply_autoscale': True,
                 'n_std_tolerance_autoscale': 1.25,
                 'std_factor_separation_autoscale': 5,
-                'initial_y_range': [0, 10e-3],
             },
+            'psd_window_seconds': 5,
             'welch_overlap_pct': 25,
             'welch_seg_len_pct': 50,
-            'x_range': [0.1, 30],
-            'title': '<b>PSDPlotMultichannel</b>',
-            'x_axis_label': ['<b>Frequency</b>', 'Hz'],
-            'y_axis_label': ['<b>Power</b>', 'V^2/Hz'],
+            'init_channel_label': None,
+            'title': 'auto',
+            'x_axis_label': '<b>Frequency</b> (Hz)',
+            'y_axis_label': {
+                'text': '<b>Power</b>',
+                'units': '<math>V<sup>2</sup>/Hz</math>'
+            }
         }
         return preprocessing_settings, visualization_settings
 
@@ -1373,7 +1414,9 @@ class PSDPlot(RealTimePlotPyQtGraph):
         self.win_t = self.visualization_settings['psd_window_seconds']
         self.win_s = int(self.win_t * self.receiver.fs)
         self.n_samples_psd = self.win_s
-        self.y_range = self.visualization_settings['scaling']['initial_y_range']
+        self.y_range = self.visualization_settings['scaling']['scale']
+        if not isinstance(self.y_range, list):
+            self.y_range = [-self.y_range, self.y_range]
         # Update view box menu
         self.plot_item_view_box.menu.set_channel_list()
         init_cha_label = self.visualization_settings['init_channel_label']
@@ -1393,10 +1436,9 @@ class PSDPlot(RealTimePlotPyQtGraph):
         self.sig_in_graph = np.zeros([1, self.receiver.n_cha])
 
     def draw_y_axis_ticks(self):
-        if self.receiver.n_cha > 1:
-            self.plot_item.setYRange(self.y_range[0],
-                                     self.y_range[1],
-                                     padding=0)
+        self.plot_item.setYRange(self.y_range[0],
+                                 self.y_range[1],
+                                 padding=0)
 
     def draw_x_axis_ticks(self):
         self.plot_item.setXRange(

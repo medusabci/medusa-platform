@@ -129,6 +129,7 @@ class LSLStreamWrapper(components.SerializableComponent):
         self.n_cha = None
         self.cha_info = None
         self.l_cha = None
+        self.cha_units = None
         # Set inlet and lsl info
         self.set_inlet()
 
@@ -150,7 +151,7 @@ class LSLStreamWrapper(components.SerializableComponent):
         self.lsl_stream_info_to_json()
 
     def lsl_stream_info_to_json(self):
-        # Custom corrections
+        # Custom corrections for different manufacturers
         if self.lsl_stream_info_xml.find('NeuroElectrics') > 0:
             """Neuroelectrics uses the following structure:
             
@@ -421,10 +422,6 @@ class LSLStreamReceiver:
         self.chunk_counter = 0
         self.last_t = -1
         self.aliasing_correction = True
-        # ============================================================ #
-        # DELETE
-        # self.lsl_clock_offset = None
-        # ============================================================ #
 
     def get_chunk(self):
         """Get signal chunk. Throws an error if the reception time exceeds
@@ -434,21 +431,15 @@ class LSLStreamReceiver:
         while True:
             chunk, timestamps = \
                 self.lsl_stream_info.lsl_stream_inlet.pull_chunk(
-                    max_samples=self.max_chunk_size
-                )
+                    max_samples=self.max_chunk_size)
             if len(timestamps) > 0:
-                # ============================================================ #
-                # DELETE
-                # if self.lsl_clock_offset is None:
-                #     self.lsl_clock_offset = time.time() - timestamps[0]
-                # times2 = np.array(timestamps) + self.time_offset
-                # ============================================================ #
                 # Increment chunk counter
                 self.chunk_counter += 1
                 # LSL time to local time
                 times = np.array(timestamps) + self.lsl_clock_offset
                 samples = np.array(chunk)
-                # # debug
+                # ============================================================ #
+                # UNCOMMENT FOR DEBUGGING
                 # if self.chunk_counter == 1:
                 #     print('diff respect old offset: %.4f ms' % (1000*(
                 #             self.lsl_clock_offset - (time.time() -
@@ -465,10 +456,13 @@ class LSLStreamReceiver:
                 # ============================================================ #
                 # Aliasing detection and correction
                 if self.aliasing_correction:
-                    # dt_aliasing = \
-                    #     (times[-1] - (len(times) - 1) * 1 / self.fs) - self.last_t
-                    # print('dt: %.4f \t time[0]: %.4f' % (dt_aliasing, times[0]
-                    #                                     - self.last_t))
+                    # ======================================================== #
+                    # UNCOMMENT FOR DEBUGGING
+                    # dt_aliasing = (times[-1] - (
+                    #         len(times) - 1) * 1 / self.fs) - self.last_t
+                    # print('dt: %.4f \t time[0]: %.4f' %
+                    #       (dt_aliasing, times[0] - self.last_t))
+                    # ======================================================== #
                     dt_aliasing = times[0] - self.last_t
                     if dt_aliasing < 0 and self.last_t != -1:
                         print('%sCorrecting an aliasing of %.4f ms...' %
