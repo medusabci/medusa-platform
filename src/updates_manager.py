@@ -22,16 +22,24 @@ class UpdatesManager:
         # Attributes
         self.medusa_interface = medusa_interface
         self.release_info = release_info
-        self.versions_info = utils.get_medusa_repo_releases_info(depth=0)
         # Server and database name
         self.url_server = 'https://www.medusabci.com/api'
         # self.url_server = 'http://localhost/api'
+        # Get versions info
+        try:
+            self.versions_info = utils.get_medusa_repo_releases_info(depth=0)
+        except requests.exceptions.ConnectionError as e:
+            # If there is no connection, updates are not possible
+            self.versions_info = None
 
     def handle_exception(self, ex):
         # Send exception to gui main
         self.medusa_interface.error(ex)
 
     def check_for_updates(self):
+        # Check versions info (could be none if there is no internet connection)
+        if self.versions_info is None:
+            return False, None
         # Check development
         if self.release_info['version'] == 'Dev':
             return False, None

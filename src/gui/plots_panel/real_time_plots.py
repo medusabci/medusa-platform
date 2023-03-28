@@ -1552,7 +1552,7 @@ class RealTimePlotWorker(QThread):
                 if self.plot_state.value == constants.PLOT_STATE_ON:
                     self.update.emit(chunk_times, chunk_data)
                 # Wait a bit
-                time.sleep(len(chunk_data) / self.receiver.fs)
+                time.sleep(0.75 * (len(chunk_times) / self.receiver.fs))
         except Exception as e:
             self.error.emit(e)
 

@@ -213,6 +213,37 @@ def restart():
     os.execv(sys.executable, ['python'] + sys.argv)
 
 
+def get_python_package_version(package):
+    # ToDo: check this function to optimize the execution time, it takes a while
+    cmds = ['pip freeze']
+    # Save temporal bat file
+    bat_file_name = 'temp_bat_venv.bat'
+    with open(bat_file_name, 'w') as f:
+        for cmd in cmds:
+            f.write(cmd + '\n')
+    # Execute bat file
+    pkg_version = None
+    with subprocess.Popen('%s' % bat_file_name, shell=True,
+                          stdout=subprocess.PIPE,
+                          stderr=subprocess.PIPE,
+                          universal_newlines=True) as p:
+        while True:
+            if p.poll() is not None:
+                break
+            for line in p.stdout:
+                if line == '\n':
+                    continue
+                if line.find(package) >= 0:
+                    try:
+                        pkg_version = line.split('==')[1].strip()
+                    except IndexError as e:
+                        pass
+            for line in p.stderr:
+                if line == '\n':
+                    continue
+    # Delete bat file
+    os.remove(bat_file_name)
+    return pkg_version
 
 
 

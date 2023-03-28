@@ -19,6 +19,8 @@ import exceptions, constants
 from gui import gui_utils as gu
 from gui.plots_panel import real_time_plots
 from gui.qt_widgets.notifications import NotificationStack
+from gui.qt_widgets.dialogs import warning_dialog
+import utils
 
 # Load the .ui files
 ui_plots_panel_config = uic.loadUiType(
@@ -637,6 +639,22 @@ class ConfigPlotFrameDialog(QDialog, ui_plot_config_dialog):
             signal_type = self.selected_lsl_stream_info.medusa_type
             plot_type = self.selected_plot_info['uid']
             plot_class = self.selected_plot_info['class']
+            # Check experimental plots
+            # ToDo: experimental warning for MEDUSA v2024
+            if plot_class == real_time_plots.TopographyPlot or \
+                    plot_class == real_time_plots.ConnectivityPlot:
+                mds_kernel_version = \
+                    utils.get_python_package_version('medusa-kernel')
+                if mds_kernel_version is not None:
+                    warning_dialog(
+                        '%s is an experimental feature, and it requires '
+                        'medusa-kernel >= 1.1. Currently, the installed '
+                        'version is %s. \n\n'
+                        'You can update the package through the command '
+                        'window, but take into account that this may lead '
+                        'to unexpected behaviours.' %
+                        (plot_type, mds_kernel_version),
+                        'Experimental feature')
             # Check signal and get signal and plot options
             if plot_class.check_signal(signal_type):
                 # Get default settings of the new plot
@@ -647,6 +665,7 @@ class ConfigPlotFrameDialog(QDialog, ui_plot_config_dialog):
             else:
                 raise ValueError('Wrong signal type %s for plot type %s' %
                                  (signal_type, plot_type))
+
         except Exception as e:
             self.exception_handler(e)
 
