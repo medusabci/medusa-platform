@@ -2,6 +2,7 @@
 from abc import ABC, abstractmethod
 import weakref
 import traceback
+import time
 
 # EXTERNAL MODULES
 import numpy as np
@@ -268,6 +269,7 @@ class TopographyPlot(RealTimePlot):
 
     def update_plot(self, chunk_times, chunk_signal):
         try:
+            # print('Chunk received at: %.6f' % time.time())
             # Append new data and get safe copy
             x_in_graph, sig_in_graph = \
                 self.append_data(chunk_times, chunk_signal)
@@ -290,6 +292,7 @@ class TopographyPlot(RealTimePlot):
             # Plot topography
             self.topo_plot.update(values=power_values)
             self.widget.draw()
+            print('Chunk plotted at: %.6f' % time.time())
         except Exception as e:
             self.handle_exception(e)
 
@@ -1564,6 +1567,7 @@ class RealTimePlotWorker(QThread):
                 chunk_data, chunk_times = self.receiver.get_chunk()
                 chunk_data = self.preprocessor.transform(chunk_data)
                 chunk_lengths.append(len(chunk_times))
+                print(len(chunk_times))
                 # Check if the plot is ready to receive data (sometimes get
                 # chunk takes a while and the user presses the button in
                 # between)
@@ -1571,6 +1575,7 @@ class RealTimePlotWorker(QThread):
                     # Check processing overload
                     if len(chunk_times) >= self.receiver.max_chunk_size:
                         self.insufficient_update_rate.emit()
+                    print('Chunk received at: %.6f' % time.time())
                     self.update.emit(chunk_times, chunk_data)
         except Exception as e:
             self.error.emit(e)
