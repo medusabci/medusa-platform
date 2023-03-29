@@ -393,13 +393,14 @@ class LSLStreamReceiver:
      which will use the latter
      """
 
-    def __init__(self, lsl_stream_mds, max_chunk_size=1024, timeout=1):
+    def __init__(self, lsl_stream_mds, min_chunk_size=8, max_chunk_size=1024,
+                 timeout=1):
         """Class constructor
 
         Parameters
         ----------
         lsl_stream_mds: LSLStreamWrapper
-            Medusa representation of a LSL stream
+            Medusa representation of an LSL stream
         max_chunk_size: int
             Max chunk size to receive
         timeout: int
@@ -408,6 +409,7 @@ class LSLStreamReceiver:
         # LSL info
         self.TAG = '[LSLStreamReceiver] '
         self.lsl_stream_info = lsl_stream_mds
+        self.min_chunk_size = min_chunk_size
         self.max_chunk_size = max_chunk_size
         self.timeout = timeout
         # Copy some attributes from lsl stream info for direct access
@@ -428,16 +430,20 @@ class LSLStreamReceiver:
         the timeout
         """
         timer = self.Timer()
+        samples = list()
+        times = list()
         while True:
             chunk, timestamps = \
                 self.lsl_stream_info.lsl_stream_inlet.pull_chunk(
                     max_samples=self.max_chunk_size)
-            if len(timestamps) > 0:
+            samples += chunk
+            times += timestamps
+            if len(times) >= self.min_chunk_size:
                 # Increment chunk counter
                 self.chunk_counter += 1
                 # LSL time to local time
-                times = np.array(timestamps) + self.lsl_clock_offset
-                samples = np.array(chunk)
+                times = np.array(times) + self.lsl_clock_offset
+                samples = np.array(samples)
                 # ============================================================ #
                 # UNCOMMENT FOR DEBUGGING
                 # if self.chunk_counter == 1:

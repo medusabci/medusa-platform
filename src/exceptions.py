@@ -354,6 +354,7 @@ class IncorrectLSLConfig(Exception):
             msg = 'The LSL configuration is incorrect.'
         super().__init__(msg)
 
+
 class IncorrectSettingsConfig(Exception):
 
     """Raise to indicate that the current settings config is invalid for an app or
@@ -372,6 +373,7 @@ class IncorrectSettingsConfig(Exception):
             msg = 'The settings configuration is incorrect.'
         super().__init__(msg)
 
+
 class AuthenticationError(Exception):
 
     """Raise an authentication error when interacting with the online API"""
@@ -383,6 +385,15 @@ class AuthenticationError(Exception):
 class NotFoundError(Exception):
 
     """Raise this error when API returns 404 NotFoun HTTP error"""
+
+    def __init__(self, msg=None):
+        super().__init__(msg)
+
+
+class RealTimeComputationOverload(Exception):
+
+    """Raise this exception when a program cannot get or process real time data
+    with enough speed"""
 
     def __init__(self, msg=None):
         super().__init__(msg)

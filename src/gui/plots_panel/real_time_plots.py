@@ -15,7 +15,7 @@ from matplotlib.figure import Figure
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 # MEDUSA-PLATFORM MODULES
 from acquisition import lsl_utils, real_time_preprocessing
-import constants
+import constants, exceptions
 # MEDUSA-CORE MODULES
 from medusa import meeg
 from medusa.plots import head_plots
@@ -47,6 +47,12 @@ class RealTimePlot(ABC):
     def handle_exception(self, ex):
         self.medusa_interface.error(ex)
 
+    def on_insufficient_update_rate(self, update_rate):
+        self.medusa_interface.log('The refresh rate of plot %s is not enough '
+                                  'to get samples at the required speed. This '
+                                  'may result in sample loss. Setting it to '
+                                  '%.2f s...' % (self.uid, update_rate),
+                                  style='warning')
     def set_ready(self):
         self.ready = True
 
@@ -73,8 +79,21 @@ class RealTimePlot(ABC):
             LSL stream (medusa wrapper)
         """
         if self.check_signal(lsl_stream_info.medusa_type):
+            # Set lsl stream info
             self.lsl_stream_info = lsl_stream_info
-            self.receiver = lsl_utils.LSLStreamReceiver(self.lsl_stream_info)
+            # Get minimum and maximum chunk sizes
+            min_chunk_size = \
+                self.visualization_settings['update-rate'] * lsl_stream_info.fs
+            min_chunk_size = max(int(min_chunk_size), 1)
+            max_chunk_size = 10 * min_chunk_size
+            timeout = max(int(max_chunk_size/lsl_stream_info.fs), 1)
+            # Set receiver
+            self.receiver = lsl_utils.LSLStreamReceiver(
+                self.lsl_stream_info,
+                min_chunk_size=min_chunk_size,
+                max_chunk_size=max_chunk_size,
+                timeout=timeout
+            )
 
     def get_widget(self):
         return self.widget
@@ -83,11 +102,14 @@ class RealTimePlot(ABC):
         self.preprocessor = real_time_preprocessing.PlotsRealTimePreprocessor(
             self.preprocessing_settings)
         self.init_plot()
-        self.worker = RealTimePlotWorker(self.plot_state,
-                                         self.receiver,
-                                         self.preprocessor)
+        self.worker = RealTimePlotWorker(
+            self.plot_state,
+            self.receiver,
+            self.preprocessor)
         self.worker.update.connect(self.update_plot)
         self.worker.error.connect(self.handle_exception)
+        self.worker.insufficient_update_rate.connect(
+            self.on_insufficient_update_rate)
         self.worker.start()
 
     def destroy_plot(self):
@@ -154,7 +176,6 @@ class TopographyPlot(RealTimePlot):
         self.head_handles = None
         self.plot_handles = None
         self.update_samples = None
-        self.samples_counter = 0
 
         # Create widget
         fig = Figure()
@@ -196,15 +217,15 @@ class TopographyPlot(RealTimePlot):
                 'power-range': [8, 13]}
         }
         visualization_settings = {
-            "update-rate": 0.2,
-            "title": "<b>TopoPlot</b>",
-            "channel-standard": "10-05",
-            "extra_radius": 0.29,
-            "interp_points": 100,
-            "cmap": "PiYG",
-            "head_skin_color": "#E8BEAC",
-            "plot_channel_labels": True,
-            "plot_channel_points": True
+            'update-rate': 0.2,
+            'title': '<b>TopoPlot</b>',
+            'channel-standard': '10-05',
+            'extra_radius': 0.29,
+            'interp_points': 100,
+            'cmap': 'PiYG',
+            'head_skin_color': '#E8BEAC',
+            'plot_channel_labels': True,
+            'plot_channel_points': True
         }
         return preprocessing_settings, visualization_settings
 
@@ -247,30 +268,25 @@ class TopographyPlot(RealTimePlot):
             # Append new data and get safe copy
             x_in_graph, sig_in_graph = \
                 self.append_data(chunk_times, chunk_signal)
-            # Check if the amount of chunk samples received are equal
-            # to update samples
-            self.samples_counter += len(chunk_times)
-            if self.samples_counter >= self.update_samples:
-                self.samples_counter = 0
-                # Compute PSD
-                welch_seg_len = np.round(
-                    self.preprocessing_settings['PSD']['welch_seg_len_pct'] / 100.0
-                    * sig_in_graph.shape[0]).astype(int)
-                welch_overlap = np.round(
-                    self.preprocessing_settings['PSD']['welch_overlap_pct'] / 100.0
-                    * welch_seg_len).astype(int)
-                welch_ndft = welch_seg_len
-                _, psd = scp_signal.welch(
-                    sig_in_graph, fs=self.receiver.fs,
-                    nperseg=welch_seg_len, noverlap=welch_overlap,
-                    nfft=welch_ndft, axis=0)
-                # Compute power
-                power_values = spectral_parameteres.absolute_band_power(
-                    psd=psd[np.newaxis, :, :], fs=self.receiver.fs,
-                    target_band=self.preprocessing_settings['PSD']['power-range'])
-                # Plot topography
-                self.topo_plot.update(values=power_values)
-                self.widget.draw()
+            # Compute PSD
+            welch_seg_len = np.round(
+                self.preprocessing_settings['PSD']['welch_seg_len_pct'] / 100.0
+                * sig_in_graph.shape[0]).astype(int)
+            welch_overlap = np.round(
+                self.preprocessing_settings['PSD']['welch_overlap_pct'] / 100.0
+                * welch_seg_len).astype(int)
+            welch_ndft = welch_seg_len
+            _, psd = scp_signal.welch(
+                sig_in_graph, fs=self.receiver.fs,
+                nperseg=welch_seg_len, noverlap=welch_overlap,
+                nfft=welch_ndft, axis=0)
+            # Compute power
+            power_values = spectral_parameteres.absolute_band_power(
+                psd=psd[np.newaxis, :, :], fs=self.receiver.fs,
+                target_band=self.preprocessing_settings['PSD']['power-range'])
+            # Plot topography
+            self.topo_plot.update(values=power_values)
+            self.widget.draw()
         except Exception as e:
             self.handle_exception(e)
 
@@ -297,7 +313,6 @@ class ConnectivityPlot(RealTimePlot):
         self.head_handles = None
         self.plot_handles = None
         self.update_samples = None
-        self.samples_counter = 0
         self.clim = None
 
         # Create widget
@@ -340,13 +355,13 @@ class ConnectivityPlot(RealTimePlot):
                 'band-range': [8, 13]}
         }
         visualization_settings = {
-            "update-rate": 0.2,
-            "title": "<b>ConnectivityPlot</b>",
-            "channel-standard": "10-05",
-            "cmap": "RdBu",
-            "head_skin_color": "#E8BEAC",
-            "plot_channel_labels": True,
-            "plot_channel_points": True
+            'update-rate': 0.2,
+            'title': '<b>ConnectivityPlot</b>',
+            'channel-standard': '10-05',
+            'cmap': 'RdBu',
+            'head_skin_color': '#E8BEAC',
+            'plot_channel_labels': True,
+            'plot_channel_points': True
         }
         return preprocessing_settings, visualization_settings
 
@@ -401,30 +416,25 @@ class ConnectivityPlot(RealTimePlot):
             # Append new data and get safe copy
             x_in_graph, sig_in_graph = \
                 self.append_data(chunk_times, chunk_signal)
-            # Check if the amount of chunk samples received are equal
-            # to update samples
-            self.samples_counter += len(chunk_times)
-            if self.samples_counter >= self.update_samples:
-                self.samples_counter = 0
-                # Compute connectivity
-                if self.preprocessing_settings \
-                        ['Connectivity']['conn_metric'] == 'aec':
-                    adj_mat = amplitude_connectivity.aec(sig_in_graph).squeeze()
-                else:
-                    adj_mat = phase_connectivity.phase_connectivity(
-                        sig_in_graph,
-                        self.preprocessing_settings['Connectivity']
-                        ['conn_metric']).squeeze()
+            # Compute connectivity
+            if self.preprocessing_settings \
+                    ['Connectivity']['conn_metric'] == 'aec':
+                adj_mat = amplitude_connectivity.aec(sig_in_graph).squeeze()
+            else:
+                adj_mat = phase_connectivity.phase_connectivity(
+                    sig_in_graph,
+                    self.preprocessing_settings['Connectivity']
+                    ['conn_metric']).squeeze()
 
-                # Apply threshold
-                if self.preprocessing_settings['Connectivity'][
-                    'threshold'] is not None:
-                    th_idx = np.abs(adj_mat) > np.percentile(
-                        np.abs(adj_mat),
-                        self.preprocessing_settings['Connectivity'][
-                            'threshold']
-                        )
-                    adj_mat = adj_mat * th_idx
+            # Apply threshold
+            if self.preprocessing_settings['Connectivity'][
+                'threshold'] is not None:
+                th_idx = np.abs(adj_mat) > np.percentile(
+                    np.abs(adj_mat),
+                    self.preprocessing_settings['Connectivity'][
+                        'threshold']
+                    )
+                adj_mat = adj_mat * th_idx
 
                 # Plot connectivity
                 self.conn_plot.update(adj_mat=adj_mat)
@@ -469,13 +479,12 @@ class RealTimePlotPyQtGraph(RealTimePlot, ABC):
                 cha_units = [self.receiver.lsl_stream_info.cha_info[0]['units']
                              for x in self.receiver.lsl_stream_info.cha_info]
                 if all(cha_units[0] == units for units in cha_units):
-                    units = cha_units[0]
+                    units = '(%s)' % cha_units[0]
                 else:
                     units = ''
             except Exception as e:
                 units = ''
-            y_axis_label = '%s (%s)' % \
-                           (y_axis_label['text'], units)
+            y_axis_label = '%s %s' % (y_axis_label['text'], units)
         else:
             y_axis_label = '%s (%s)' % (y_axis_label['text'],
                                         y_axis_label['units'])
@@ -567,6 +576,7 @@ class TimePlotMultichannel(RealTimePlotPyQtGraph):
             }
         }
         visualization_settings = {
+            'update-rate': 0.1,
             'mode': 'clinical',
             'seconds_displayed': 10,
             'subsample_factor': 2,
@@ -866,6 +876,7 @@ class PSDPlotMultichannel(RealTimePlotPyQtGraph):
             }
         }
         visualization_settings = {
+            'update-rate': 0.1,
             'x_range': [0.1, 30],
             'scaling': {
                 'scale': 1,
@@ -881,7 +892,7 @@ class PSDPlotMultichannel(RealTimePlotPyQtGraph):
             'x_axis_label': '<b>Frequency</b> (Hz)',
             'y_axis_label': {
                 'text': '<b>Power</b>',
-                'units': '<math>V<sup>2</sup>/Hz</math>',
+                'units': 'auto',
             }
         }
         return preprocessing_settings, visualization_settings
@@ -1096,6 +1107,7 @@ class TimePlot(RealTimePlotPyQtGraph):
             }
         }
         visualization_settings = {
+            'update-rate': 0.1,
             'mode': 'clinical',
             'seconds_displayed': 10,
             'subsample_factor': 2,
@@ -1110,7 +1122,7 @@ class TimePlot(RealTimePlotPyQtGraph):
             'x_axis_label': '<b>Time</b> (s)',
             'y_axis_label': {
                 'text': '<b>Signal</b>',
-                'units': 'V'
+                'units': 'auto'
             }
         }
         return preprocessing_settings, visualization_settings
@@ -1387,6 +1399,7 @@ class PSDPlot(RealTimePlotPyQtGraph):
             }
         }
         visualization_settings = {
+            'update-rate': 0.1,
             'x_range': [0.1, 30],
             'scaling': {
                 'scale': [0, 1],
@@ -1402,7 +1415,7 @@ class PSDPlot(RealTimePlotPyQtGraph):
             'x_axis_label': '<b>Frequency</b> (Hz)',
             'y_axis_label': {
                 'text': '<b>Power</b>',
-                'units': '<math>V<sup>2</sup>/Hz</math>'
+                'units': 'auto'
             }
         }
         return preprocessing_settings, visualization_settings
@@ -1530,6 +1543,7 @@ class RealTimePlotWorker(QThread):
     """
     update = pyqtSignal(np.ndarray, np.ndarray)
     error = pyqtSignal(Exception)
+    insufficient_update_rate = pyqtSignal(float)
 
     def __init__(self, plot_state, receiver, preprocessor):
         super().__init__()
@@ -1537,22 +1551,24 @@ class RealTimePlotWorker(QThread):
         self.receiver = receiver
         self.preprocessor = preprocessor
         self.preprocessor.fit(self.receiver.fs, self.receiver.n_cha)
-        self.refresh_rate = 125/500
 
     def run(self):
         try:
             self.receiver.flush_stream()
+            chunk_lengths = list()
             while self.plot_state.value == constants.PLOT_STATE_ON:
                 # Get chunks
                 chunk_data, chunk_times = self.receiver.get_chunk()
                 chunk_data = self.preprocessor.transform(chunk_data)
+                chunk_lengths.append(len(chunk_times))
                 # Check if the plot is ready to receive data (sometimes get
                 # chunk takes a while and the user presses the button in
                 # between)
                 if self.plot_state.value == constants.PLOT_STATE_ON:
+                    # Check processing overload
+                    if len(chunk_times) >= self.receiver.max_chunk_size:
+                        self.insufficient_update_rate.emit()
                     self.update.emit(chunk_times, chunk_data)
-                # Wait a bit
-                time.sleep(0.75 * (len(chunk_times) / self.receiver.fs))
         except Exception as e:
             self.error.emit(e)
 

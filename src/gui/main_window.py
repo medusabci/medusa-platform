@@ -202,7 +202,8 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
     def set_up_medusa_interface_listener(self, interface_queue):
         self.medusa_interface_listener = self.MedusaInterfaceListener(
             interface_queue)
-        self.medusa_interface_listener.msg_signal.connect(self.print_log)
+        self.medusa_interface_listener.msg_signal.connect(
+            self.print_log)
         self.medusa_interface_listener.exception_signal.connect(
             self.handle_exception)
         self.medusa_interface_listener.app_state_changed_signal.connect(
