@@ -1,9 +1,8 @@
 # BUILT-IN MODULES
-import time
 from abc import ABC, abstractmethod
 import weakref
 import traceback
-import threading
+
 # EXTERNAL MODULES
 import numpy as np
 import pyqtgraph as pg
@@ -13,12 +12,16 @@ from PyQt5.QtGui import QFont
 from scipy import signal as scp_signal
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
+
 # MEDUSA-PLATFORM MODULES
 from acquisition import lsl_utils, real_time_preprocessing
-import constants, exceptions
+import constants
+# ToDO: remove this dependency and change it to medusa.plots.head_plots for
+#  MEDUSA v2024
+from gui.plots_panel import head_plots
+
 # MEDUSA-CORE MODULES
 from medusa import meeg
-from medusa.plots import head_plots
 from medusa.local_activation import spectral_parameteres
 from medusa.connectivity import amplitude_connectivity, phase_connectivity
 
