@@ -346,7 +346,7 @@ class PanelConfig(components.SerializableComponent):
             raise e
 
     def create_plot_frame(self, plot_frame_uid, coordinates, span,
-                          plot_info=None, preprocessing_settings=None,
+                          plot_info=None, signal_settings=None,
                           visualization_settings=None, lsl_stream_info=None):
         try:
             # Check uid
@@ -372,7 +372,7 @@ class PanelConfig(components.SerializableComponent):
             self.set_plot_settings(
                 uid=plot_frame_uid,
                 plot_info=plot_info,
-                preprocessing_settings=preprocessing_settings,
+                signal_settings=signal_settings,
                 visualization_settings=visualization_settings,
                 lsl_stream_info=lsl_stream_info
             )
@@ -400,7 +400,7 @@ class PanelConfig(components.SerializableComponent):
             print('Exception: %s' % str(e))
             raise e
 
-    def set_plot_settings(self, uid, plot_info, preprocessing_settings,
+    def set_plot_settings(self, uid, plot_info, signal_settings,
                           visualization_settings, lsl_stream_info):
         try:
             # Check errors
@@ -409,7 +409,7 @@ class PanelConfig(components.SerializableComponent):
             plot_uid = None if plot_info is None else plot_info['uid']
             self.plots_settings[uid] = {
                 'plot_uid': plot_uid,
-                'preprocessing_settings': preprocessing_settings,
+                'signal_settings': signal_settings,
                 'visualization_settings': visualization_settings,
                 'lsl_stream_info': lsl_stream_info,
             }
@@ -494,8 +494,8 @@ class PanelConfig(components.SerializableComponent):
                 uid = item['uid']
                 plot_info = real_time_plots.get_plot_info(
                     config.plots_settings[uid]['plot_uid'])
-                preprocessing_settings = \
-                    config.plots_settings[uid]['preprocessing_settings']
+                signal_settings = \
+                    config.plots_settings[uid]['signal_settings']
                 visualization_settings = \
                     config.plots_settings[uid]['visualization_settings']
                 try:
@@ -510,7 +510,7 @@ class PanelConfig(components.SerializableComponent):
                     item['coordinates'],
                     item['span'],
                     plot_info=plot_info,
-                    preprocessing_settings=preprocessing_settings,
+                    signal_settings=signal_settings,
                     visualization_settings=visualization_settings,
                     lsl_stream_info=lsl_stream_info)
                 if item['configured']:
@@ -533,7 +533,7 @@ class PanelConfig(components.SerializableComponent):
 
 class ConfigPlotFrameDialog(QDialog, ui_plot_config_dialog):
 
-    def __init__(self, uid, preprocessing_settings, visualization_settings,
+    def __init__(self, uid, signal_settings, visualization_settings,
                  lsl_streams, plots_info, selected_lsl_stream=None,
                  selected_plot_info=None, theme_colors=None):
         try:
@@ -574,7 +574,7 @@ class ConfigPlotFrameDialog(QDialog, ui_plot_config_dialog):
             self.uid = uid
             self.working_lsl_streams = lsl_streams
             self.plots_info = plots_info
-            self.preprocessing_settings = preprocessing_settings
+            self.signal_settings = signal_settings
             self.visualization_settings = visualization_settings
             self.selected_lsl_stream_info = None
             self.selected_plot_info = None
@@ -582,7 +582,7 @@ class ConfigPlotFrameDialog(QDialog, ui_plot_config_dialog):
             self.set_lsl_streams(selected_lsl_stream)
             self.set_plot_types(selected_plot_info)
             if selected_plot_info is not None:
-                self.set_settings_in_text_edits(preprocessing_settings,
+                self.set_settings_in_text_edits(signal_settings,
                                                 visualization_settings)
         except Exception as e:
             self.exception_handler(e)
@@ -642,9 +642,9 @@ class ConfigPlotFrameDialog(QDialog, ui_plot_config_dialog):
             # Check signal and get signal and plot options
             if plot_class.check_signal(signal_type):
                 # Get default settings of the new plot
-                preprocessing_settings, visualization_settings = \
+                signal_settings, visualization_settings = \
                     plot_class.get_default_settings()
-                self.set_settings_in_text_edits(preprocessing_settings,
+                self.set_settings_in_text_edits(signal_settings,
                                                 visualization_settings)
             else:
                 raise ValueError('Wrong signal type %s for plot type %s' %
@@ -653,12 +653,12 @@ class ConfigPlotFrameDialog(QDialog, ui_plot_config_dialog):
         except Exception as e:
             self.exception_handler(e)
 
-    def set_settings_in_text_edits(self, preprocessing_settings,
+    def set_settings_in_text_edits(self, signal_settings,
                                    visualization_settings):
         try:
             # Update settings and text areas
             self.textEdit_signal_options.setText(
-                json.dumps(preprocessing_settings, indent=4))
+                json.dumps(signal_settings, indent=4))
             self.textEdit_plot_options.setText(
                 json.dumps(visualization_settings, indent=4))
         except Exception as e:
@@ -674,11 +674,11 @@ class ConfigPlotFrameDialog(QDialog, ui_plot_config_dialog):
     def accept(self):
         try:
             # Update plot instance settings
-            preprocessing_settings = json.loads(
+            signal_settings = json.loads(
                 self.textEdit_signal_options.toPlainText())
             visualization_settings = json.loads(
                 self.textEdit_plot_options.toPlainText())
-            self.preprocessing_settings = preprocessing_settings
+            self.signal_settings = signal_settings
             self.visualization_settings = visualization_settings
             super().accept()
         except Exception as e:
@@ -874,13 +874,13 @@ class PlotsPanelConfigDialog(QDialog, ui_plots_panel_config):
             plot_settings = self.config.plots_settings[uid]
             curr_plot_info = real_time_plots.get_plot_info(
                 plot_settings['plot_uid'])
-            curr_preprocessing_settings = \
-                plot_settings['preprocessing_settings']
+            curr_signal_settings = \
+                plot_settings['signal_settings']
             curr_visualization_settings = \
                 plot_settings['visualization_settings']
             curr_lsl_stream_info = plot_settings['lsl_stream_info']
             self.config_dialog = ConfigPlotFrameDialog(
-                uid, curr_preprocessing_settings, curr_visualization_settings,
+                uid, curr_signal_settings, curr_visualization_settings,
                 self.working_lsl_streams, self.plots_info,
                 selected_lsl_stream=curr_lsl_stream_info,
                 selected_plot_info=curr_plot_info,
@@ -896,15 +896,15 @@ class PlotsPanelConfigDialog(QDialog, ui_plots_panel_config):
         try:
             uid = self.config_dialog.uid
             curr_plot_info = self.config_dialog.selected_plot_info
-            curr_preprocessing_settings = \
-                self.config_dialog.preprocessing_settings
+            curr_signal_settings = \
+                self.config_dialog.signal_settings
             curr_visualization_settings = \
                 self.config_dialog.visualization_settings
             curr_lsl_stream_info = self.config_dialog.selected_lsl_stream_info
             self.config.set_plot_settings(
                 uid=uid,
                 plot_info=curr_plot_info,
-                preprocessing_settings=curr_preprocessing_settings,
+                signal_settings=curr_signal_settings,
                 visualization_settings=curr_visualization_settings,
                 lsl_stream_info=curr_lsl_stream_info
             )
@@ -1112,7 +1112,7 @@ class PlotsPanelConfigDialog(QDialog, ui_plots_panel_config):
         plot_frame_index = self.config.create_plot_frame(
             uid, new_coordinates, new_span,
             plot_info=real_time_plots.get_plot_info(settings['plot_uid']),
-            preprocessing_settings=settings['preprocessing_settings'],
+            signal_settings=settings['signal_settings'],
             visualization_settings=settings['visualization_settings'],
             lsl_stream_info=settings['lsl_stream_info']
         )

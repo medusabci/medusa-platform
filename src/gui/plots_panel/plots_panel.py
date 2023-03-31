@@ -165,14 +165,14 @@ class PlotsPanelWidget(QWidget, ui_plots_panel_widget):
                         theme_colors=self.theme_colors)
                     # Set settings
                     self.plots_handlers[plot_uid].set_settings(
-                        plot_settings['preprocessing_settings'],
+                        plot_settings['signal_settings'],
                         plot_settings['visualization_settings'])
                     # Set receiver
                     lsl_stream_info = \
                         lsl_utils.LSLStreamWrapper.from_serializable_obj(
                             plot_settings['lsl_stream_info'])
                     self.check_and_update_lsl_stream(lsl_stream_info)
-                    self.plots_handlers[plot_uid].set_receiver(
+                    self.plots_handlers[plot_uid].set_lsl_worker(
                         lsl_stream_info)
                     self.plots_handlers[plot_uid].init_plot()
                     self.plots_handlers[plot_uid].set_ready()

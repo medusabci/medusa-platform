@@ -17,7 +17,7 @@ from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 # MEDUSA-PLATFORM MODULES
 from acquisition import lsl_utils, real_time_preprocessing
 import constants
-# ToDO: remove this dependency and change it to medusa.plots.head_plots for
+# ToDo: remove this dependency and change it to medusa.plots.head_plots for
 #  MEDUSA v2024
 from gui.plots_panel import head_plots
 
@@ -38,44 +38,36 @@ class RealTimePlot(ABC):
         self.theme_colors = theme_colors
         # Init variables
         self.ready = False
-        self.preprocessing_settings = None
+        self.signal_settings = None
         self.visualization_settings = None
         self.lsl_stream_info = None
-        self.lsl_stream = None
-        self.receiver = None
-        self.preprocessor = None
         self.worker = None
         self.init_time = None
         self.widget = None
+        self.fs = None
 
     def handle_exception(self, ex):
         self.medusa_interface.error(ex)
 
-    def on_insufficient_update_rate(self, update_rate):
-        self.medusa_interface.log('The refresh rate of plot %s is not enough '
-                                  'to get samples at the required speed. This '
-                                  'may result in sample loss. Setting it to '
-                                  '%.2f s...' % (self.uid, update_rate),
-                                  style='warning')
     def set_ready(self):
         self.ready = True
 
     def set_settings(self, signal_settings, plot_settings):
         """Set settings dicts"""
         self.check_settings(signal_settings, plot_settings)
-        self.preprocessing_settings = signal_settings
+        self.signal_settings = signal_settings
         self.visualization_settings = plot_settings
 
     def get_settings(self):
         """Create de default settings dict"""
         settings = {
-            'preprocessing_settings': self.preprocessing_settings,
+            'signal_settings': self.signal_settings,
             'visualization_settings': self.visualization_settings
         }
         return settings
 
-    def set_receiver(self, lsl_stream_info):
-        """Create a new receiver for each plot
+    def set_lsl_worker(self, lsl_stream_info):
+        """Create a new lsl worker for each plot
 
         Parameters
         ----------
@@ -83,37 +75,21 @@ class RealTimePlot(ABC):
             LSL stream (medusa wrapper)
         """
         if self.check_signal(lsl_stream_info.medusa_type):
-            # Set lsl stream info
+            # Save lsl info
             self.lsl_stream_info = lsl_stream_info
-            # Get minimum and maximum chunk sizes
-            min_chunk_size = \
-                self.visualization_settings['update-rate'] * lsl_stream_info.fs
-            min_chunk_size = max(int(min_chunk_size), 1)
-            max_chunk_size = 10 * min_chunk_size
-            timeout = max(int(max_chunk_size/lsl_stream_info.fs), 1)
-            # Set receiver
-            self.receiver = lsl_utils.LSLStreamReceiver(
+            # Set worker
+            self.worker = RealTimePlotWorker(
+                self.plot_state,
                 self.lsl_stream_info,
-                min_chunk_size=min_chunk_size,
-                max_chunk_size=max_chunk_size,
-                timeout=timeout
-            )
+                self.signal_settings)
+            self.worker.update.connect(self.update_plot)
+            self.worker.error.connect(self.handle_exception)
+            self.fs = self.worker.get_effective_fs()
 
     def get_widget(self):
         return self.widget
 
     def start(self):
-        self.preprocessor = real_time_preprocessing.PlotsRealTimePreprocessor(
-            self.preprocessing_settings)
-        self.init_plot()
-        self.worker = RealTimePlotWorker(
-            self.plot_state,
-            self.receiver,
-            self.preprocessor)
-        self.worker.update.connect(self.update_plot)
-        self.worker.error.connect(self.handle_exception)
-        self.worker.insufficient_update_rate.connect(
-            self.on_insufficient_update_rate)
         self.worker.start()
 
     def destroy_plot(self):
@@ -179,7 +155,6 @@ class TopographyPlot(RealTimePlot):
         self.sig_in_graph = None
         self.head_handles = None
         self.plot_handles = None
-        self.update_samples = None
 
         # Create widget
         fig = Figure()
@@ -201,7 +176,8 @@ class TopographyPlot(RealTimePlot):
 
     @staticmethod
     def get_default_settings():
-        preprocessing_settings = {
+        signal_settings = {
+            'update-rate': 0.2,
             'frequency-filter': {
                 'apply': True,
                 'type': 'highpass',
@@ -214,14 +190,18 @@ class TopographyPlot(RealTimePlot):
                 'bandwidth': [-0.5, 0.5],
                 'order': 5
             },
+            'downsampling': {
+                'apply': False,
+                'factor': 2
+            },
             'PSD': {
                 'time-window': 2,
                 'welch_overlap_pct': 25,
                 'welch_seg_len_pct': 50,
-                'power-range': [8, 13]}
+                'power-range': [8, 13]
+            }
         }
         visualization_settings = {
-            'update-rate': 0.2,
             'title': '<b>TopoPlot</b>',
             'channel-standard': '10-05',
             'extra_radius': 0.29,
@@ -231,7 +211,7 @@ class TopographyPlot(RealTimePlot):
             'plot_channel_labels': True,
             'plot_channel_points': True
         }
-        return preprocessing_settings, visualization_settings
+        return signal_settings, visualization_settings
 
     @staticmethod
     def check_settings(signal_settings, plot_settings):
@@ -250,7 +230,7 @@ class TopographyPlot(RealTimePlot):
         # Create widget
         self.channel_set = meeg.EEGChannelSet()
         self.channel_set.set_standard_montage(
-            l_cha=self.receiver.l_cha,
+            l_cha=self.lsl_stream_info.l_cha,
             standard=self.visualization_settings['channel-standard'])
         # Initialize
         self.topo_plot = head_plots.TopographicPlot(
@@ -259,13 +239,10 @@ class TopographyPlot(RealTimePlot):
             **self.visualization_settings
         )
         # Signal processing
-        self.win_s = int(
-            self.preprocessing_settings['PSD']['time-window']*self.receiver.fs)
-        self.update_samples = int(
-            self.visualization_settings['update-rate']*self.receiver.fs)
+        self.win_s = int(self.signal_settings['PSD']['time-window'] * self.fs)
         # Update view box menu
         self.time_in_graph = np.zeros(1)
-        self.sig_in_graph = np.zeros([1, self.receiver.n_cha])
+        self.sig_in_graph = np.zeros([1, self.lsl_stream_info.n_cha])
 
     def update_plot(self, chunk_times, chunk_signal):
         try:
@@ -275,20 +252,20 @@ class TopographyPlot(RealTimePlot):
                 self.append_data(chunk_times, chunk_signal)
             # Compute PSD
             welch_seg_len = np.round(
-                self.preprocessing_settings['PSD']['welch_seg_len_pct'] / 100.0
+                self.signal_settings['PSD']['welch_seg_len_pct'] / 100.0
                 * sig_in_graph.shape[0]).astype(int)
             welch_overlap = np.round(
-                self.preprocessing_settings['PSD']['welch_overlap_pct'] / 100.0
+                self.signal_settings['PSD']['welch_overlap_pct'] / 100.0
                 * welch_seg_len).astype(int)
             welch_ndft = welch_seg_len
             _, psd = scp_signal.welch(
-                sig_in_graph, fs=self.receiver.fs,
+                sig_in_graph, fs=self.fs,
                 nperseg=welch_seg_len, noverlap=welch_overlap,
                 nfft=welch_ndft, axis=0)
             # Compute power
             power_values = spectral_parameteres.absolute_band_power(
-                psd=psd[np.newaxis, :, :], fs=self.receiver.fs,
-                target_band=self.preprocessing_settings['PSD']['power-range'])
+                psd=psd[np.newaxis, :, :], fs=self.fs,
+                target_band=self.signal_settings['PSD']['power-range'])
             # Plot topography
             self.topo_plot.update(values=power_values)
             self.widget.draw()
@@ -318,7 +295,6 @@ class ConnectivityPlot(RealTimePlot):
         self.sig_in_graph = None
         self.head_handles = None
         self.plot_handles = None
-        self.update_samples = None
         self.clim = None
 
         # Create widget
@@ -341,7 +317,8 @@ class ConnectivityPlot(RealTimePlot):
 
     @staticmethod
     def get_default_settings():
-        preprocessing_settings = {
+        signal_settings = {
+            'update-rate': 0.2,
             'frequency-filter': {
                 'apply': True,
                 'type': 'highpass',
@@ -354,14 +331,18 @@ class ConnectivityPlot(RealTimePlot):
                 'bandwidth': [-0.5, 0.5],
                 'order': 5
             },
-            'Connectivity': {
+            'downsampling': {
+                'apply': False,
+                'factor': 2
+            },
+            'connectivity': {
                 'time-window': 2,
                 'conn_metric': 'aec',
                 'threshold': 50,
-                'band-range': [8, 13]}
+                'band-range': [8, 13]
+            }
         }
         visualization_settings = {
-            'update-rate': 0.2,
             'title': '<b>ConnectivityPlot</b>',
             'channel-standard': '10-05',
             'cmap': 'RdBu',
@@ -369,12 +350,12 @@ class ConnectivityPlot(RealTimePlot):
             'plot_channel_labels': True,
             'plot_channel_points': True
         }
-        return preprocessing_settings, visualization_settings
+        return signal_settings, visualization_settings
 
     @staticmethod
     def check_settings(signal_settings, plot_settings):
         allowed_conn_metrics = ['aec','plv','pli','wpli']
-        if signal_settings['Connectivity']\
+        if signal_settings['connectivity']\
             ['conn_metric'] not in allowed_conn_metrics:
             raise ValueError("Connectivity metric selected not implemented."
                              "Please, select between the following:"
@@ -395,7 +376,7 @@ class ConnectivityPlot(RealTimePlot):
         # Create widget
         self.channel_set = meeg.EEGChannelSet()
         self.channel_set.set_standard_montage(
-            l_cha=self.receiver.l_cha,
+            l_cha=self.lsl_stream_info.l_cha,
             standard=self.visualization_settings['channel-standard'])
         # Initialize
         self.conn_plot = head_plots.ConnectivityPlot(
@@ -405,14 +386,11 @@ class ConnectivityPlot(RealTimePlot):
         )
         # Signal processing
         self.win_s = int(
-            self.preprocessing_settings
-            ['Connectivity']['time-window'] * self.receiver.fs)
-        self.update_samples = int(
-            self.visualization_settings['update-rate'] * self.receiver.fs)
+            self.signal_settings['connectivity']['time-window'] * self.fs)
         # Update view box menu
         self.time_in_graph = np.zeros(1)
-        self.sig_in_graph = np.zeros([1, self.receiver.n_cha])
-        if self.preprocessing_settings['Connectivity']['conn_metric'] == 'aec':
+        self.sig_in_graph = np.zeros([1, self.lsl_stream_info.n_cha])
+        if self.signal_settings['connectivity']['conn_metric'] == 'aec':
             self.clim = [-1, 1]
         else:
             self.clim = [0, 1]
@@ -423,23 +401,19 @@ class ConnectivityPlot(RealTimePlot):
             x_in_graph, sig_in_graph = \
                 self.append_data(chunk_times, chunk_signal)
             # Compute connectivity
-            if self.preprocessing_settings \
-                    ['Connectivity']['conn_metric'] == 'aec':
+            if self.signal_settings['connectivity']['conn_metric'] == 'aec':
                 adj_mat = amplitude_connectivity.aec(sig_in_graph).squeeze()
             else:
                 adj_mat = phase_connectivity.phase_connectivity(
                     sig_in_graph,
-                    self.preprocessing_settings['Connectivity']
-                    ['conn_metric']).squeeze()
+                    self.signal_settings['connectivity']['conn_metric']
+                ).squeeze()
 
             # Apply threshold
-            if self.preprocessing_settings['Connectivity'][
-                'threshold'] is not None:
+            if self.signal_settings['connectivity']['threshold'] is not None:
                 th_idx = np.abs(adj_mat) > np.percentile(
                     np.abs(adj_mat),
-                    self.preprocessing_settings['Connectivity'][
-                        'threshold']
-                    )
+                    self.signal_settings['connectivity']['threshold'])
                 adj_mat = adj_mat * th_idx
 
                 # Plot connectivity
@@ -478,12 +452,12 @@ class RealTimePlotPyQtGraph(RealTimePlot, ABC):
         self.marker_width = 2
 
     def set_titles(self, title, x_axis_label, y_axis_label):
-        title = self.receiver.lsl_stream_info.medusa_uid if title == 'auto' \
+        title = self.lsl_stream_info.medusa_uid if title == 'auto' \
             else title
         if y_axis_label['units'] == 'auto':
             try:
-                cha_units = [self.receiver.lsl_stream_info.cha_info[0]['units']
-                             for x in self.receiver.lsl_stream_info.cha_info]
+                cha_units = [self.lsl_stream_info.cha_info[0]['units']
+                             for x in self.lsl_stream_info.cha_info]
                 if all(cha_units[0] == units for units in cha_units):
                     units = '(%s)' % cha_units[0]
                 else:
@@ -508,6 +482,7 @@ class TimePlotMultichannel(RealTimePlotPyQtGraph):
     def __init__(self, uid, plot_state, medusa_interface, theme_colors):
         super().__init__(uid, plot_state, medusa_interface, theme_colors)
         # Graph variables
+        self.win_t = None
         self.win_s = None
         self.time_in_graph = None
         self.sig_in_graph = None
@@ -516,8 +491,7 @@ class TimePlotMultichannel(RealTimePlotPyQtGraph):
         self.marker = None
         self.pointer = None
         self.cha_separation = None
-        self.win_t = None
-        self.subsample_factor = None
+        self.draw_times = []
         # Custom menu
         self.plot_item_view_box = None
         self.widget.wheelEvent = self.mouse_wheel_event
@@ -567,7 +541,8 @@ class TimePlotMultichannel(RealTimePlotPyQtGraph):
 
     @staticmethod
     def get_default_settings():
-        preprocessing_settings = {
+        signal_settings = {
+            'update-rate': 0.1,
             'frequency-filter': {
                 'apply': True,
                 'type': 'highpass',
@@ -579,13 +554,15 @@ class TimePlotMultichannel(RealTimePlotPyQtGraph):
                 'freq': 50,
                 'bandwidth': [-0.5, 0.5],
                 'order': 5
-            }
+            },
+            'downsampling': {
+                'apply': False,
+                'factor': 2
+            },
         }
         visualization_settings = {
-            'update-rate': 0.1,
             'mode': 'clinical',
             'seconds_displayed': 10,
-            'subsample_factor': 2,
             'scaling': {
                 'scale': 1,
                 'apply_autoscale': True,
@@ -599,14 +576,10 @@ class TimePlotMultichannel(RealTimePlotPyQtGraph):
                 'units': 'auto'
             }
         }
-        return preprocessing_settings, visualization_settings
+        return signal_settings, visualization_settings
 
     @staticmethod
-    def check_settings(preprocessing_settings, visualization_settings):
-        # Check subsample factor
-        if visualization_settings['subsample_factor'] < 1:
-            raise ValueError('The subsample factor must be '
-                             'equal or greater than 1\n')
+    def check_settings(signal_settings, visualization_settings):
         possible_modes = ['geek', 'clinical']
         if visualization_settings['mode'] not in possible_modes:
             raise ValueError('Unknown plot mode %s. Possible options: %s' %
@@ -629,8 +602,7 @@ class TimePlotMultichannel(RealTimePlotPyQtGraph):
         self.cha_separation = \
             self.visualization_settings['scaling']['scale']
         self.win_t = self.visualization_settings['seconds_displayed']
-        self.subsample_factor = self.visualization_settings['subsample_factor']
-        self.win_s = int(self.win_t * self.receiver.fs / self.subsample_factor)
+        self.win_s = int(self.win_t * self.fs)
         # Place curves in plot
         self.curves = []
         self.offsets = []
@@ -640,7 +612,7 @@ class TimePlotMultichannel(RealTimePlotPyQtGraph):
         offset_pen = pg.mkPen(color=self.offset_color,
                               width=self.offset_width,
                               style=Qt.SolidLine)
-        for i in range(self.receiver.n_cha):
+        for i in range(self.lsl_stream_info.n_cha):
             self.offsets.append(self.widget.plot(pen=offset_pen))
             self.curves.append(self.widget.plot(pen=curve_pen))
         if self.visualization_settings['mode'] == 'clinical':
@@ -652,23 +624,23 @@ class TimePlotMultichannel(RealTimePlotPyQtGraph):
         # Draw y axis
         self.draw_y_axis_ticks()
         # Signal plotted
-        self.time_in_graph = np.zeros(1)
-        self.sig_in_graph = np.zeros([1, self.receiver.n_cha])
+        self.time_in_graph = np.zeros([0])
+        self.sig_in_graph = np.zeros([0, self.lsl_stream_info.n_cha])
 
     def draw_y_axis_ticks(self):
         # Draw y axis ticks (channel labels)
         ticks = list()
-        if self.receiver.l_cha is not None:
-            for i in range(self.receiver.n_cha):
+        if self.lsl_stream_info.l_cha is not None:
+            for i in range(self.lsl_stream_info.n_cha):
                 offset = self.cha_separation * i
-                label = self.receiver.l_cha[-i - 1]
+                label = self.lsl_stream_info.l_cha[-i - 1]
                 ticks.append((offset, label))
         ticks = [ticks]   # Two levels for ticks
         self.y_axis.setTicks(ticks)
         # Set y axis range
         y_min = - self.cha_separation
-        y_max = self.receiver.n_cha * self.cha_separation
-        if self.receiver.n_cha > 1:
+        y_max = self.lsl_stream_info.n_cha * self.cha_separation
+        if self.lsl_stream_info.n_cha > 1:
             self.plot_item.setYRange(y_min, y_max, padding=0)
 
     def draw_x_axis_ticks(self, x_in_graph):
@@ -686,7 +658,7 @@ class TimePlotMultichannel(RealTimePlotPyQtGraph):
             self.x_axis.setTicks([[(x_ticks_pos[i], str(x_ticks_val[i])) for
                                    i in range(n_ticks + 1)]])
         elif self.visualization_settings['mode'] == 'clinical':
-            x_tick_pos = self.pointer // self.subsample_factor
+            x_tick_pos = self.pointer
             x_tick_val = '%.1f' % self.time_in_graph[self.pointer - 1]
             self.x_axis.setTicks([[(x_tick_pos, x_tick_val)]])
         self.plot_item.setXRange(x[0], x[-1], padding=0)
@@ -698,70 +670,60 @@ class TimePlotMultichannel(RealTimePlotPyQtGraph):
             self.sig_in_graph = np.vstack((self.sig_in_graph, chunk_signal))
             abs_time_in_graph = self.time_in_graph - self.time_in_graph[0]
             if abs_time_in_graph[-1] >= self.win_t:
-                cut_idx = np.argmin(np.abs(abs_time_in_graph -
-                                           (abs_time_in_graph[-1] - self.win_t)))
+                cut_idx = np.argmin(
+                    np.abs(abs_time_in_graph -
+                           (abs_time_in_graph[-1] - self.win_t)))
                 self.time_in_graph = self.time_in_graph[cut_idx:]
                 self.sig_in_graph = self.sig_in_graph[cut_idx:]
         elif self.visualization_settings['mode'] == 'clinical':
             if len(self.time_in_graph) < self.win_s:
-                self.time_in_graph = np.hstack(
-                    (self.time_in_graph, chunk_times))
-                self.sig_in_graph = np.vstack(
-                    (self.sig_in_graph, chunk_signal))
-                self.pointer += n_samp
-            else:
-                if self.pointer >= self.win_s:
-                    self.pointer = 0
-                if self.pointer + n_samp < len(self.time_in_graph):
-                    self.time_in_graph[
-                        self.pointer:self.pointer+n_samp] = chunk_times
-                    self.sig_in_graph[
-                        self.pointer:self.pointer+n_samp, :] = chunk_signal
+                # Time window is not complete
+                if len(self.time_in_graph) + n_samp < self.win_s:
+                    self.time_in_graph = np.hstack(
+                        (self.time_in_graph, chunk_times))
+                    self.sig_in_graph = np.vstack(
+                        (self.sig_in_graph, chunk_signal))
+                    self.pointer += n_samp
                 else:
-                    n_samp_remaining = len(
-                        self.time_in_graph[self.pointer:])
-                    self.time_in_graph[
-                        self.pointer:] = chunk_times[:n_samp_remaining]
-                    self.sig_in_graph[
-                        self.pointer:, :] = chunk_signal[:n_samp_remaining]
-                    self.pointer += n_samp_remaining
-                    self.append_data(chunk_times[n_samp_remaining:],
-                                     chunk_signal[n_samp_remaining:, :])
-                self.pointer += n_samp
-
-        # return self.time_in_graph.copy(), self.sig_in_graph.copy()
-        return self.time_in_graph, self.sig_in_graph
-
-    def subsample(self, x_in_graph, sig_in_graph):
-        if self.subsample_factor > 1:
-            if sig_in_graph.shape[0] > 27:
-                # Decimate applies IIR filtering to avoid aliasing
-                sig_in_graph = scp_signal.decimate(sig_in_graph,
-                                                   self.subsample_factor,
-                                                   axis=0)
-                x_in_graph = np.linspace(x_in_graph[0],
-                                         x_in_graph[-1],
-                                         sig_in_graph.shape[0])
+                    n_samp_to_complete = self.win_s - self.pointer
+                    self.time_in_graph = np.hstack(
+                        (self.time_in_graph,
+                         chunk_times[:n_samp_to_complete]))
+                    self.sig_in_graph = np.vstack(
+                        (self.sig_in_graph,
+                         chunk_signal[:n_samp_to_complete]))
+                    self.pointer = 0
+                    self.append_data(chunk_times[n_samp_to_complete:],
+                                     chunk_signal[n_samp_to_complete:])
             else:
-                target_samp = len(sig_in_graph) // self.subsample_factor
-                sig_in_graph = scp_signal.resample(sig_in_graph,
-                                                   target_samp,
-                                                   axis=0)
-                x_in_graph = np.linspace(x_in_graph[0],
-                                         x_in_graph[-1],
-                                         sig_in_graph.shape[0])
-        return x_in_graph, sig_in_graph
+                # Time window is complete
+                if self.pointer + n_samp < self.win_s:
+                    self.time_in_graph[self.pointer:self.pointer + n_samp] = \
+                        chunk_times
+                    self.sig_in_graph[self.pointer:self.pointer + n_samp] = \
+                        chunk_signal
+                    self.pointer += n_samp
+                else:
+                    n_samp_to_complete = self.win_s - self.pointer
+                    self.time_in_graph[-n_samp_to_complete:] = \
+                        chunk_times[:n_samp_to_complete]
+                    self.sig_in_graph[-n_samp_to_complete:] = \
+                        chunk_signal[:n_samp_to_complete]
+                    self.pointer = 0
+                    self.append_data(chunk_times[n_samp_to_complete:],
+                                     chunk_signal[n_samp_to_complete:])
+        return self.time_in_graph, self.sig_in_graph
 
     def set_data(self, x_in_graph, sig_in_graph):
         x = np.arange(x_in_graph.shape[0])
         off_y = np.ones(x_in_graph.shape)
-        for i in range(self.receiver.n_cha):
-            temp = sig_in_graph[:, self.receiver.n_cha - i - 1]
+        for i in range(self.lsl_stream_info.n_cha):
+            temp = sig_in_graph[:, self.lsl_stream_info.n_cha - i - 1]
             temp = (temp + self.cha_separation * i)
             self.curves[i].setData(x=x, y=temp)
             self.offsets[i].setData(x=x, y=self.cha_separation * i * off_y)
         if self.visualization_settings['mode'] == 'clinical':
-            self.marker.setPos(self.pointer // self.subsample_factor)
+            self.marker.setPos(self.pointer)
 
     def autoscale(self, y_in_graph):
         scaling_sett = self.visualization_settings['scaling']
@@ -779,24 +741,29 @@ class TimePlotMultichannel(RealTimePlotPyQtGraph):
         drawn up in the chart, whereas the last channel is in the bottom.
         """
         try:
+            t0 = time.time()
             # Init time
             if self.init_time is None:
                 self.init_time = chunk_times[0]
                 if self.visualization_settings['mode'] == 'clinical':
                     self.widget.addItem(self.marker)
             # Temporal series are always plotted from zero.
-            chunk_times = np.array(chunk_times) - self.init_time
+            chunk_times = chunk_times - self.init_time
             # Append new data and get safe copy
             x_in_graph, sig_in_graph = \
                 self.append_data(chunk_times, chunk_signal)
-            # Subsampling (do not modify all the signal)
-            x_in_graph, sig_in_graph = self.subsample(x_in_graph, sig_in_graph)
             # Set data
             self.set_data(x_in_graph, sig_in_graph)
             # Update y range (only if autoscale is activated)
             self.autoscale(sig_in_graph)
             # Update x range
             self.draw_x_axis_ticks(x_in_graph)
+            # Print info
+            self.draw_times.append(time.time() - t0)
+            print('[MultiChannelTimeplot] Received %i samples, pointer at %i, '
+                  'draw time %.6f' %
+                  (len(chunk_times), self.pointer,
+                   sum(self.draw_times) / len(self.draw_times)))
         except Exception as e:
             traceback.print_exc()
             self.handle_exception(e)
@@ -867,7 +834,8 @@ class PSDPlotMultichannel(RealTimePlotPyQtGraph):
 
     @staticmethod
     def get_default_settings():
-        preprocessing_settings = {
+        signal_settings = {
+            'update-rate': 0.1,
             'frequency-filter': {
                 'apply': True,
                 'type': 'highpass',
@@ -879,10 +847,13 @@ class PSDPlotMultichannel(RealTimePlotPyQtGraph):
                 'freq': 50,
                 'bandwidth': [-0.5, 0.5],
                 'order': 5
-            }
+            },
+            'downsampling': {
+                'apply': False,
+                'factor': 2
+            },
         }
         visualization_settings = {
-            'update-rate': 0.1,
             'x_range': [0.1, 30],
             'scaling': {
                 'scale': 1,
@@ -901,10 +872,10 @@ class PSDPlotMultichannel(RealTimePlotPyQtGraph):
                 'units': 'auto',
             }
         }
-        return preprocessing_settings, visualization_settings
+        return signal_settings, visualization_settings
 
     @staticmethod
-    def check_settings(preprocessing_settings, visualization_settings):
+    def check_settings(signal_settings, visualization_settings):
         if isinstance(visualization_settings['scaling']['scale'], list):
             raise ValueError('Incorrect configuration. Parameter scaling/scale'
                              'must be a number.')
@@ -926,7 +897,7 @@ class PSDPlotMultichannel(RealTimePlotPyQtGraph):
         self.cha_separation = \
             self.visualization_settings['scaling']['scale']
         self.win_t = self.visualization_settings['psd_window_seconds']
-        self.win_s = int(self.win_t * self.receiver.fs)
+        self.win_s = int(self.win_t * self.fs)
         self.n_samples_psd = self.win_s
         # Place curves in plot
         self.curves = []
@@ -937,7 +908,7 @@ class PSDPlotMultichannel(RealTimePlotPyQtGraph):
         offset_pen = pg.mkPen(color=self.offset_color,
                               width=self.offset_width,
                               style=Qt.SolidLine)
-        for i in range(self.receiver.n_cha):
+        for i in range(self.lsl_stream_info.n_cha):
             self.offsets.append(self.widget.plot(pen=offset_pen))
             self.curves.append(self.widget.plot(pen=curve_pen))
         # Draw y axis
@@ -945,21 +916,21 @@ class PSDPlotMultichannel(RealTimePlotPyQtGraph):
         self.draw_x_axis_ticks()
         # Signal plotted
         self.time_in_graph = np.zeros(1)
-        self.sig_in_graph = np.zeros([1, self.receiver.n_cha])
+        self.sig_in_graph = np.zeros([1, self.lsl_stream_info.n_cha])
 
     def draw_y_axis_ticks(self):
         ticks = list()
-        if self.receiver.l_cha is not None:
-            for i in range(self.receiver.n_cha):
+        if self.lsl_stream_info.l_cha is not None:
+            for i in range(self.lsl_stream_info.n_cha):
                 offset = self.cha_separation * i
-                label = self.receiver.l_cha[-i - 1]
+                label = self.lsl_stream_info.l_cha[-i - 1]
                 ticks.append((offset, label))
         ticks = [ticks]  # Two levels for ticks
         self.y_axis.setTicks(ticks)
         # Set y axis range
         y_min = - self.cha_separation
-        y_max = self.receiver.n_cha * self.cha_separation
-        if self.receiver.n_cha > 1:
+        y_max = self.lsl_stream_info.n_cha * self.cha_separation
+        if self.lsl_stream_info.n_cha > 1:
             self.plot_item.setYRange(y_min, y_max, padding=0)
 
     def draw_x_axis_ticks(self):
@@ -981,8 +952,8 @@ class PSDPlotMultichannel(RealTimePlotPyQtGraph):
     def set_data(self, x_in_graph, sig_in_graph):
         x = np.arange(x_in_graph.shape[0])
         off_y = np.ones(x_in_graph.shape)
-        for i in range(self.receiver.n_cha):
-            temp = sig_in_graph[:, self.receiver.n_cha - i - 1]
+        for i in range(self.lsl_stream_info.n_cha):
+            temp = sig_in_graph[:, self.lsl_stream_info.n_cha - i - 1]
             temp = (temp + self.cha_separation * i)
             self.curves[i].setData(x=x, y=temp)
             self.offsets[i].setData(x=x, y=self.cha_separation * i * off_y)
@@ -1016,7 +987,7 @@ class PSDPlotMultichannel(RealTimePlotPyQtGraph):
                 welch_seg_len).astype(int)
             welch_ndft = welch_seg_len
             x_in_graph, sig_in_graph = scp_signal.welch(
-                sig_in_graph, fs=self.receiver.fs,
+                sig_in_graph, fs=self.fs,
                 nperseg=welch_seg_len, noverlap=welch_overlap,
                 nfft=welch_ndft, axis=0)
             # Set data
@@ -1043,7 +1014,6 @@ class TimePlot(RealTimePlotPyQtGraph):
         self.curve = None
         self.marker = None
         self.y_range = None
-        self.subsample_factor = None
         # Custom menu
         self.plot_item_view_box = None
         self.widget.wheelEvent = self.mouse_wheel_event
@@ -1067,14 +1037,14 @@ class TimePlot(RealTimePlotPyQtGraph):
 
         def select_channel(self):
             cha_label = self.sender().text()
-            for i in range(self.plot_handler.receiver.n_cha):
-                if self.plot_handler.receiver.l_cha[i] == cha_label:
+            for i in range(self.plot_handler.lsl_stream_info.n_cha):
+                if self.plot_handler.lsl_stream_info.l_cha[i] == cha_label:
                     self.plot_handler.select_channel(i)
 
         def set_channel_list(self):
-            for i in range(self.plot_handler.receiver.n_cha):
+            for i in range(self.plot_handler.lsl_stream_info.n_cha):
                 channel_action = QAction(
-                    self.plot_handler.receiver.l_cha[i], self)
+                    self.plot_handler.lsl_stream_info.l_cha[i], self)
                 channel_action.triggered.connect(self.select_channel)
                 self.addAction(channel_action)
 
@@ -1098,7 +1068,8 @@ class TimePlot(RealTimePlotPyQtGraph):
 
     @staticmethod
     def get_default_settings():
-        preprocessing_settings = {
+        signal_settings = {
+            'update-rate': 0.1,
             'frequency-filter': {
                 'apply': True,
                 'type': 'highpass',
@@ -1110,13 +1081,15 @@ class TimePlot(RealTimePlotPyQtGraph):
                 'freq': 50,
                 'bandwidth': [-0.5, 0.5],
                 'order': 5
+            },
+            'downsampling': {
+                'apply': False,
+                'factor': 2
             }
         }
         visualization_settings = {
-            'update-rate': 0.1,
             'mode': 'clinical',
             'seconds_displayed': 10,
-            'subsample_factor': 2,
             'scaling': {
                 'scale': [-1, 1],
                 'apply_autoscale': True,
@@ -1131,14 +1104,11 @@ class TimePlot(RealTimePlotPyQtGraph):
                 'units': 'auto'
             }
         }
-        return preprocessing_settings, visualization_settings
+        return signal_settings, visualization_settings
 
     @staticmethod
-    def check_settings(preprocessing_settings, visualization_settings):
-        # Check subsample factor
-        if visualization_settings['subsample_factor'] < 1:
-            raise ValueError('The subsample factor must be '
-                             'equal or greater than 1\n')
+    def check_settings(signal_settings, visualization_settings):
+        # Check mode
         possible_modes = ['geek', 'clinical']
         if visualization_settings['mode'] not in possible_modes:
             raise ValueError('Unknown plot mode %s. Possible options: %s' %
@@ -1154,7 +1124,7 @@ class TimePlot(RealTimePlotPyQtGraph):
         :param cha: sample frecuency in Hz
         """
         self.curr_cha = cha
-        self.widget.setTitle(str(self.receiver.l_cha[cha]))
+        self.widget.setTitle(str(self.lsl_stream_info.l_cha[cha]))
 
     def init_plot(self):
         """ This function changes the time of signal plotted in the graph. It
@@ -1167,16 +1137,15 @@ class TimePlot(RealTimePlotPyQtGraph):
                         self.visualization_settings['y_axis_label'])
         # Update variables
         self.win_t = self.visualization_settings['seconds_displayed']
-        self.subsample_factor = self.visualization_settings['subsample_factor']
-        self.win_s = int(self.win_t * self.receiver.fs / self.subsample_factor)
+        self.win_s = int(self.win_t * self.fs)
         self.y_range = self.visualization_settings['scaling']['scale']
         if not isinstance(self.y_range, list):
             self.y_range = [-self.y_range, self.y_range]
         # Update view box menu
         self.plot_item_view_box.menu.set_channel_list()
         init_cha_label = self.visualization_settings['init_channel_label']
-        init_cha = self.receiver.get_channel_indexes_from_labels(init_cha_label) if \
-            init_cha_label is not None else 0
+        init_cha = self.worker.receiver.get_channel_indexes_from_labels(
+            init_cha_label) if init_cha_label is not None else 0
         self.select_channel(init_cha)
         # Place curves in plot
         curve_pen = pg.mkPen(color=self.curve_color,
@@ -1192,8 +1161,8 @@ class TimePlot(RealTimePlotPyQtGraph):
         # Draw y axis
         self.draw_y_axis_ticks()
         # Signal plotted
-        self.time_in_graph = np.zeros(1)
-        self.sig_in_graph = np.zeros([1, self.receiver.n_cha])
+        self.time_in_graph = np.zeros([0])
+        self.sig_in_graph = np.zeros([0, self.lsl_stream_info.n_cha])
 
     def draw_y_axis_ticks(self):
         self.plot_item.setYRange(self.y_range[0],
@@ -1216,7 +1185,7 @@ class TimePlot(RealTimePlotPyQtGraph):
             self.x_axis.setTicks([[(x_ticks_pos[i], str(x_ticks_val[i])) for
                                    i in range(n_ticks + 1)]])
         elif self.visualization_settings['mode'] == 'clinical':
-            x_tick_pos = self.pointer // self.subsample_factor
+            x_tick_pos = self.pointer
             x_tick_val = '%.1f' % self.time_in_graph[self.pointer-1]
             self.x_axis.setTicks([[(x_tick_pos, x_tick_val)]])
         self.plot_item.setXRange(x[0], x[-1], padding=0)
@@ -1225,64 +1194,58 @@ class TimePlot(RealTimePlotPyQtGraph):
         n_samp = len(chunk_times)
         if self.visualization_settings['mode'] == 'geek':
             self.time_in_graph = np.hstack((self.time_in_graph, chunk_times))
-            if len(self.time_in_graph) >= self.win_s:
-                self.time_in_graph = self.time_in_graph[-self.win_s:]
             self.sig_in_graph = np.vstack((self.sig_in_graph, chunk_signal))
-            if len(self.sig_in_graph) >= self.win_s:
-                self.sig_in_graph = self.sig_in_graph[-self.win_s:]
+            abs_time_in_graph = self.time_in_graph - self.time_in_graph[0]
+            if abs_time_in_graph[-1] >= self.win_t:
+                cut_idx = np.argmin(
+                    np.abs(abs_time_in_graph -
+                           (abs_time_in_graph[-1] - self.win_t)))
+                self.time_in_graph = self.time_in_graph[cut_idx:]
+                self.sig_in_graph = self.sig_in_graph[cut_idx:]
         elif self.visualization_settings['mode'] == 'clinical':
             if len(self.time_in_graph) < self.win_s:
-                self.time_in_graph = np.hstack(
-                    (self.time_in_graph, chunk_times))
-                self.sig_in_graph = np.vstack(
-                    (self.sig_in_graph, chunk_signal))
-                self.pointer += n_samp
-            else:
-                if self.pointer >= self.win_s:
-                    self.pointer = 0
-                if self.pointer + n_samp < len(self.time_in_graph):
-                    self.time_in_graph[
-                        self.pointer:self.pointer + n_samp] = chunk_times
-                    self.sig_in_graph[
-                        self.pointer:self.pointer + n_samp, :] = chunk_signal
+                # Beginning
+                if len(self.time_in_graph) + n_samp < self.win_s:
+                    self.time_in_graph = np.hstack(
+                        (self.time_in_graph, chunk_times))
+                    self.sig_in_graph = np.vstack(
+                        (self.sig_in_graph, chunk_signal))
+                    self.pointer += n_samp
                 else:
-                    n_samp_remaining = len(
-                        self.time_in_graph[self.pointer:])
-                    self.time_in_graph[
-                        self.pointer:] = chunk_times[:n_samp_remaining]
-                    self.sig_in_graph[
-                        self.pointer:, :] = chunk_signal[:n_samp_remaining]
-                    self.pointer += n_samp_remaining
-                    self.append_data(chunk_times[n_samp_remaining:],
-                                     chunk_signal[n_samp_remaining:, :])
-                self.pointer += n_samp
-        return self.time_in_graph.copy(), self.sig_in_graph.copy()
+                    n_samp_to_complete = self.win_s - self.pointer
+                    self.time_in_graph = np.hstack(
+                        (self.time_in_graph,
+                         chunk_times[:n_samp_to_complete]))
+                    self.sig_in_graph = np.vstack(
+                        (self.sig_in_graph,
+                         chunk_signal[:n_samp_to_complete]))
+                    self.pointer = 0
+                    self.append_data(chunk_times[n_samp_to_complete:],
+                                     chunk_signal[n_samp_to_complete:])
+            else:
+                # After one window is complete
+                if self.pointer + n_samp < self.win_s:
+                    self.time_in_graph[self.pointer:self.pointer + n_samp] = \
+                        chunk_times
+                    self.sig_in_graph[self.pointer:self.pointer + n_samp] = \
+                        chunk_signal
+                    self.pointer += n_samp
+                else:
+                    n_samp_to_complete = self.win_s - self.pointer
+                    self.time_in_graph[-n_samp_to_complete:] = \
+                        chunk_times[:n_samp_to_complete]
+                    self.sig_in_graph[-n_samp_to_complete:] = \
+                        chunk_signal[:n_samp_to_complete]
+                    self.pointer = 0
+                    self.append_data(chunk_times[n_samp_to_complete:],
+                                     chunk_signal[n_samp_to_complete:])
+        return self.time_in_graph, self.sig_in_graph
 
     def set_data(self, x_in_graph, sig_in_graph):
         x = np.arange(x_in_graph.shape[0])
         self.curve.setData(x=x, y=sig_in_graph)
         if self.visualization_settings['mode'] == 'clinical':
-            self.marker.setPos(self.pointer // self.subsample_factor)
-
-    def subsample(self, x_in_graph, sig_in_graph):
-        if self.subsample_factor > 1:
-            if sig_in_graph.shape[0] > 27:
-                # Decimate applies IIR filtering to avoid aliasing
-                sig_in_graph = scp_signal.decimate(sig_in_graph,
-                                                   self.subsample_factor,
-                                                   axis=0)
-                x_in_graph = np.linspace(x_in_graph[0],
-                                         x_in_graph[-1],
-                                         sig_in_graph.shape[0])
-            else:
-                target_samp = len(sig_in_graph) // self.subsample_factor
-                sig_in_graph = scp_signal.resample(sig_in_graph,
-                                                   target_samp,
-                                                   axis=0)
-                x_in_graph = np.linspace(x_in_graph[0],
-                                         x_in_graph[-1],
-                                         sig_in_graph.shape[0])
-        return x_in_graph, sig_in_graph
+            self.marker.setPos(self.pointer)
 
     def autoscale(self, y_in_graph):
         scaling_sett = self.visualization_settings['scaling']
@@ -1298,7 +1261,8 @@ class TimePlot(RealTimePlotPyQtGraph):
 
     def update_plot(self, chunk_times, chunk_signal):
         try:
-            # Init time
+            t0 = time.time()
+            # Reference time
             if self.init_time is None:
                 self.init_time = chunk_times[0]
                 if self.visualization_settings['mode'] == 'clinical':
@@ -1309,14 +1273,14 @@ class TimePlot(RealTimePlotPyQtGraph):
             x_in_graph, sig_in_graph = \
                 self.append_data(chunk_times, chunk_signal)
             sig_in_graph = sig_in_graph[:, self.curr_cha]
-            # Subsampling (do not modify all the signal)
-            x_in_graph, sig_in_graph = self.subsample(x_in_graph, sig_in_graph)
             # Set data
             self.set_data(x_in_graph, sig_in_graph)
             # Update y range (only if autoscale is activated)
             self.autoscale(sig_in_graph)
             # Update x range
             self.draw_x_axis_ticks(x_in_graph)
+            print('[Timeplot] Received %i samples, pointer at %i, draw time '
+                  '%.6f' % (len(chunk_times), self.pointer, time.time() - t0))
         except Exception as e:
             self.handle_exception(e)
 
@@ -1359,14 +1323,14 @@ class PSDPlot(RealTimePlotPyQtGraph):
 
         def select_channel(self):
             cha_label = self.sender().text()
-            for i in range(self.psd_plot_handler.receiver.n_cha):
-                if self.psd_plot_handler.receiver.l_cha[i] == cha_label:
+            for i in range(self.psd_plot_handler.lsl_stream_info.n_cha):
+                if self.psd_plot_handler.lsl_stream_info.l_cha[i] == cha_label:
                     self.psd_plot_handler.select_channel(i)
 
         def set_channel_list(self):
-            for i in range(self.psd_plot_handler.receiver.n_cha):
+            for i in range(self.psd_plot_handler.lsl_stream_info.n_cha):
                 channel_action = QAction(
-                    self.psd_plot_handler.receiver.l_cha[i], self)
+                    self.psd_plot_handler.lsl_stream_info.l_cha[i], self)
                 channel_action.triggered.connect(self.select_channel)
                 self.addAction(channel_action)
 
@@ -1390,7 +1354,8 @@ class PSDPlot(RealTimePlotPyQtGraph):
 
     @staticmethod
     def get_default_settings():
-        preprocessing_settings = {
+        signal_settings = {
+            'update-rate': 0.1,
             'frequency-filter': {
                 'apply': True,
                 'type': 'highpass',
@@ -1402,10 +1367,13 @@ class PSDPlot(RealTimePlotPyQtGraph):
                 'freq': 50,
                 'bandwidth': [-0.5, 0.5],
                 'order': 5
+            },
+            'downsampling': {
+                'apply': False,
+                'factor': 2
             }
         }
         visualization_settings = {
-            'update-rate': 0.1,
             'x_range': [0.1, 30],
             'scaling': {
                 'scale': [0, 1],
@@ -1424,10 +1392,10 @@ class PSDPlot(RealTimePlotPyQtGraph):
                 'units': 'auto'
             }
         }
-        return preprocessing_settings, visualization_settings
+        return signal_settings, visualization_settings
 
     @staticmethod
-    def check_settings(preprocessing_settings, visualization_settings):
+    def check_settings(signal_settings, visualization_settings):
         pass
 
     @staticmethod
@@ -1440,7 +1408,7 @@ class PSDPlot(RealTimePlotPyQtGraph):
         :param cha: sample frecuency in Hz
         """
         self.curr_cha = cha
-        self.widget.setTitle(str(self.receiver.l_cha[cha]))
+        self.widget.setTitle(str(self.lsl_stream_info.l_cha[cha]))
 
     def init_plot(self):
         """ This function changes the time of signal plotted in the graph. It
@@ -1453,7 +1421,7 @@ class PSDPlot(RealTimePlotPyQtGraph):
                         self.visualization_settings['y_axis_label'])
         # Update variables
         self.win_t = self.visualization_settings['psd_window_seconds']
-        self.win_s = int(self.win_t * self.receiver.fs)
+        self.win_s = int(self.win_t * self.fs)
         self.n_samples_psd = self.win_s
         self.y_range = self.visualization_settings['scaling']['scale']
         if not isinstance(self.y_range, list):
@@ -1461,8 +1429,8 @@ class PSDPlot(RealTimePlotPyQtGraph):
         # Update view box menu
         self.plot_item_view_box.menu.set_channel_list()
         init_cha_label = self.visualization_settings['init_channel_label']
-        init_cha = self.receiver.get_channel_indexes_from_labels(init_cha_label) if \
-            init_cha_label is not None else 0
+        init_cha = self.worker.receiver.get_channel_indexes_from_labels(
+            init_cha_label) if init_cha_label is not None else 0
         self.select_channel(init_cha)
         # Place curves in plot
         curve_pen = pg.mkPen(color=self.curve_color,
@@ -1474,7 +1442,7 @@ class PSDPlot(RealTimePlotPyQtGraph):
         self.draw_x_axis_ticks()
         # Signal plotted
         self.time_in_graph = np.zeros(1)
-        self.sig_in_graph = np.zeros([1, self.receiver.n_cha])
+        self.sig_in_graph = np.zeros([1, self.lsl_stream_info.n_cha])
 
     def draw_y_axis_ticks(self):
         self.plot_item.setYRange(self.y_range[0],
@@ -1528,7 +1496,7 @@ class PSDPlot(RealTimePlotPyQtGraph):
                 welch_seg_len).astype(int)
             welch_ndft = welch_seg_len
             x_in_graph, sig_in_graph = scp_signal.welch(
-                sig_in_graph[:, self.curr_cha], fs=self.receiver.fs,
+                sig_in_graph[:, self.curr_cha], fs=self.fs,
                 nperseg=welch_seg_len, noverlap=welch_overlap,
                 nfft=welch_ndft, axis=0)
             # Set data
@@ -1549,33 +1517,51 @@ class RealTimePlotWorker(QThread):
     """
     update = pyqtSignal(np.ndarray, np.ndarray)
     error = pyqtSignal(Exception)
-    insufficient_update_rate = pyqtSignal(float)
 
-    def __init__(self, plot_state, receiver, preprocessor):
+    def __init__(self, plot_state, lsl_stream_info, signal_settings):
         super().__init__()
         self.plot_state = plot_state
-        self.receiver = receiver
-        self.preprocessor = preprocessor
-        self.preprocessor.fit(self.receiver.fs, self.receiver.n_cha)
+        self.lsl_stream_info = lsl_stream_info
+        self.signal_settings = signal_settings
+        self.fs = self.lsl_stream_info.fs
+        # Get minimum and maximum chunk sizes
+        min_chunk_size = self.signal_settings['update-rate'] * self.fs
+        min_chunk_size = max(int(min_chunk_size), 1)
+        max_chunk_size = 10 * min_chunk_size
+        timeout = max(int(max_chunk_size / lsl_stream_info.fs), 1)
+        # Set receiver
+        self.receiver = lsl_utils.LSLStreamReceiver(
+            self.lsl_stream_info,
+            min_chunk_size=min_chunk_size,
+            max_chunk_size=max_chunk_size,
+            timeout=timeout
+        )
+        # Set real time preprocessor
+        self.preprocessor = real_time_preprocessing.PlotsRealTimePreprocessor(
+            self.signal_settings)
+        self.preprocessor.fit(self.receiver.fs, self.receiver.n_cha,
+                              self.receiver.min_chunk_size)
+        self.wait = False
+
+    def get_effective_fs(self):
+        if self.signal_settings['downsampling']['apply']:
+            fs = self.fs // self.signal_settings['downsampling']['factor']
+        else:
+            fs = self.fs
+        return fs
 
     def run(self):
         try:
             self.receiver.flush_stream()
-            chunk_lengths = list()
             while self.plot_state.value == constants.PLOT_STATE_ON:
                 # Get chunks
                 chunk_data, chunk_times = self.receiver.get_chunk()
-                chunk_data = self.preprocessor.transform(chunk_data)
-                chunk_lengths.append(len(chunk_times))
-                print(len(chunk_times))
+                chunk_times, chunk_data = self.preprocessor.transform(
+                    chunk_times, chunk_data)
                 # Check if the plot is ready to receive data (sometimes get
                 # chunk takes a while and the user presses the button in
                 # between)
                 if self.plot_state.value == constants.PLOT_STATE_ON:
-                    # Check processing overload
-                    if len(chunk_times) >= self.receiver.max_chunk_size:
-                        self.insufficient_update_rate.emit()
-                    print('Chunk received at: %.6f' % time.time())
                     self.update.emit(chunk_times, chunk_data)
         except Exception as e:
             self.error.emit(e)
