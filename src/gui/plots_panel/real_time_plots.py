@@ -760,12 +760,10 @@ class TimePlotMultichannel(RealTimePlotPyQtGraph):
             self.draw_x_axis_ticks(x_in_graph)
             # Print info
             if time.time() - t0 > self.signal_settings['update-rate']:
-                warnings.warn('The plot time per chunk is higher than the '
-                              'update rate. This may end freezing MEDUSA.')
-                # print('[MultiChannelTimeplot] Received %i samples, pointer at %i, '
-                #       'draw time %.6f' %
-                #       (len(chunk_times), self.pointer,
-                #        sum(self.draw_times) / len(self.draw_times)))
+                self.medusa_interface.log(
+                    '[Plot %i] The plot time per chunk is higher than the '
+                    'update rate. This may end up freezing MEDUSA.' % self.uid,
+                    style='warning', mode='replace')
         except Exception as e:
             traceback.print_exc()
             self.handle_exception(e)
@@ -1282,10 +1280,10 @@ class TimePlot(RealTimePlotPyQtGraph):
             # Update x range
             self.draw_x_axis_ticks(x_in_graph)
             if time.time() - t0 > self.signal_settings['update-rate']:
-                warnings.warn('The plot time per chunk is higher than the '
-                              'update rate. This may end freezing MEDUSA.')
-            # print('[Timeplot] Received %i samples, pointer at %i, draw time '
-            #       '%.6f' % (len(chunk_times), self.pointer, time.time() - t0))
+                self.medusa_interface.log(
+                    '[Plot %i] The plot time per chunk is higher than the '
+                    'update rate. This may end up freezing MEDUSA.' % self.uid,
+                    style='warning', mode='replace')
         except Exception as e:
             self.handle_exception(e)
 
