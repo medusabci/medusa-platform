@@ -1,4 +1,5 @@
 # BUILT-IN MODULES
+import warnings
 from abc import ABC, abstractmethod
 import weakref
 import traceback
@@ -491,7 +492,6 @@ class TimePlotMultichannel(RealTimePlotPyQtGraph):
         self.marker = None
         self.pointer = None
         self.cha_separation = None
-        self.draw_times = []
         # Custom menu
         self.plot_item_view_box = None
         self.widget.wheelEvent = self.mouse_wheel_event
@@ -759,11 +759,13 @@ class TimePlotMultichannel(RealTimePlotPyQtGraph):
             # Update x range
             self.draw_x_axis_ticks(x_in_graph)
             # Print info
-            self.draw_times.append(time.time() - t0)
-            print('[MultiChannelTimeplot] Received %i samples, pointer at %i, '
-                  'draw time %.6f' %
-                  (len(chunk_times), self.pointer,
-                   sum(self.draw_times) / len(self.draw_times)))
+            if time.time() - t0 > self.signal_settings['update-rate']:
+                warnings.warn('The plot time per chunk is higher than the '
+                              'update rate. This may end freezing MEDUSA.')
+                # print('[MultiChannelTimeplot] Received %i samples, pointer at %i, '
+                #       'draw time %.6f' %
+                #       (len(chunk_times), self.pointer,
+                #        sum(self.draw_times) / len(self.draw_times)))
         except Exception as e:
             traceback.print_exc()
             self.handle_exception(e)
@@ -1279,8 +1281,11 @@ class TimePlot(RealTimePlotPyQtGraph):
             self.autoscale(sig_in_graph)
             # Update x range
             self.draw_x_axis_ticks(x_in_graph)
-            print('[Timeplot] Received %i samples, pointer at %i, draw time '
-                  '%.6f' % (len(chunk_times), self.pointer, time.time() - t0))
+            if time.time() - t0 > self.signal_settings['update-rate']:
+                warnings.warn('The plot time per chunk is higher than the '
+                              'update rate. This may end freezing MEDUSA.')
+            # print('[Timeplot] Received %i samples, pointer at %i, draw time '
+            #       '%.6f' % (len(chunk_times), self.pointer, time.time() - t0))
         except Exception as e:
             self.handle_exception(e)
 
