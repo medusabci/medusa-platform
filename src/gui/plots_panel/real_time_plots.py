@@ -197,7 +197,7 @@ class TopographyPlot(RealTimePlot):
                 'factor': 2
             },
             'PSD': {
-                'time-window': 2,
+                'time-window': 5,
                 'welch_overlap_pct': 25,
                 'welch_seg_len_pct': 50,
                 'power-range': [8, 13]
