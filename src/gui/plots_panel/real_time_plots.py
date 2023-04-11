@@ -96,6 +96,7 @@ class RealTimePlot(ABC):
     def destroy_plot(self):
         self.init_time = None
         self.clear_plot()
+        self.init_plot()
 
     @staticmethod
     @abstractmethod
@@ -270,7 +271,7 @@ class TopographyPlot(RealTimePlot):
             # Plot topography
             self.topo_plot.update(values=power_values)
             self.widget.draw()
-            print('Chunk plotted at: %.6f' % time.time())
+            # print('Chunk plotted at: %.6f' % time.time())
         except Exception as e:
             self.handle_exception(e)
 
@@ -416,10 +417,10 @@ class ConnectivityPlot(RealTimePlot):
                     np.abs(adj_mat),
                     self.signal_settings['connectivity']['threshold'])
                 adj_mat = adj_mat * th_idx
-
                 # Plot connectivity
                 self.conn_plot.update(adj_mat=adj_mat)
                 self.widget.draw()
+            # print('Chunk plotted at: %.6f' % time.time())
         except Exception as e:
             self.handle_exception(e)
 
@@ -741,7 +742,7 @@ class TimePlotMultichannel(RealTimePlotPyQtGraph):
         drawn up in the chart, whereas the last channel is in the bottom.
         """
         try:
-            t0 = time.time()
+            # t0 = time.time()
             # Init time
             if self.init_time is None:
                 self.init_time = chunk_times[0]
@@ -759,11 +760,12 @@ class TimePlotMultichannel(RealTimePlotPyQtGraph):
             # Update x range
             self.draw_x_axis_ticks(x_in_graph)
             # Print info
-            if time.time() - t0 > self.signal_settings['update-rate']:
-                self.medusa_interface.log(
-                    '[Plot %i] The plot time per chunk is higher than the '
-                    'update rate. This may end up freezing MEDUSA.' % self.uid,
-                    style='warning', mode='replace')
+            # if time.time() - t0 > self.signal_settings['update-rate']:
+            #     self.medusa_interface.log(
+            #         '[Plot %i] The plot time per chunk is higher than the '
+            #         'update rate. This may end up freezing MEDUSA.' % self.uid,
+            #         style='warning', mode='replace')
+            # print('Chunk plotted at: %.6f' % time.time())
         except Exception as e:
             traceback.print_exc()
             self.handle_exception(e)
@@ -1261,7 +1263,7 @@ class TimePlot(RealTimePlotPyQtGraph):
 
     def update_plot(self, chunk_times, chunk_signal):
         try:
-            t0 = time.time()
+            # t0 = time.time()
             # Reference time
             if self.init_time is None:
                 self.init_time = chunk_times[0]
@@ -1279,11 +1281,11 @@ class TimePlot(RealTimePlotPyQtGraph):
             self.autoscale(sig_in_graph)
             # Update x range
             self.draw_x_axis_ticks(x_in_graph)
-            if time.time() - t0 > self.signal_settings['update-rate']:
-                self.medusa_interface.log(
-                    '[Plot %i] The plot time per chunk is higher than the '
-                    'update rate. This may end up freezing MEDUSA.' % self.uid,
-                    style='warning', mode='replace')
+            # if time.time() - t0 > self.signal_settings['update-rate']:
+            #     self.medusa_interface.log(
+            #         '[Plot %i] The plot time per chunk is higher than the '
+            #         'update rate. This may end up freezing MEDUSA.' % self.uid,
+            #         style='warning', mode='replace')
         except Exception as e:
             self.handle_exception(e)
 
@@ -1561,6 +1563,7 @@ class RealTimePlotWorker(QThread):
                 chunk_data, chunk_times = self.receiver.get_chunk()
                 chunk_times, chunk_data = self.preprocessor.transform(
                     chunk_times, chunk_data)
+                # print('Chunk received at: %.6f' % time.time())
                 # Check if the plot is ready to receive data (sometimes get
                 # chunk takes a while and the user presses the button in
                 # between)

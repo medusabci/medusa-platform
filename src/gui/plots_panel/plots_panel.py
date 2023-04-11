@@ -1,6 +1,8 @@
 # BUILT-IN MODULES
 import json, os
 import multiprocessing as mp
+import time
+
 # EXTERNAL MODULES
 from PyQt5 import uic
 from PyQt5.QtWidgets import *
@@ -264,9 +266,12 @@ class PlotsPanelWidget(QWidget, ui_plots_panel_widget):
             # Start plot
             n_ready_plots = 0
             for uid, plot_handler in self.plots_handlers.items():
+                # The plot is not ready if there has been some error during
+                # the initialization. Still, the other plots can work
                 if plot_handler.ready:
                     plot_handler.start()
                     n_ready_plots += 1
+            # If none of the plots is correctly initialized
             if n_ready_plots == 0:
                 return
             # Update gui
@@ -287,6 +292,7 @@ class PlotsPanelWidget(QWidget, ui_plots_panel_widget):
                 # The change of state will notify the action directly
                 # if the plots are undocked
                 self.plot_state.value = constants.PLOT_STATE_OFF
+                # time.sleep(0.5)
                 self.reset_plots()
                 # Update gui
                 icon_dock = "open_in_new.svg" if self.undocked else "close.svg"

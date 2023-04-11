@@ -61,8 +61,9 @@ class TopographicPlot:
         """ This method clears all the handles. """
         if self.plot_handles is not None:
             _remove_handles(self.plot_handles)
-        if self.head_handles is not None:
-            _remove_handles(self.head_handles)
+        self.plot_handles = None
+        # if self.head_handles is not None:
+        #     _remove_handles(self.head_handles)
 
 
 class ConnectivityPlot:
@@ -109,8 +110,9 @@ class ConnectivityPlot:
         """ This method clears all the handles. """
         if self.plot_handles is not None:
             _remove_handles(self.plot_handles)
-        if self.head_handles is not None:
-            _remove_handles(self.head_handles)
+        self.plot_handles = None
+        # if self.head_handles is not None:
+        #     _remove_handles(self.head_handles)
 
 
 def plot_connectivity(adj_mat, axes, channel_set, cmap="bwr", clim=None,
@@ -512,7 +514,7 @@ def __get_cartesian_coordinates(channel_set):
         radius, theta = np.array(radius),np.array(theta)
         ch_x, ch_y = __pol2cart(radius, theta)
     else:
-        ch_x, ch_y = list(),list()
+        ch_x, ch_y = list(), list()
         for c in channel_set.channels:
             try:
                 ch_x.append(c['x'])
