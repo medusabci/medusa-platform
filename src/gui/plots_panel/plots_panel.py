@@ -310,7 +310,8 @@ class PlotsPanelWidget(QWidget, ui_plots_panel_widget):
     def reset_plots(self):
         # Reset the plots
         for uid, plot_handler in self.plots_handlers.items():
-            plot_handler.destroy_plot()
+            if plot_handler.ready:
+                plot_handler.destroy_plot()
 
 
 class PlotsPanelWindow(QMainWindow):
