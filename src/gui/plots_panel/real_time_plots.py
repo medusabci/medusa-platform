@@ -666,20 +666,21 @@ class TimePlotMultichannel(RealTimePlotPyQtGraph):
 
     def draw_x_axis_ticks(self):
         x = np.arange(self.time_in_graph.shape[0])
-        if self.visualization_settings['mode'] == 'geek':
-            n_ticks = 4
-            step = self.time_in_graph.shape[0] // n_ticks
-            margin_last_tick = (3 * self.time_in_graph.shape[0] // 100) + 1
-            x_ticks_pos = [x[i * step] for i in range(n_ticks)]
-            x_ticks_pos.append(x[n_ticks * step - margin_last_tick])
-            x_ticks_val = ['%.1f' % self.time_in_graph[i * step]
-                           for i in range(n_ticks)]
-            x_ticks_val.append(
-                '%.1f' % self.time_in_graph[n_ticks * step - margin_last_tick])
-            self.x_axis.setTicks([[(x_ticks_pos[i], str(x_ticks_val[i])) for
-                                   i in range(n_ticks + 1)]])
-        elif self.visualization_settings['mode'] == 'clinical':
-            if len(self.time_in_graph) > 0:
+        if len(self.time_in_graph) > 0:
+            if self.visualization_settings['mode'] == 'geek':
+                # Time ticks
+                x_ticks_pos = []
+                x_ticks_val = []
+                if self.visualization_settings['x_axis']['display_grid']:
+                    x_ticks_pos = np.arange(
+                        min(self.time_in_graph[-1], self.win_t),
+                        step=self.visualization_settings['x_axis'][
+                            'line_separation']) * self.fs
+                    x_ticks_pos = x_ticks_pos.astype(int).tolist()
+                    x_ticks_val = ['%.1f' % self.time_in_graph[pos]
+                                   for pos in x_ticks_pos]
+                self.x_axis.setTicks([list(zip(x_ticks_pos, x_ticks_val))])
+            elif self.visualization_settings['mode'] == 'clinical':
                 # Time ticks
                 x_ticks_pos = []
                 x_ticks_val = []
@@ -695,10 +696,10 @@ class TimePlotMultichannel(RealTimePlotPyQtGraph):
                 x_ticks_val.append(
                     '%.1f' % self.time_in_graph[self.pointer - 1])
                 self.x_axis.setTicks([list(zip(x_ticks_pos, x_ticks_val))])
-                self.plot_item.setXRange(x[0], x[-1], padding=0)
-            else:
-                self.x_axis.setTicks([])
-                self.plot_item.setXRange(0, 0, padding=0)
+            self.plot_item.setXRange(x[0], x[-1], padding=0)
+        else:
+            self.x_axis.setTicks([])
+            self.plot_item.setXRange(0, 0, padding=0)
 
     def append_data(self, chunk_times, chunk_signal):
         n_samp = len(chunk_times)
@@ -995,20 +996,21 @@ class TimePlot(RealTimePlotPyQtGraph):
 
     def draw_x_axis_ticks(self):
         x = np.arange(self.time_in_graph.shape[0])
-        if self.visualization_settings['mode'] == 'geek':
-            n_ticks = 4
-            step = self.time_in_graph.shape[0] // n_ticks
-            margin_last_tick = (3 * self.time_in_graph.shape[0] // 100) + 1
-            x_ticks_pos = [x[i * step] for i in range(n_ticks)]
-            x_ticks_pos.append(x[n_ticks * step - margin_last_tick])
-            x_ticks_val = ['%.1f' % self.time_in_graph[i * step]
-                           for i in range(n_ticks)]
-            x_ticks_val.append(
-                '%.1f' % self.time_in_graph[n_ticks * step - margin_last_tick])
-            self.x_axis.setTicks([[(x_ticks_pos[i], str(x_ticks_val[i])) for
-                                   i in range(n_ticks + 1)]])
-        elif self.visualization_settings['mode'] == 'clinical':
-            if len(self.time_in_graph) > 0:
+        if len(self.time_in_graph) > 0:
+            if self.visualization_settings['mode'] == 'geek':
+                # Time ticks
+                x_ticks_pos = []
+                x_ticks_val = []
+                if self.visualization_settings['x_axis']['display_grid']:
+                    x_ticks_pos = np.arange(
+                        min(self.time_in_graph[-1], self.win_t),
+                        step=self.visualization_settings['x_axis'][
+                            'line_separation']) * self.fs
+                    x_ticks_pos = x_ticks_pos.astype(int).tolist()
+                    x_ticks_val = ['%.1f' % self.time_in_graph[pos]
+                                   for pos in x_ticks_pos]
+                self.x_axis.setTicks([list(zip(x_ticks_pos, x_ticks_val))])
+            elif self.visualization_settings['mode'] == 'clinical':
                 # Time ticks
                 x_ticks_pos = []
                 x_ticks_val = []
@@ -1024,10 +1026,10 @@ class TimePlot(RealTimePlotPyQtGraph):
                 x_ticks_val.append(
                     '%.1f' % self.time_in_graph[self.pointer - 1])
                 self.x_axis.setTicks([list(zip(x_ticks_pos, x_ticks_val))])
-                self.plot_item.setXRange(x[0], x[-1], padding=0)
-            else:
-                self.x_axis.setTicks([])
-                self.plot_item.setXRange(0, 0, padding=0)
+            self.plot_item.setXRange(x[0], x[-1], padding=0)
+        else:
+            self.x_axis.setTicks([])
+            self.plot_item.setXRange(0, 0, padding=0)
 
     def append_data(self, chunk_times, chunk_signal):
         n_samp = len(chunk_times)
