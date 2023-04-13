@@ -144,6 +144,7 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
             self.gui_config['height'] = self.screen_size.height() * 0.75
             self.gui_config['splitter_ratio'] = 0.36
             self.gui_config['splitter_2_ratio'] = 0.28
+            self.gui_config['maximized'] = False
             # Default theme
             self.gui_config['theme'] = 'dark'
         # Set window sizes
