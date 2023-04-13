@@ -63,14 +63,6 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         medusaid = u'gib.medusa.' + self.release_info['version']
         ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(medusaid)
 
-        # Initial sizes
-        self.window_size = QDesktopWidget().availableGeometry(self).size() * 0.75
-        self.default_width = self.window_size.width()
-        self.default_height = self.window_size.height()
-        self.default_splitter_ratio = 0.36
-        self.default_splitter_2_ratio = 0.28
-        self.reset_sizes()
-
         # Splash screen
         splash_screen = SplashScreen(self.release_info)
         splash_screen.set_state(0, "Initializing...")
@@ -80,9 +72,10 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
 
         # Get gui settings of the user
         self.gui_config = None
+        self.screen_size = None
         self.theme = None
         self.theme_colors = None
-        self.set_theme()
+        self.set_gui_config()
 
         # Menu and toolbar action initializing
         self.set_up_menu_bar_main()
@@ -116,22 +109,14 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         sleep(1)
         splash_screen.hide()
 
+        # Show
+        if self.gui_config['maximized']:
+            self.showMaximized()
         self.set_status('Ready')
         self.show()
 
         # User account
         self.set_up_user_account()
-
-    @exceptions.error_handler(scope='general')
-    def reset_sizes(self):
-        # Define size and splitters
-        self.resize(self.default_width, self.default_height)
-        self.splitter.setSizes(
-            [int(self.default_splitter_ratio * self.default_width),
-             int((1-self.default_splitter_ratio) * self.default_width)])
-        self.splitter_2.setSizes(
-            [int(self.default_splitter_2_ratio * self.default_height),
-             int((1 - self.default_splitter_2_ratio) * self.default_height)])
 
     @exceptions.error_handler(scope='general')
     def set_status(self, msg):
@@ -144,8 +129,9 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
 
     # ================================ SET UP ================================ #
     @exceptions.error_handler(scope='general')
-    def set_theme(self):
-        # Load user theme
+    def set_gui_config(self):
+        # Load gui config
+        self.screen_size = QDesktopWidget().availableGeometry(self).size()
         gui_config_file_path = self.accounts_manager.wrap_path(
             constants.GUI_CONFIG_FILE)
         if os.path.isfile(gui_config_file_path):
@@ -153,11 +139,56 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
                 self.gui_config = json.load(f)
         else:
             self.gui_config = dict()
+            # Default window sizes
+            self.gui_config['width'] = self.screen_size.width() * 0.75
+            self.gui_config['height'] = self.screen_size.height() * 0.75
+            self.gui_config['splitter_ratio'] = 0.36
+            self.gui_config['splitter_2_ratio'] = 0.28
+            # Default theme
             self.gui_config['theme'] = 'dark'
+        # Set window sizes
+        self.set_window_config()
         # Set theme
         self.theme = self.gui_config['theme']
         self.theme_colors = gu.get_theme_colors(self.theme)
         gu.set_css_and_theme(self, self.theme_colors)
+
+    @exceptions.error_handler(scope='general')
+    def save_gui_config(self):
+        # Update sizes
+        self.gui_config['width'] = self.width()
+        self.gui_config['height'] = self.height()
+        self.gui_config['splitter_ratio'] = \
+            self.splitter.sizes()[0] / sum(self.splitter.sizes())
+        self.gui_config['splitter_2_ratio'] = \
+            self.splitter_2.sizes()[0] / sum(self.splitter_2.sizes())
+        self.gui_config['position'] = [self.pos().x(), self.pos().y()]
+        self.gui_config['maximized'] = self.isMaximized()
+        # Update theme
+        # Save config
+        gui_config_file_path = self.accounts_manager.wrap_path(
+            constants.GUI_CONFIG_FILE)
+        with open(gui_config_file_path, 'w') as f:
+            json.dump(self.gui_config, f, indent=4)
+
+    @exceptions.error_handler(scope='general')
+    def set_window_config(self):
+        # Define size and splitters
+        self.resize(self.gui_config['width'], self.gui_config['height'])
+        self.splitter.setSizes(
+            [int(self.gui_config['splitter_ratio'] *
+                 self.gui_config['width']),
+             int((1 - self.gui_config['splitter_ratio']) *
+                 self.gui_config['width'])])
+        self.splitter_2.setSizes(
+            [int(self.gui_config['splitter_2_ratio'] *
+                 self.gui_config['height']),
+             int((1 - self.gui_config['splitter_2_ratio']) *
+                 self.gui_config['height'])])
+        if self.gui_config['position'][0] < self.screen_size.width() and \
+                self.gui_config['position'][1] < self.screen_size.height():
+            self.move(self.gui_config['position'][0],
+                      self.gui_config['position'][1])
 
     @exceptions.error_handler(scope='general')
     def reset_panels(self):
@@ -372,20 +403,12 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
     # ============================== PREFERENCES ============================= #
     def set_dark_theme(self):
         self.gui_config['theme'] = 'dark'
-        gui_config_file_path = self.accounts_manager.wrap_path(
-            constants.GUI_CONFIG_FILE)
-        with open(gui_config_file_path, 'w') as f:
-            json.dump(self.gui_config, f)
-        self.set_theme()
+        self.set_gui_config()
         self.reset_panels()
 
     def set_light_theme(self):
         self.gui_config['theme'] = 'light'
-        gui_config_file_path = self.accounts_manager.wrap_path(
-            constants.GUI_CONFIG_FILE)
-        with open(gui_config_file_path, 'w') as f:
-            json.dump(self.gui_config, f)
-        self.set_theme()
+        self.set_gui_config()
         self.reset_panels()
 
     # =============================== TOOL BAR =============================== #
@@ -715,7 +738,7 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
     def print_log(self, msg, style=None, mode='append'):
         """ Prints in the application log."""
         # hasattr is needed because if an exception occurs before
-        # log_panel_widget is initialized, the program enters in an infinite
+        # log_panel_widget is initialized, the program enters an infinite
         # loop because of exception handling
         if hasattr(self, 'log_panel_widget'):
             self.log_panel_widget.print_log(msg, style, mode)
@@ -841,7 +864,9 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
             # Close medusa interface queue
             self.medusa_interface_listener.terminate()
             self.interface_queue.close()
-            # let the window close
+            # Save gui config
+            self.save_gui_config()
+            # Let the window close
             event.accept()
 
     class MedusaInterfaceQueue:
