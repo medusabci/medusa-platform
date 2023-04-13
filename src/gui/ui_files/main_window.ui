@@ -28,12 +28,22 @@
            <enum>Qt::Vertical</enum>
           </property>
           <widget class="QGroupBox" name="box_apps_panel">
+           <property name="font">
+            <font>
+             <pointsize>9</pointsize>
+            </font>
+           </property>
            <property name="title">
             <string>APPLICATIONS</string>
            </property>
            <layout class="QVBoxLayout" name="verticalLayout_2"/>
           </widget>
           <widget class="QGroupBox" name="box_log_panel">
+           <property name="font">
+            <font>
+             <pointsize>9</pointsize>
+            </font>
+           </property>
            <property name="title">
             <string>LOG </string>
            </property>
@@ -47,6 +57,11 @@
        <layout class="QVBoxLayout" name="verticalLayout_5">
         <item>
          <widget class="QGroupBox" name="box_plots_panel">
+          <property name="font">
+           <font>
+            <pointsize>9</pointsize>
+           </font>
+          </property>
           <property name="title">
            <string>REAL TIME PLOTS</string>
           </property>

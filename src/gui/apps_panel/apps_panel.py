@@ -12,7 +12,6 @@ import urllib
 import webbrowser
 from logging.handlers import QueueHandler
 # EXTERNAL MODULES
-
 from PyQt5 import uic
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
@@ -37,6 +36,7 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
         self.is_loaded = False
         self.setupUi(self)
         # Attributes
+        self.screen_size = QDesktopWidget().availableGeometry(self).size()
         self.apps_manager = apps_manager
         self.working_lsl_streams = working_lsl_streams
         self.app_state = app_state
@@ -52,7 +52,8 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
         self.set_up_tool_bar_app()
         # Set scroll area
         self.apps_panel_grid_widget = AppsPanelGridWidget(
-            min_app_widget_width=110, apps_folder=self.apps_folder,
+            min_app_widget_width=int(0.08*self.screen_size.width()),
+            apps_folder=self.apps_folder,
             theme_colors=theme_colors)
         self.fill_apps_panel()
         self.apps_panel_grid_widget.arrange_panel(568)
@@ -578,10 +579,11 @@ class AppWidget(QFrame):
         self.title.setAlignment(Qt.AlignCenter)
         self.title.setMargin(0)
         self.title.setContentsMargins(0, 0, 0, 0)
+        gu.set_point_size(self.title, 8)
         # Restrictions
         self.setMinimumWidth(self.min_widget_width)
         self.setMaximumHeight(
-            int(1.25 * self.min_widget_width))
+            int(1.1 * self.min_widget_width))
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Minimum)
         # Add layout
         self.main_layout.addWidget(self.icon)

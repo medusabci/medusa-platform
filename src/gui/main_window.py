@@ -7,7 +7,6 @@ import ctypes
 import threading
 import webbrowser
 import datetime
-from time import sleep
 
 # EXTERNAL MODULES
 from PyQt5 import uic
@@ -73,9 +72,12 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         # Get gui settings of the user
         self.gui_config = None
         self.screen_size = None
-        self.theme = None
+        self.display_size = None
+        self.load_gui_config()
+
+        # Set theme
         self.theme_colors = None
-        self.set_gui_config()
+        self.set_theme()
 
         # Menu and toolbar action initializing
         self.set_up_menu_bar_main()
@@ -106,12 +108,12 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         splash_screen.set_state(100, "Tidying up the panels...")
 
         # Set up
-        sleep(1)
         splash_screen.hide()
 
+        # Set window sizes
+        self.set_window_config()
+
         # Show
-        if self.gui_config['maximized']:
-            self.showMaximized()
         self.set_status('Ready')
         self.show()
 
@@ -129,9 +131,18 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
 
     # ================================ SET UP ================================ #
     @exceptions.error_handler(scope='general')
-    def set_gui_config(self):
+    def load_gui_config(self):
+        # Get display environment
+        desktop_widget = QDesktopWidget()
+        screen_size = desktop_widget.availableGeometry(self).size()
+        self.screen_size = [screen_size.width(), screen_size.height()]
+        self.display_size = [0, 0]
+        for i in range(desktop_widget.screenCount()):
+            screen_size = desktop_widget.screenGeometry(i).size()
+            self.display_size[0] += screen_size.width()
+            self.display_size[1] += screen_size.height()
+
         # Load gui config
-        self.screen_size = QDesktopWidget().availableGeometry(self).size()
         gui_config_file_path = self.accounts_manager.wrap_path(
             constants.GUI_CONFIG_FILE)
         if os.path.isfile(gui_config_file_path):
@@ -140,19 +151,13 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         else:
             self.gui_config = dict()
             # Default window sizes
-            self.gui_config['width'] = self.screen_size.width() * 0.75
-            self.gui_config['height'] = self.screen_size.height() * 0.75
+            self.gui_config['width'] = self.screen_size[0] * 0.75
+            self.gui_config['height'] = self.screen_size[1] * 0.75
             self.gui_config['splitter_ratio'] = 0.36
             self.gui_config['splitter_2_ratio'] = 0.28
             self.gui_config['maximized'] = False
             # Default theme
             self.gui_config['theme'] = 'dark'
-        # Set window sizes
-        self.set_window_config()
-        # Set theme
-        self.theme = self.gui_config['theme']
-        self.theme_colors = gu.get_theme_colors(self.theme)
-        gu.set_css_and_theme(self, self.theme_colors)
 
     @exceptions.error_handler(scope='general')
     def save_gui_config(self):
@@ -165,12 +170,16 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
             self.splitter_2.sizes()[0] / sum(self.splitter_2.sizes())
         self.gui_config['position'] = [self.pos().x(), self.pos().y()]
         self.gui_config['maximized'] = self.isMaximized()
-        # Update theme
         # Save config
         gui_config_file_path = self.accounts_manager.wrap_path(
             constants.GUI_CONFIG_FILE)
         with open(gui_config_file_path, 'w') as f:
             json.dump(self.gui_config, f, indent=4)
+
+    @exceptions.error_handler(scope='general')
+    def set_theme(self):
+        self.theme_colors = gu.get_theme_colors(self.gui_config['theme'])
+        gu.set_css_and_theme(self, self.theme_colors)
 
     @exceptions.error_handler(scope='general')
     def set_window_config(self):
@@ -186,10 +195,12 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
                  self.gui_config['height']),
              int((1 - self.gui_config['splitter_2_ratio']) *
                  self.gui_config['height'])])
-        if self.gui_config['position'][0] < self.screen_size.width() and \
-                self.gui_config['position'][1] < self.screen_size.height():
+        if self.gui_config['position'][0] < self.display_size[0] and \
+                self.gui_config['position'][1] < self.display_size[1]:
             self.move(self.gui_config['position'][0],
                       self.gui_config['position'][1])
+        if self.gui_config['maximized']:
+            self.showMaximized()
 
     @exceptions.error_handler(scope='general')
     def reset_panels(self):
@@ -404,12 +415,12 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
     # ============================== PREFERENCES ============================= #
     def set_dark_theme(self):
         self.gui_config['theme'] = 'dark'
-        self.set_gui_config()
+        self.set_theme()
         self.reset_panels()
 
     def set_light_theme(self):
         self.gui_config['theme'] = 'light'
-        self.set_gui_config()
+        self.set_theme()
         self.reset_panels()
 
     # =============================== TOOL BAR =============================== #
