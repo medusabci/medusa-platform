@@ -1629,6 +1629,7 @@ class RealTimePlotWorker(QThread):
         self.lsl_stream_info = lsl_stream_info
         self.signal_settings = signal_settings
         self.fs = self.lsl_stream_info.fs
+        self.sleep_time = self.signal_settings['update-rate'] * 0.9
         # Get minimum and maximum chunk sizes
         min_chunk_size = self.signal_settings['update-rate'] * self.fs
         min_chunk_size = max(int(min_chunk_size), 1)
@@ -1669,6 +1670,7 @@ class RealTimePlotWorker(QThread):
                 # between)
                 if self.plot_state.value == constants.PLOT_STATE_ON:
                     self.update.emit(chunk_times, chunk_data)
+                time.sleep(self.sleep_time)
         except Exception as e:
             self.error.emit(e)
 
