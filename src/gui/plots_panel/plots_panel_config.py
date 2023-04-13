@@ -1,14 +1,12 @@
 # PYTHON MODULES
-import sys, os, json, time, traceback
+import sys, os, json, traceback
 from math import floor
-import xml.etree.ElementTree as xml_et
 
 # EXTERNAL MODULES
 from PyQt5 import uic
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
 from PyQt5.QtGui import *
-import pyqtgraph as pg
 
 # MEDUSA COMPONENTS
 from medusa import components
@@ -19,8 +17,6 @@ import exceptions, constants
 from gui import gui_utils as gu
 from gui.plots_panel import real_time_plots
 from gui.qt_widgets.notifications import NotificationStack
-from gui.qt_widgets.dialogs import warning_dialog
-import utils
 
 # Load the .ui files
 ui_plots_panel_config = uic.loadUiType(
