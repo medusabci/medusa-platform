@@ -52,7 +52,8 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
         self.set_up_tool_bar_app()
         # Set scroll area
         self.apps_panel_grid_widget = AppsPanelGridWidget(
-            min_app_widget_width=int(0.08*self.screen_size.width()),
+            min_app_widget_width=int(0.1*min(self.screen_size.width(),
+                                              self.screen_size.height())),
             apps_folder=self.apps_folder,
             theme_colors=theme_colors)
         self.fill_apps_panel()
