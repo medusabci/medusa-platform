@@ -134,7 +134,10 @@ class LSLStreamWrapper(components.SerializableComponent):
         self.set_inlet()
 
     def set_inlet(self):
-        self.lsl_stream_inlet = pylsl.StreamInlet(self.lsl_stream)
+        self.lsl_stream_inlet = pylsl.StreamInlet(
+            self.lsl_stream,
+            processing_flags=pylsl.proc_dejitter | pylsl.proc_monotonize |
+                             pylsl.proc_threadsafe)
         self.lsl_stream_info = self.lsl_stream_inlet.info()
         # LSL parameters
         self.lsl_name = self.lsl_stream_info.name()
@@ -420,7 +423,8 @@ class LSLStreamReceiver:
         self.info_cha = self.lsl_stream_info.cha_info
         self.idx_cha = self.lsl_stream_info.selected_channels_idx
         self.lsl_clock_offset = \
-            np.mean([time.time() - pylsl.local_clock() for i in range(10)])
+            np.mean([time.time() - pylsl.local_clock() for _ in range(10)]) + \
+            self.lsl_stream_info.lsl_stream_inlet.time_correction()
         self.chunk_counter = 0
         self.last_t = -1
         self.aliasing_correction = True
