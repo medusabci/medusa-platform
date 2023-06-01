@@ -161,9 +161,8 @@ class JsonViewer(QtWidgets.QMainWindow):
 
 def main():
     qt_app = QtWidgets.QApplication(sys.argv)
-    json_viewer = JsonViewer(
-        'E:\SoftwareProjects\medusa\medusa-2.0\
-        medusa-platform\src\gui/lsl_config.json')
+    json_viewer = JsonViewer('D:/Eduardo/Proyectos/medusa/medusa-platform/src'
+                             '/accounts/esanvaz/plots_config.json')
     sys.exit(qt_app.exec_())
 
 

@@ -23,6 +23,7 @@ import constants
 from gui.plots_panel import head_plots
 
 # MEDUSA-CORE MODULES
+import medusa
 from medusa import meeg
 from medusa.local_activation import spectral_parameteres
 from medusa.connectivity import amplitude_connectivity, phase_connectivity
@@ -192,6 +193,11 @@ class TopographyPlot(RealTimePlot):
                 'bandwidth': [-0.5, 0.5],
                 'order': 5
             },
+            're-referencing': {
+                'apply': False,
+                'type': 'car',
+                'channel': ''
+            },
             'downsampling': {
                 'apply': False,
                 'factor': 2
@@ -332,6 +338,11 @@ class ConnectivityPlot(RealTimePlot):
                 'freq': 50,
                 'bandwidth': [-0.5, 0.5],
                 'order': 5
+            },
+            're-referencing': {
+                'apply': False,
+                'type': 'car',
+                'channel': ''
             },
             'downsampling': {
                 'apply': False,
@@ -555,6 +566,11 @@ class TimePlotMultichannel(RealTimePlotPyQtGraph):
                 'bandwidth': [-0.5, 0.5],
                 'order': 5
             },
+            're-referencing': {
+                'apply': False,
+                'type': 'car',
+                'channel': ''
+            },
             'downsampling': {
                 'apply': False,
                 'factor': 2
@@ -665,44 +681,46 @@ class TimePlotMultichannel(RealTimePlotPyQtGraph):
             self.plot_item.setYRange(y_min, y_max, padding=0)
 
     def draw_x_axis_ticks(self):
-        x = np.arange(self.time_in_graph.shape[0])
         if len(self.time_in_graph) > 0:
             if self.visualization_settings['mode'] == 'geek':
+                # Set timestamps
+                x = self.time_in_graph
                 # Time ticks
                 x_ticks_pos = []
                 x_ticks_val = []
                 if self.visualization_settings['x_axis']['display_grid']:
-                    x_ticks_pos = np.arange(
-                        min(self.time_in_graph[-1], self.win_t),
-                        step=self.visualization_settings['x_axis'][
-                            'line_separation']) * self.fs
-                    x_ticks_pos = x_ticks_pos.astype(int).tolist()
-                    x_ticks_val = ['%.1f' % self.time_in_graph[pos]
-                                   for pos in x_ticks_pos]
+                    x_ticks_pos = np.arange(x[0], x[-1],
+                                            step=self.visualization_settings[
+                                                'x_axis']['line_separation'])
+                    x_ticks_val = ['%.1f' % v for v in x_ticks_pos]
+                # Set ticks
                 self.x_axis.setTicks([list(zip(x_ticks_pos, x_ticks_val))])
             elif self.visualization_settings['mode'] == 'clinical':
+                # Set timestamps
+                n_win = self.time_in_graph.max() // self.win_t
+                x = self.time_in_graph if n_win <= 0 else \
+                    np.mod(self.time_in_graph, self.win_t)
                 # Time ticks
                 x_ticks_pos = []
                 x_ticks_val = []
                 if self.visualization_settings['x_axis']['display_grid']:
                     x_ticks_pos = np.arange(
-                        self.win_t,
-                        step=self.visualization_settings['x_axis'][
-                            'line_separation']) * self.fs
-                    x_ticks_pos = x_ticks_pos.astype(int).tolist()
-                    x_ticks_val = ['' for pos in x_ticks_pos]
+                        x[0], x[-1], step=self.visualization_settings['x_axis'][
+                            'line_separation']).tolist()
+                    x_ticks_val = ['' for v in x_ticks_pos]
                 # Pointer
-                x_ticks_pos.append(self.pointer)
-                x_ticks_val.append(
-                    '%.1f' % self.time_in_graph[self.pointer - 1])
+                x_ticks_pos.append(x[self.pointer-1])
+                x_ticks_val.append('%.1f' % self.time_in_graph[self.pointer-1])
                 self.x_axis.setTicks([list(zip(x_ticks_pos, x_ticks_val))])
+            else:
+                raise ValueError
+            # Set range
             self.plot_item.setXRange(x[0], x[-1], padding=0)
         else:
             self.x_axis.setTicks([])
             self.plot_item.setXRange(0, 0, padding=0)
 
     def append_data(self, chunk_times, chunk_signal):
-        n_samp = len(chunk_times)
         if self.visualization_settings['mode'] == 'geek':
             self.time_in_graph = np.hstack((self.time_in_graph, chunk_times))
             self.sig_in_graph = np.vstack((self.sig_in_graph, chunk_signal))
@@ -714,52 +732,68 @@ class TimePlotMultichannel(RealTimePlotPyQtGraph):
                 self.time_in_graph = self.time_in_graph[cut_idx:]
                 self.sig_in_graph = self.sig_in_graph[cut_idx:]
         elif self.visualization_settings['mode'] == 'clinical':
-            if len(self.time_in_graph) < self.win_s:
-                # Time window is not complete
-                if len(self.time_in_graph) + n_samp < self.win_s:
-                    self.time_in_graph = np.hstack(
-                        (self.time_in_graph, chunk_times))
-                    self.sig_in_graph = np.vstack(
-                        (self.sig_in_graph, chunk_signal))
-                    self.pointer += n_samp
-                else:
-                    n_samp_to_complete = self.win_s - self.pointer
-                    self.time_in_graph = np.hstack(
-                        (self.time_in_graph,
-                         chunk_times[:n_samp_to_complete]))
-                    self.sig_in_graph = np.vstack(
-                        (self.sig_in_graph,
-                         chunk_signal[:n_samp_to_complete]))
-                    self.pointer = 0
-                    self.append_data(chunk_times[n_samp_to_complete:],
-                                     chunk_signal[n_samp_to_complete:])
+            # Useful params
+            max_t = self.time_in_graph.max(initial=0)
+            n_win = max_t // self.win_t
+            max_win_t = (n_win+1) * self.win_t
+            if n_win == 2:
+                print()
+            # Check overflow
+            if chunk_times[-1] > max_win_t:
+                idx_overflow = chunk_times > max_win_t
+                # Append part of the chunk at the end
+                time_in_graph = np.insert(
+                    self.time_in_graph, self.pointer,
+                    chunk_times[np.logical_not(idx_overflow)], axis=0)
+                sig_in_graph = np.insert(
+                    self.sig_in_graph, self.pointer,
+                    chunk_signal[np.logical_not(idx_overflow)], axis=0)
+                # Append part of the chunk at the beginning
+                time_in_graph = np.insert(
+                    time_in_graph, 0,
+                    chunk_times[idx_overflow], axis=0)
+                sig_in_graph = np.insert(
+                    sig_in_graph, 0,
+                    chunk_signal[idx_overflow], axis=0)
+                self.pointer = len(chunk_times[idx_overflow])
             else:
-                # Time window is complete
-                if self.pointer + n_samp < self.win_s:
-                    self.time_in_graph[self.pointer:self.pointer + n_samp] = \
-                        chunk_times
-                    self.sig_in_graph[self.pointer:self.pointer + n_samp] = \
-                        chunk_signal
-                    self.pointer += n_samp
-                else:
-                    n_samp_to_complete = self.win_s - self.pointer
-                    self.time_in_graph[-n_samp_to_complete:] = \
-                        chunk_times[:n_samp_to_complete]
-                    self.sig_in_graph[-n_samp_to_complete:] = \
-                        chunk_signal[:n_samp_to_complete]
-                    self.pointer = 0
-                    self.append_data(chunk_times[n_samp_to_complete:],
-                                     chunk_signal[n_samp_to_complete:])
+                # Append chunk at pointer
+                time_in_graph = np.insert(self.time_in_graph,
+                                          self.pointer,
+                                          chunk_times, axis=0)
+                sig_in_graph = np.insert(self.sig_in_graph,
+                                         self.pointer,
+                                         chunk_signal, axis=0)
+                self.pointer += len(chunk_times)
+            # Check old samples
+            max_t = time_in_graph[self.pointer-1]
+            idx_old = time_in_graph < (max_t - self.win_t)
+            time_in_graph = np.delete(time_in_graph, idx_old, axis=0)
+            sig_in_graph = np.delete(sig_in_graph, idx_old, axis=0)
+            # Update
+            self.time_in_graph = time_in_graph
+            self.sig_in_graph = sig_in_graph
         return self.time_in_graph, self.sig_in_graph
 
     def set_data(self):
-        x = np.arange(self.time_in_graph.shape[0])
+        # Calculate x axis
+        if self.visualization_settings['mode'] == 'geek':
+            x = self.time_in_graph
+        elif self.visualization_settings['mode'] == 'clinical':
+            max_t = self.time_in_graph.max(initial=0)
+            n_win = max_t // self.win_t
+            x = self.time_in_graph if n_win <= 0 else \
+                np.mod(self.time_in_graph, self.win_t)
+            # Marker
+            if max_t >= self.win_t:
+                self.marker.setPos(x[self.pointer-1])
+        else:
+            raise ValueError
+        # Set data
         for i in range(self.lsl_stream_info.n_cha):
             temp = self.sig_in_graph[:, self.lsl_stream_info.n_cha - i - 1]
             temp = (temp + self.cha_separation * i)
             self.curves[i].setData(x=x, y=temp)
-        if self.visualization_settings['mode'] == 'clinical':
-            self.marker.setPos(self.pointer)
 
     def autoscale(self):
         scaling_sett = self.visualization_settings['y_axis']['autoscale']
@@ -890,6 +924,11 @@ class TimePlot(RealTimePlotPyQtGraph):
                 'bandwidth': [-0.5, 0.5],
                 'order': 5
             },
+            're-referencing': {
+                'apply': False,
+                'type': 'car',
+                'channel': ''
+            },
             'downsampling': {
                 'apply': False,
                 'factor': 2
@@ -995,44 +1034,46 @@ class TimePlot(RealTimePlotPyQtGraph):
                                  padding=0)
 
     def draw_x_axis_ticks(self):
-        x = np.arange(self.time_in_graph.shape[0])
         if len(self.time_in_graph) > 0:
             if self.visualization_settings['mode'] == 'geek':
+                # Set timestamps
+                x = self.time_in_graph
                 # Time ticks
                 x_ticks_pos = []
                 x_ticks_val = []
                 if self.visualization_settings['x_axis']['display_grid']:
-                    x_ticks_pos = np.arange(
-                        min(self.time_in_graph[-1], self.win_t),
-                        step=self.visualization_settings['x_axis'][
-                            'line_separation']) * self.fs
-                    x_ticks_pos = x_ticks_pos.astype(int).tolist()
-                    x_ticks_val = ['%.1f' % self.time_in_graph[pos]
-                                   for pos in x_ticks_pos]
+                    x_ticks_pos = np.arange(x[0], x[-1],
+                                            step=self.visualization_settings[
+                                                'x_axis']['line_separation'])
+                    x_ticks_val = ['%.1f' % v for v in x_ticks_pos]
+                # Set ticks
                 self.x_axis.setTicks([list(zip(x_ticks_pos, x_ticks_val))])
             elif self.visualization_settings['mode'] == 'clinical':
+                # Set timestamps
+                n_win = self.time_in_graph.max() // self.win_t
+                x = self.time_in_graph if n_win <= 0 else \
+                    np.mod(self.time_in_graph, self.win_t)
                 # Time ticks
                 x_ticks_pos = []
                 x_ticks_val = []
                 if self.visualization_settings['x_axis']['display_grid']:
                     x_ticks_pos = np.arange(
-                        self.win_t,
-                        step=self.visualization_settings['x_axis'][
-                            'line_separation']) * self.fs
-                    x_ticks_pos = x_ticks_pos.astype(int).tolist()
-                    x_ticks_val = ['' for pos in x_ticks_pos]
+                        x[0], x[-1], step=self.visualization_settings['x_axis'][
+                            'line_separation']).tolist()
+                    x_ticks_val = ['' for v in x_ticks_pos]
                 # Pointer
-                x_ticks_pos.append(self.pointer)
-                x_ticks_val.append(
-                    '%.1f' % self.time_in_graph[self.pointer - 1])
+                x_ticks_pos.append(x[self.pointer-1])
+                x_ticks_val.append('%.1f' % self.time_in_graph[self.pointer-1])
                 self.x_axis.setTicks([list(zip(x_ticks_pos, x_ticks_val))])
+            else:
+                raise ValueError
+            # Set range
             self.plot_item.setXRange(x[0], x[-1], padding=0)
         else:
             self.x_axis.setTicks([])
             self.plot_item.setXRange(0, 0, padding=0)
 
     def append_data(self, chunk_times, chunk_signal):
-        n_samp = len(chunk_times)
         if self.visualization_settings['mode'] == 'geek':
             self.time_in_graph = np.hstack((self.time_in_graph, chunk_times))
             self.sig_in_graph = np.vstack((self.sig_in_graph, chunk_signal))
@@ -1044,49 +1085,65 @@ class TimePlot(RealTimePlotPyQtGraph):
                 self.time_in_graph = self.time_in_graph[cut_idx:]
                 self.sig_in_graph = self.sig_in_graph[cut_idx:]
         elif self.visualization_settings['mode'] == 'clinical':
-            if len(self.time_in_graph) < self.win_s:
-                # Beginning
-                if len(self.time_in_graph) + n_samp < self.win_s:
-                    self.time_in_graph = np.hstack(
-                        (self.time_in_graph, chunk_times))
-                    self.sig_in_graph = np.vstack(
-                        (self.sig_in_graph, chunk_signal))
-                    self.pointer += n_samp
-                else:
-                    n_samp_to_complete = self.win_s - self.pointer
-                    self.time_in_graph = np.hstack(
-                        (self.time_in_graph,
-                         chunk_times[:n_samp_to_complete]))
-                    self.sig_in_graph = np.vstack(
-                        (self.sig_in_graph,
-                         chunk_signal[:n_samp_to_complete]))
-                    self.pointer = 0
-                    self.append_data(chunk_times[n_samp_to_complete:],
-                                     chunk_signal[n_samp_to_complete:])
+            # Useful params
+            max_t = self.time_in_graph.max(initial=0)
+            n_win = max_t // self.win_t
+            max_win_t = (n_win+1) * self.win_t
+            if n_win == 2:
+                print()
+            # Check overflow
+            if chunk_times[-1] > max_win_t:
+                idx_overflow = chunk_times > max_win_t
+                # Append part of the chunk at the end
+                time_in_graph = np.insert(
+                    self.time_in_graph, self.pointer,
+                    chunk_times[np.logical_not(idx_overflow)], axis=0)
+                sig_in_graph = np.insert(
+                    self.sig_in_graph, self.pointer,
+                    chunk_signal[np.logical_not(idx_overflow)], axis=0)
+                # Append part of the chunk at the beginning
+                time_in_graph = np.insert(
+                    time_in_graph, 0,
+                    chunk_times[idx_overflow], axis=0)
+                sig_in_graph = np.insert(
+                    sig_in_graph, 0,
+                    chunk_signal[idx_overflow], axis=0)
+                self.pointer = len(chunk_times[idx_overflow])
             else:
-                # After one window is complete
-                if self.pointer + n_samp < self.win_s:
-                    self.time_in_graph[self.pointer:self.pointer + n_samp] = \
-                        chunk_times
-                    self.sig_in_graph[self.pointer:self.pointer + n_samp] = \
-                        chunk_signal
-                    self.pointer += n_samp
-                else:
-                    n_samp_to_complete = self.win_s - self.pointer
-                    self.time_in_graph[-n_samp_to_complete:] = \
-                        chunk_times[:n_samp_to_complete]
-                    self.sig_in_graph[-n_samp_to_complete:] = \
-                        chunk_signal[:n_samp_to_complete]
-                    self.pointer = 0
-                    self.append_data(chunk_times[n_samp_to_complete:],
-                                     chunk_signal[n_samp_to_complete:])
+                # Append chunk at pointer
+                time_in_graph = np.insert(self.time_in_graph,
+                                          self.pointer,
+                                          chunk_times, axis=0)
+                sig_in_graph = np.insert(self.sig_in_graph,
+                                         self.pointer,
+                                         chunk_signal, axis=0)
+                self.pointer += len(chunk_times)
+            # Check old samples
+            max_t = time_in_graph[self.pointer-1]
+            idx_old = time_in_graph < (max_t - self.win_t)
+            time_in_graph = np.delete(time_in_graph, idx_old, axis=0)
+            sig_in_graph = np.delete(sig_in_graph, idx_old, axis=0)
+            # Update
+            self.time_in_graph = time_in_graph
+            self.sig_in_graph = sig_in_graph
         return self.time_in_graph, self.sig_in_graph
 
     def set_data(self):
-        x = np.arange(self.time_in_graph.shape[0])
+        # Calculate x axis
+        if self.visualization_settings['mode'] == 'geek':
+            x = self.time_in_graph
+        elif self.visualization_settings['mode'] == 'clinical':
+            max_t = self.time_in_graph.max(initial=0)
+            n_win = max_t // self.win_t
+            x = self.time_in_graph if n_win <= 0 else \
+                np.mod(self.time_in_graph, self.win_t)
+            # Marker
+            if max_t >= self.win_t:
+                self.marker.setPos(x[self.pointer-1])
+        else:
+            raise ValueError
+        # Set data
         self.curve.setData(x=x, y=self.sig_in_graph[:, self.curr_cha])
-        if self.visualization_settings['mode'] == 'clinical':
-            self.marker.setPos(self.pointer)
 
     def autoscale(self):
         scaling_sett = self.visualization_settings['y_axis']['autoscale']
@@ -1205,6 +1262,11 @@ class PSDPlotMultichannel(RealTimePlotPyQtGraph):
                 'freq': 50,
                 'bandwidth': [-0.5, 0.5],
                 'order': 5
+            },
+            're-referencing': {
+                'apply': False,
+                'type': 'car',
+                'channel': ''
             },
             'downsampling': {
                 'apply': False,
@@ -1455,6 +1517,11 @@ class PSDPlot(RealTimePlotPyQtGraph):
                 'bandwidth': [-0.5, 0.5],
                 'order': 5
             },
+            're-referencing': {
+                'apply': False,
+                'type': 'car',
+                'channel': ''
+            },
             'downsampling': {
                 'apply': False,
                 'factor': 2
@@ -1645,9 +1712,10 @@ class RealTimePlotWorker(QThread):
             timeout=timeout
         )
         # Set real time preprocessor
-        self.preprocessor = real_time_preprocessing.PlotsRealTimePreprocessor(
-            self.signal_settings)
-        self.preprocessor.fit(self.receiver.fs, self.receiver.n_cha,
+        self.preprocessor = PlotsRealTimePreprocessor(self.signal_settings)
+        self.preprocessor.fit(self.receiver.fs,
+                              self.receiver.n_cha,
+                              self.receiver.l_cha,
                               self.receiver.min_chunk_size)
         self.wait = False
 
@@ -1675,6 +1743,114 @@ class RealTimePlotWorker(QThread):
                 time.sleep(self.sleep_time)
         except Exception as e:
             self.error.emit(e)
+
+
+class PlotsRealTimePreprocessor:
+
+    """Class that implements real time preprocessing functions for plotting,
+    keeping it simple: band-pass filter and notch filter. For more advanced
+    pre-processing, implement another class"""
+
+    def __init__(self, preprocessing_settings):
+        # Settings
+        self.freq_filt_settings = preprocessing_settings['frequency-filter']
+        self.notch_filt_settings = preprocessing_settings['notch-filter']
+        self.re_referencing_settings = preprocessing_settings['re-referencing']
+        self.downsampling_settings = preprocessing_settings['downsampling']
+        self.apply_freq_filt = self.freq_filt_settings['apply']
+        self.apply_notch = self.notch_filt_settings['apply']
+        self.apply_re_referencing = self.re_referencing_settings['apply']
+        self.apply_downsampling = self.downsampling_settings['apply']
+        # Variables to fit
+        self.fs = None
+        self.n_cha = None
+        self.l_cha = None
+        self.freq_filt = None
+        self.notch_filt = None
+
+    def fit(self, fs, n_cha, l_cha, min_chunk_size):
+        self.fs = fs
+        self.n_cha = n_cha
+        self.l_cha = l_cha
+        # Frequency filter
+        if self.apply_freq_filt:
+            self.freq_filt = medusa.IIRFilter(
+                order=self.freq_filt_settings['order'],
+                cutoff=self.freq_filt_settings['cutoff-freq'],
+                btype=self.freq_filt_settings['type'],
+                filt_method='sosfilt',
+                axis=0)
+            self.freq_filt.fit(self.fs, self.n_cha)
+        # Notch filter
+        if self.apply_notch:
+            cutoff = [
+                self.notch_filt_settings['freq'] +
+                self.notch_filt_settings['bandwidth'][0],
+                self.notch_filt_settings['freq'] +
+                self.notch_filt_settings['bandwidth'][1]
+            ]
+            self.notch_filt = medusa.IIRFilter(
+                order=self.notch_filt_settings['order'],
+                cutoff=cutoff,
+                btype='bandstop',
+                filt_method='sosfilt',
+                axis=0)
+            self.notch_filt.fit(self.fs, self.n_cha)
+        # Re-referencing
+        if self.apply_re_referencing:
+            if self.re_referencing_settings['type'] not in ['car', 'channel']:
+                raise ValueError('Incorrect re-referencing type. Allowed '
+                                 'values: {car, channel}')
+        # Downsampling
+        if self.apply_downsampling:
+            if self.freq_filt_settings['type'] not in ['bandpass', 'lowpass']:
+                raise ValueError('Incorrect frequency filter btype. Only '
+                                 'bandpass and lowpass are available if '
+                                 'downsampling is applied.')
+            nyquist_cutoff = self.fs / 2 / self.downsampling_settings['factor']
+            if self.freq_filt_settings['type'] == 'lowpass':
+                if self.freq_filt_settings['cutoff-freq'] > nyquist_cutoff:
+                    raise ValueError(
+                        'Incorrect frequency filter for downsampling factor '
+                        '%i. The upper cutoff must be less than %.2f to '
+                        'comply with Nyquist criterion' %
+                        (self.downsampling_settings['factor'], nyquist_cutoff))
+            elif self.freq_filt_settings['type'] == 'bandpass':
+                if self.freq_filt_settings['cutoff-freq'][1] > nyquist_cutoff:
+                    raise ValueError(
+                        'Incorrect frequency filter for downsampling factor '
+                        '%i. The upper cutoff must be less than %.2f to '
+                        'comply with Nyquist criterion' %
+                        (self.downsampling_settings['factor'], nyquist_cutoff))
+
+            # Check downsampling factor
+            if min_chunk_size <= 1:
+                raise ValueError(
+                    'Downsampling is not allowed with the current values of '
+                    'update and sample rates. Increase the update rate to '
+                    'apply downsampling.')
+            elif min_chunk_size // self.downsampling_settings['factor'] < 1:
+                raise ValueError(
+                    'The downsampling factor is to high for the current '
+                    'values of update and sample rates. The maximum value '
+                    'is: %i' % min_chunk_size)
+
+    def transform(self, chunk_times, chunk_data):
+        if self.apply_freq_filt:
+            chunk_data = self.freq_filt.transform(chunk_data)
+        if self.apply_notch:
+            chunk_data = self.notch_filt.transform(chunk_data)
+        if self.apply_re_referencing:
+            if self.re_referencing_settings['type'] == 'car':
+                chunk_data = medusa.car(chunk_data)
+            elif self.re_referencing_settings['type'] == 'channel':
+                cha_idx = self.l_cha.index(
+                    self.re_referencing_settings['channel'])
+                chunk_data = chunk_data - chunk_data[:, [cha_idx]]
+        if self.apply_downsampling:
+            chunk_times = chunk_times[0::self.downsampling_settings['factor']]
+            chunk_data = chunk_data[0::self.downsampling_settings['factor'], :]
+        return chunk_times, chunk_data
 
 
 def get_plot_info(plot_uid):
