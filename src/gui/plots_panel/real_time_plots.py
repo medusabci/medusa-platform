@@ -16,7 +16,7 @@ from matplotlib.figure import Figure
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 
 # MEDUSA-PLATFORM MODULES
-from acquisition import lsl_utils, real_time_preprocessing
+from acquisition import lsl_utils
 import constants
 # ToDo: remove this dependency and change it to medusa.plots.head_plots for
 #  MEDUSA v2024
