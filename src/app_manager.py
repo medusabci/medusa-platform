@@ -153,13 +153,15 @@ class AppManager:
                         self.install_app_dependencies(dest_dir)
                         progress_dialog.update_action('Finished!')
                         progress_dialog.update_value(100)
+                        progress_dialog.finish()
                 # Update apps file
                 info['installation-date'] = self.get_date_today()
                 self.apps_dict[info['id']] = info
                 self.update_apps_file()
 
         except Exception as e:
-            progress_dialog.reject()
+            progress_dialog.update_log('ERROR: %s' % str(e))
+            progress_dialog.finish()
             self.handle_exception(e)
 
     def install_app_template(self, app_id, app_name, app_extension,
@@ -214,18 +216,25 @@ class AppManager:
         th.join()
 
     def package_event_listener(self, n_files, logger, progress_dialog):
-        # Read logger events
-        progress_dialog.update_action('Creating app bundle...')
-        num_files_packaged = 0
-        while num_files_packaged < n_files:
-            time.sleep(0.1)
-            while not logger.handlers[0].queue.empty():
-                num_files_packaged += 1
-                progress_dialog.update_log(
-                    logger.handlers[0].queue.get().getMessage())
-                progress_dialog.update_value(
-                    int(num_files_packaged / n_files * 100))
-        progress_dialog.update_action('Finished!')
+        try:
+            # Read logger events
+            progress_dialog.update_action('Creating app bundle...')
+            num_files_packaged = 0
+            while num_files_packaged < n_files:
+                time.sleep(0.1)
+                while not logger.handlers[0].queue.empty():
+                    num_files_packaged += 1
+                    progress_dialog.update_log(
+                        logger.handlers[0].queue.get().getMessage())
+                    progress_dialog.update_value(
+                        int(num_files_packaged / n_files * 100))
+            progress_dialog.update_value(100)
+            progress_dialog.update_action('Finished!')
+            progress_dialog.finish()
+        except Exception as e:
+            progress_dialog.update_log('ERROR: %s' % str(e))
+            progress_dialog.finish()
+            self.handle_exception(e)
 
     def uninstall_app(self, app_key):
         # Remove directory

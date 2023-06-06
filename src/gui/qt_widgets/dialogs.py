@@ -202,6 +202,7 @@ class ThreadProgressDialog(MedusaDialog):
         self.max_pbar_value = max_pbar_value
         self.queue = multiprocessing.Queue()
         self.abort = False
+        self._finished = False
 
         # Set layout
         super().__init__(window_title, theme_colors)
@@ -223,12 +224,16 @@ class ThreadProgressDialog(MedusaDialog):
         self.progress_bar = QProgressBar(self)
         self.progress_bar.setRange(self.min_pbar_value, self.max_pbar_value)
         self.log_box = QTextBrowser()
+        self.ok_button = QPushButton('Ok')
+        self.ok_button.setEnabled(False)
+        self.ok_button.clicked.connect(self.on_ok_button_clicked)
         # Create layout
         layout = QVBoxLayout()
         # Add widgets
         layout.addWidget(self.action_label)
         layout.addWidget(self.progress_bar)
         layout.addWidget(self.log_box)
+        layout.addWidget(self.ok_button)
         return layout
 
     def update_action(self, action):
@@ -250,8 +255,21 @@ class ThreadProgressDialog(MedusaDialog):
         self.log_box.append(message)
         self.log_box.moveCursor(QTextCursor.End)
 
+    def on_ok_button_clicked(self, checked=None):
+        self.close()
+
+    def finish(self):
+        self._finished = True
+        self.ok_button.setEnabled(True)
+
     def closeEvent(self, event):
-        self.abort = True
+        if not self._finished:
+            self.abort = True
+            # todo: implement abort functionality
+            error_dialog('The operation must finish before closing the '
+                         'dialog', 'Wait')
+            event.ignore()
+            return
         self.listener.finish()
         self.done.emit()
         event.accept()
