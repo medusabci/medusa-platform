@@ -239,7 +239,7 @@ class TopographyPlot(RealTimePlot):
         self.channel_set = meeg.EEGChannelSet()
         self.channel_set.set_standard_montage(
             l_cha=self.lsl_stream_info.l_cha,
-            standard=self.visualization_settings['channel-standard'])
+            montage=self.visualization_settings['channel-standard'])
         # Initialize
         self.topo_plot = head_plots.TopographicPlot(
             axes=self.widget.figure.axes[0],
@@ -390,7 +390,7 @@ class ConnectivityPlot(RealTimePlot):
         self.channel_set = meeg.EEGChannelSet()
         self.channel_set.set_standard_montage(
             l_cha=self.lsl_stream_info.l_cha,
-            standard=self.visualization_settings['channel-standard'])
+            montage=self.visualization_settings['channel-standard'])
         # Initialize
         self.conn_plot = head_plots.ConnectivityPlot(
             axes=self.widget.figure.axes[0],
