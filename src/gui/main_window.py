@@ -102,7 +102,7 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         splash_screen.set_state(75, "Checking for updates...")
 
         # Reset panels
-        self.working_lsl_streams = None
+        self.lsl_config = None
         self.apps_manager = None
         self.reset_panels()
         splash_screen.set_state(100, "Tidying up the panels...")
@@ -149,6 +149,7 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
             with open(gui_config_file_path, 'r') as f:
                 self.gui_config = json.load(f)
         else:
+            # Default configuration
             self.gui_config = dict()
             # Default window sizes
             self.gui_config['width'] = self.screen_size[0] * 0.75
@@ -209,7 +210,7 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         self.log_panel_widget = None
         self.set_up_log_panel()
         # LSL config
-        self.working_lsl_streams = None
+        self.lsl_config = None
         self.set_up_lsl_config()
         # Apps panel
         self.apps_manager = app_manager.AppManager(
@@ -276,41 +277,50 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
     def set_up_lsl_config(self):
         lsl_config_file_path = self.accounts_manager.wrap_path(
                 constants.LSL_CONFIG_FILE)
-        self.working_lsl_streams = list()
+        # Load last config (if available)
+        working_lsl_streams = list()
         if os.path.isfile(lsl_config_file_path):
             with open(lsl_config_file_path, 'r') as f:
-                last_streams = json.load(f)
+                self.lsl_config = json.load(f)
+            last_streams = self.lsl_config['working_streams']
             for lsl_stream_info_dict in last_streams:
                 try:
                     lsl_stream_info = \
                         lsl_utils.LSLStreamWrapper.from_serializable_obj(
-                            lsl_stream_info_dict)
+                            lsl_stream_info_dict,
+                            weak_search=self.lsl_config['weak_search'])
                 except exceptions.LSLStreamNotFound as e:
                     self.print_log('No match for LSL stream "%s"' %
                                    lsl_stream_info_dict['medusa_uid'],
-                                   style='error')
+                                   style='warning')
                     # raise exceptions.MedusaException(
                     #     e, scope='acquisition', importance='mild')
                     continue
                 # Check uid
                 if not lsl_utils.check_if_medusa_uid_is_available(
-                        self.working_lsl_streams, lsl_stream_info.medusa_uid):
+                        working_lsl_streams, lsl_stream_info.medusa_uid):
                     error_dialog(
                         'Incorrect LSL configuration with duplicated LSL stream'
                         'UID %s. MEDUSA LSL UIDs must be unique. Please '
                         'reconfigure LSL.' % lsl_stream_info.medusa_uid,
                         'Incorrect MEDUSA LSL UID')
-                    self.working_lsl_streams = list()
+                    working_lsl_streams = list()
                     break
-                self.working_lsl_streams.append(lsl_stream_info)
+                working_lsl_streams.append(lsl_stream_info)
                 self.print_log('Connected to LSL stream: %s' %
                                lsl_stream_info.medusa_uid)
+            self.lsl_config['working_streams'] = working_lsl_streams
+        else:
+            # Default configuration
+            self.lsl_config = dict()
+            self.lsl_config['weak_search'] = False
+            self.lsl_config['working_streams'] = list()
 
     @exceptions.error_handler(scope='general')
     def set_up_apps_panel(self):
         self.apps_panel_widget = apps_panel.AppsPanelWidget(
             self.apps_manager,
-            self.working_lsl_streams,
+            self.lsl_config['working_streams'],
             self.app_state,
             self.run_state,
             self.medusa_interface,
@@ -331,7 +341,7 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
     def set_up_plots_panel(self):
         # Create widget
         self.plots_panel_widget = plots_panel.PlotsPanelWidget(
-            self.working_lsl_streams,
+            self.lsl_config,
             self.plot_state,
             self.medusa_interface,
             self.accounts_manager.wrap_path(constants.PLOTS_CONFIG_FILE),
@@ -537,7 +547,7 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
     def open_lsl_config_window(self, checked=None):
         self.lsl_config_window = \
             lsl_config.LSLConfig(
-                self.working_lsl_streams,
+                self.lsl_config,
                 self.accounts_manager.wrap_path(constants.LSL_CONFIG_FILE),
                 theme_colors=self.theme_colors)
         self.lsl_config_window.accepted.connect(self.set_lsl_streams)
@@ -546,14 +556,14 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
     @exceptions.error_handler(scope='general')
     def set_lsl_streams(self):
         # Set working streamsicon.png
-        self.working_lsl_streams = self.lsl_config_window.working_streams
+        self.lsl_config = self.lsl_config_window.lsl_config
         # Update the working streams within the panels
-        self.plots_panel_widget.update_working_lsl_streams(
-            self.working_lsl_streams)
-        self.apps_panel_widget.update_working_lsl_streams(
-            self.working_lsl_streams)
+        self.plots_panel_widget.update_lsl_config(
+            self.lsl_config['working_streams'])
+        self.apps_panel_widget.update_lsl_config(
+            self.lsl_config)
         # Print log info
-        for lsl_stream_info in self.working_lsl_streams:
+        for lsl_stream_info in self.lsl_config['working_streams']:
             self.print_log('Connected to LSL stream: %s' %
                            lsl_stream_info.medusa_uid)
 

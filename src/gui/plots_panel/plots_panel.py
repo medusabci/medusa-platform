@@ -24,13 +24,13 @@ ui_plots_panel_widget = \
 class PlotsPanelWidget(QWidget, ui_plots_panel_widget):
     """ This widget implements the logic behind the plots panel.
     """
-    def __init__(self, working_lsl_streams, plot_state, medusa_interface,
+    def __init__(self, lsl_config, plot_state, medusa_interface,
                  plots_config_file_path, theme_colors):
         super().__init__()
         self.setupUi(self)
 
         # Attributes
-        self.working_lsl_streams = working_lsl_streams
+        self.lsl_config = lsl_config
         self.plot_state = plot_state
         self.medusa_interface = medusa_interface
         self.theme_colors = theme_colors
@@ -98,26 +98,31 @@ class PlotsPanelWidget(QWidget, ui_plots_panel_widget):
         self.toolButton_plot_config.clicked.connect(self.plots_panel_config)
 
     @exceptions.error_handler(scope='plots')
-    def update_working_lsl_streams(self, working_lsl_streams):
-        self.working_lsl_streams = working_lsl_streams
+    def update_lsl_config(self, lsl_config):
+        self.lsl_config = lsl_config
         self.update_plots_panel()
 
     @exceptions.error_handler(scope='plots')
     def plots_panel_config(self, checked=None):
         # Check errors
-        if len(self.working_lsl_streams) == 0:
-            ex = exceptions.MedusaException(
-                exceptions.NoLSLStreamsAvailable(),
-                importance='mild',
-                scope='plots',
-                origin='PlotsWidget/plot_panel_config'
-            )
-            ex.set_handled(True)
-            raise ex
+        if len(self.lsl_config['working_streams']) == 0:
+            # ex = exceptions.MedusaException(
+            #     exceptions.NoLSLStreamsAvailable(),
+            #     importance='mild',
+            #     scope='plots',
+            #     origin='PlotsWidget/plot_panel_config'
+            # )
+            # ex.set_handled(True)
+            # raise ex
+            dialogs.error_dialog('No LSL streams available. Please, '
+                                 'add at least 1 LSL stream to the workspace '
+                                 'before configuring the real-time charts',
+                                 'No LSL streams')
+            return
         # Dashboard config window
         self.plots_panel_config_dialog = \
             plots_panel_config.PlotsPanelConfigDialog(
-                self.working_lsl_streams,
+                self.lsl_config['working_streams'],
                 self.plots_config_file_path,
                 config=self.plots_panel_config,
                 theme_colors=self.theme_colors)
@@ -172,25 +177,28 @@ class PlotsPanelWidget(QWidget, ui_plots_panel_widget):
                     # Set receiver
                     lsl_stream_info = \
                         lsl_utils.LSLStreamWrapper.from_serializable_obj(
-                            plot_settings['lsl_stream_info'])
+                            plot_settings['lsl_stream_info'],
+                            weak_search=self.lsl_config['weak_search'])
                     self.check_and_update_lsl_stream(lsl_stream_info)
                     self.plots_handlers[plot_uid].set_lsl_worker(
                         lsl_stream_info)
                     self.plots_handlers[plot_uid].init_plot()
                     self.plots_handlers[plot_uid].set_ready()
                 except exceptions.LSLStreamNotFound as e:
-                    msg = 'Plot %i. %s' % \
-                          (plot_uid, 'LSL stream not available, '
-                                     'reconfigure')
+                    msg = 'Plot %i. The LSL stream associated with this plot ' \
+                          'is no longer available. Please, reconfigure' % \
+                          (plot_uid)
                     ex = exceptions.MedusaException(
                         exceptions.LSLStreamNotFound(msg),
                         importance='mild',
                         scope='plots',
                         origin='PlotsWidget/update_plots_panel'
                     )
-                    # Remove plot
-                    self.medusa_interface.error(ex)
+                    self.medusa_interface.log(msg, style='warning')
                     continue
+                    # # Remove plot
+                    # self.medusa_interface.error(ex)
+                    # continue
                 except Exception as e:
                     msg = 'Plot %i. %s' % (plot_uid, str(e))
                     ex = exceptions.MedusaException(
@@ -226,7 +234,7 @@ class PlotsPanelWidget(QWidget, ui_plots_panel_widget):
             LSL Stream to check and update
         """
         # Get LSL stream
-        for working_lsl_stream in self.working_lsl_streams:
+        for working_lsl_stream in self.lsl_config['working_streams']:
             if lsl_stream.lsl_uid == working_lsl_stream.lsl_uid and \
                     lsl_stream.medusa_uid == working_lsl_stream.medusa_uid:
                 # Update MEDUSA params

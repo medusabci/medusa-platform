@@ -363,16 +363,26 @@ class LSLStreamWrapper(components.SerializableComponent):
         return class_dict
 
     @classmethod
-    def from_serializable_obj(cls, dict_data):
-        lsl_stream = get_lsl_streams(
-            force_one_stream=True,
-            name=dict_data['lsl_name'],
-            type=dict_data['lsl_type'],
-            uid=dict_data['lsl_uid'],
-            source_id=dict_data['lsl_source_id'],
-            channel_count=dict_data['lsl_n_cha'],
-            nominal_srate=dict_data['fs']
-        )
+    def from_serializable_obj(cls, dict_data, weak_search=False):
+        if weak_search:
+            lsl_stream = get_lsl_streams(
+                force_one_stream=True,
+                name=dict_data['lsl_name'],
+                type=dict_data['lsl_type'],
+                source_id=dict_data['lsl_source_id'],
+                channel_count=dict_data['lsl_n_cha'],
+                nominal_srate=dict_data['fs']
+            )
+        else:
+            lsl_stream = get_lsl_streams(
+                force_one_stream=True,
+                name=dict_data['lsl_name'],
+                type=dict_data['lsl_type'],
+                uid=dict_data['lsl_uid'],
+                source_id=dict_data['lsl_source_id'],
+                channel_count=dict_data['lsl_n_cha'],
+                nominal_srate=dict_data['fs']
+            )
         # Create LSLWrapper
         instance = cls(lsl_stream)
         # Update medusa params (don't use set_medusa_parameters)

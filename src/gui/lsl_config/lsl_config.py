@@ -21,13 +21,13 @@ ui_stream_config_dialog = \
 class LSLConfig(QtWidgets.QDialog, ui_main_dialog):
     """ Main dialog class of the LSL config panel
     """
-    def __init__(self, working_streams, lsl_config_file_path,
+    def __init__(self, lsl_config, lsl_config_file_path,
                  theme_colors=None):
         """ Class constructor
 
         Parameters
         ----------
-        working_streams: list of acquisition.lsl_utils.LSLStreamWrapper
+        lsl_config: list of acquisition.lsl_utils.LSLStreamWrapper
             List with the current working LSL streams
         theme_colors: dict
             Dict with the theme colors
@@ -62,12 +62,8 @@ class LSLConfig(QtWidgets.QDialog, ui_main_dialog):
             # ToolButtons
             self.set_up_tool_buttons()
             # First search
+            self.lsl_config = lsl_config
             self.available_streams = []
-            self.available_streams = []
-            if working_streams is not None and len(working_streams) > 0:
-                self.working_streams = working_streams
-            else:
-                self.working_streams = []
             self.init_listwidget_working_streams()
             self.lsl_search(first_search=True)
             self.lsl_config_file_path = lsl_config_file_path
@@ -81,7 +77,8 @@ class LSLConfig(QtWidgets.QDialog, ui_main_dialog):
         try:
             # Add items
             updated_working_streams = []
-            for idx, lsl_stream_wrapper in enumerate(self.working_streams):
+            for idx, lsl_stream_wrapper in enumerate(
+                    self.lsl_config['working_streams']):
                 # Check that the lsl stream is available
                 try:
                     lsl_utils.get_lsl_streams(
@@ -98,7 +95,7 @@ class LSLConfig(QtWidgets.QDialog, ui_main_dialog):
                 # Add lsl_stream_info
                 self.insert_working_stream_in_table(lsl_stream_wrapper)
                 updated_working_streams.append(lsl_stream_wrapper)
-            self.working_streams = updated_working_streams
+            self.lsl_config['working_streams'] = updated_working_streams
         except Exception as e:
             self.handle_exception(e)
 
@@ -155,7 +152,7 @@ class LSLConfig(QtWidgets.QDialog, ui_main_dialog):
             # Show dialog
             self.edit_stream_dialog = EditStreamDialog(
                 self.available_streams[sel_item_row],
-                self.working_streams,
+                self.lsl_config['working_streams'],
                 theme_colors=self.theme_colors)
             self.edit_stream_dialog.accepted.connect(
                 self.on_add_stream_ok)
@@ -174,8 +171,8 @@ class LSLConfig(QtWidgets.QDialog, ui_main_dialog):
             self.lsl_stream_editing_idx = sel_item_row
             # Show dialog
             self.edit_stream_dialog = EditStreamDialog(
-                self.working_streams[self.lsl_stream_editing_idx],
-                self.working_streams,
+                self.lsl_config['working_streams'][self.lsl_stream_editing_idx],
+                self.lsl_config['working_streams'],
                 editing=True,
                 theme_colors=self.theme_colors)
             self.edit_stream_dialog.accepted.connect(
@@ -196,7 +193,7 @@ class LSLConfig(QtWidgets.QDialog, ui_main_dialog):
                 return
             # Remove stream
             self.tableWidget_working_streams.removeRow(sel_item_row)
-            self.working_streams.pop(sel_item_row)
+            self.lsl_config['working_streams'].pop(sel_item_row)
         except Exception as e:
             self.handle_exception(e)
 
@@ -210,7 +207,7 @@ class LSLConfig(QtWidgets.QDialog, ui_main_dialog):
         try:
             lsl_stream_wrapper = self.edit_stream_dialog.get_lsl_stream_info()
             self.insert_working_stream_in_table(lsl_stream_wrapper)
-            self.working_streams.append(lsl_stream_wrapper)
+            self.lsl_config['working_streams'].append(lsl_stream_wrapper)
             self.edit_stream_dialog = None
         except Exception as e:
             self.handle_exception(e)
@@ -222,7 +219,7 @@ class LSLConfig(QtWidgets.QDialog, ui_main_dialog):
                 self.lsl_stream_editing_idx)
             self.insert_working_stream_in_table(
                 lsl_stream_wrapper, self.lsl_stream_editing_idx)
-            self.working_streams[self.lsl_stream_editing_idx] = \
+            self.lsl_config['working_streams'][self.lsl_stream_editing_idx] = \
                 lsl_stream_wrapper
             self.lsl_stream_editing_idx = None
             self.edit_stream_dialog = None
@@ -282,14 +279,15 @@ class LSLConfig(QtWidgets.QDialog, ui_main_dialog):
                 str(lsl_stream_wrapper.n_cha)))
 
     def accept(self):
-        """ This function updates the lsl_streams.xml file and saves it
+        """ This function updates the lsl_streams.json file and saves it
         """
         try:
             super().accept()
             with open(self.lsl_config_file_path, 'w') as f:
-                ser_obj = [stream.to_serializable_obj() for stream in
-                           self.working_streams]
-                json.dump(ser_obj, f, indent=4)
+                self.lsl_config['working_streams'] = \
+                    [stream.to_serializable_obj() for stream in
+                     self.lsl_config['working_streams']]
+                json.dump(self.lsl_config, f, indent=4)
         except Exception as e:
             self.handle_exception(e)
 
@@ -563,5 +561,5 @@ if __name__ == '__main__':
     print('[SignalGenerator] > LSL stream created.')
 
     app = QtWidgets.QApplication(sys.argv)
-    application = LSLConfig(working_streams=None)
+    application = LSLConfig(lsl_config=None)
     sys.exit(app.exec_())
