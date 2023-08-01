@@ -48,7 +48,6 @@ class UpdatesManager:
         # Send exception to gui main
         self.medusa_interface.error(ex)
 
-    @exceptions.error_handler(scope='general')
     def check_for_medusa_platform_updates(self):
         # Check versions info (could be none if there is no internet connection)
         if self.platform_versions_info is None:
@@ -63,27 +62,27 @@ class UpdatesManager:
         if int(latest_version_info['major_patch']) > \
                 int(self.platform_release_info['major_patch']):
             update = dialogs.confirmation_dialog(
-                'MEDUSA Platform %s is out! Do you want to update?' %
+                'MEDUSA\u00A9 Platform %s is out! Do you want to update?' %
                 latest_version_info['tag_name'], 'Major update available'
             )
         elif int(latest_version_info['minor_patch']) > \
                 int(self.platform_release_info['minor_patch']):
             update = dialogs.confirmation_dialog(
-                'MEDUSA Platform %s is out! Do you want to update?' %
+                'MEDUSA\u00A9 Platform %s is out! Do you want to update?' %
                 latest_version_info['tag_name'], 'Minor update available'
             )
         return update, latest_version_info
 
-    @exceptions.error_handler(scope='general')
     def check_for_medusa_kernel_updates(self):
         # Check versions info (could be none if there is no internet connection)
         if self.kernel_versions_info is None:
             return False, None
         # Check development
-        if self.platform_release_info['version'] == 'Dev':
-            return False, None
+        # if self.platform_release_info['version'] == 'Dev':
+        #     return False, None
         # Get requirement of this version
         with open('../requirements.txt', 'r') as f:
+            requirement = None
             for line in f:
                 if line.find('medusa-kernel') == 0:
                     requirement = line.replace('medusa-kernel', '')
@@ -92,20 +91,29 @@ class UpdatesManager:
                     min_version = requirement[0].replace('>=', '')
                     max_version = requirement[1]
                     break
-            print('The file requirements.txt has been corrupted. '
-                  'Dependency medusa-kernel cannot be found.', file=sys.stderr)
+            if requirement is None:
+                print('The file requirements.txt has been corrupted. '
+                      'Dependency medusa-kernel cannot be found.',
+                      file=sys.stderr)
         # Check if there are updates available
         update = False
         latest_version_info = None
         sorted_versions = sorted(self.kernel_versions_info)
+        sorted_versions.reverse()
         for versionv in sorted_versions:
             version = versionv.replace('v', '')
             if self.kernel_release_info['tag_name'] >= version:
                 continue
             # Check if this kernel version fits the requirements
             if min_version <= version < max_version:
-                update = True
                 latest_version_info = version
+                update = dialogs.confirmation_dialog(
+                    'MEDUSA\u00A9 Kernel %s is out! This version is '
+                    'recommended for the current software. Do you want to '
+                    'update?' % latest_version_info,
+                    'Major update available')
+                if update:
+                    break
         return update, latest_version_info
 
     @exceptions.error_handler(scope='general')
