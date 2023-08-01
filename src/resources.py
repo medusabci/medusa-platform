@@ -49,8 +49,8 @@ class AppSkeleton(mp.Process):
             App state
         run_state: mp.Value
             Run state
-        working_lsl_streams_info: list of lsl_utils.LSLStreamWrapper
-            List of the lsl streams connected to medusa
+        working_lsl_streams_info: dict
+            Dictionary with the working LSL streams as serializable objects
         """
         # Calling superclass constructor
         app_process_name = '%s-process' % app_info['id']
@@ -101,7 +101,8 @@ class AppSkeleton(mp.Process):
         """
         # Data receiver
         self.lsl_streams_info = [
-            lsl_utils.LSLStreamWrapper.from_serializable_obj(ser_lsl_str)
+            lsl_utils.LSLStreamWrapper.from_serializable_obj(
+                ser_lsl_str)
             for ser_lsl_str in self.lsl_streams_info
         ]
         for info in self.lsl_streams_info:
@@ -319,7 +320,7 @@ class LSLStreamAppWorker(th.Thread):
         """
         super().__init__()
         # Check errors
-        if receiver.lsl_stream_info.lsl_stream_inlet is None:
+        if receiver.lsl_stream.lsl_stream_inlet is None:
             raise ValueError('Call function init_lsl_inlet of class '
                              'LSLStreamReceiver first!')
         # Init

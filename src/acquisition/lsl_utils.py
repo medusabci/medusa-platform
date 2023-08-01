@@ -78,12 +78,74 @@ def get_lsl_streams(wait_time=0.1, force_one_stream=False, **kwargs):
 
 def check_if_medusa_uid_is_available(working_lsl_streams, medusa_uid):
     """This function checks if an uid is available given the current working
-    lsl streams that have been configured
+    lsl streams that have been configured.
     """
     for stream in working_lsl_streams:
         if stream.medusa_uid == medusa_uid:
             return False
     return True
+
+
+def find_lsl_stream(lsl_streams, force_one_stream, **kwargs):
+    """This function finds matching LSL streams using different properties.
+
+    Parameters
+    ----------
+    lsl_streams: list of LSLStreamWrapper
+        List of LSLStreamWrapper. For instance, the working_lsl_streams list
+    force_one_stream: bool
+        Only returns one stream. If more streams are found for the given
+        properties, an error is triggered.
+    kwargs: key-value arguments
+        Key-value arguments specifying  the name and value of the property
+        that the selected streams must match. Available LSL properties: name,
+        type, source_id, uid, channel_count, nominal_srate, hostname
+
+    """
+    match_streams = []
+    for stream in lsl_streams:
+        check_all_properties = []
+        for key, value in kwargs.items():
+            check = False
+            if key == 'medusa_uid':
+                if value == stream.medusa_uid:
+                    check = True
+            elif key == 'name':
+                if value == stream.lsl_name:
+                    check = True
+            elif key == 'type':
+                if value == stream.lsl_type:
+                    check = True
+            elif key == 'source_id':
+                if value == stream.lsl_source_id:
+                    check = True
+            elif key == 'uid':
+                if value == stream.lsl_uid:
+                    check = True
+            elif key == 'channel_count':
+                if value == stream.lsl_n_cha:
+                    check = True
+            elif key == 'nominal_srate':
+                if value == stream.fs:
+                    check = True
+            elif key == 'hostname':
+                if value == stream.hostname:
+                    check = True
+            else:
+                raise ValueError('Property %s not available.' % key)
+            check_all_properties.append(check)
+        if all(check_all_properties):
+            match_streams.append(stream)
+    # Check that at least one stream has been found
+    if len(match_streams) == 0:
+        raise exceptions.LSLStreamNotFound(kwargs)
+        # Return
+    if force_one_stream:
+        if len(match_streams) > 1:
+            raise exceptions.UnspecificLSLStreamInfo(kwargs)
+        return match_streams[0]
+    else:
+        return match_streams
 
 
 class LSLStreamWrapper(components.SerializableComponent):
@@ -129,11 +191,16 @@ class LSLStreamWrapper(components.SerializableComponent):
         self.n_cha = None
         self.cha_info = None
         self.l_cha = None
+        self.cha_units = None
         # Set inlet and lsl info
         self.set_inlet()
 
     def set_inlet(self):
-        self.lsl_stream_inlet = pylsl.StreamInlet(self.lsl_stream)
+        self.lsl_stream_inlet = pylsl.StreamInlet(
+            self.lsl_stream,
+            processing_flags=pylsl.proc_dejitter |
+                             pylsl.proc_monotonize |
+                             pylsl.proc_threadsafe)
         self.lsl_stream_info = self.lsl_stream_inlet.info()
         # LSL parameters
         self.lsl_name = self.lsl_stream_info.name()
@@ -150,7 +217,7 @@ class LSLStreamWrapper(components.SerializableComponent):
         self.lsl_stream_info_to_json()
 
     def lsl_stream_info_to_json(self):
-        # Custom corrections
+        # Custom corrections for different manufacturers
         if self.lsl_stream_info_xml.find('NeuroElectrics') > 0:
             """Neuroelectrics uses the following structure:
             
@@ -359,16 +426,26 @@ class LSLStreamWrapper(components.SerializableComponent):
         return class_dict
 
     @classmethod
-    def from_serializable_obj(cls, dict_data):
-        lsl_stream = get_lsl_streams(
-            force_one_stream=True,
-            name=dict_data['lsl_name'],
-            type=dict_data['lsl_type'],
-            uid=dict_data['lsl_uid'],
-            source_id=dict_data['lsl_source_id'],
-            channel_count=dict_data['lsl_n_cha'],
-            nominal_srate=dict_data['fs']
-        )
+    def from_serializable_obj(cls, dict_data, weak_search=False):
+        if weak_search:
+            lsl_stream = get_lsl_streams(
+                force_one_stream=True,
+                name=dict_data['lsl_name'],
+                type=dict_data['lsl_type'],
+                source_id=dict_data['lsl_source_id'],
+                channel_count=dict_data['lsl_n_cha'],
+                nominal_srate=dict_data['fs']
+            )
+        else:
+            lsl_stream = get_lsl_streams(
+                force_one_stream=True,
+                name=dict_data['lsl_name'],
+                type=dict_data['lsl_type'],
+                uid=dict_data['lsl_uid'],
+                source_id=dict_data['lsl_source_id'],
+                channel_count=dict_data['lsl_n_cha'],
+                nominal_srate=dict_data['fs']
+            )
         # Create LSLWrapper
         instance = cls(lsl_stream)
         # Update medusa params (don't use set_medusa_parameters)
@@ -392,13 +469,14 @@ class LSLStreamReceiver:
      which will use the latter
      """
 
-    def __init__(self, lsl_stream_mds, max_chunk_size=1024, timeout=1):
+    def __init__(self, lsl_stream_mds, min_chunk_size=8, max_chunk_size=1024,
+                 timeout=1):
         """Class constructor
 
         Parameters
         ----------
         lsl_stream_mds: LSLStreamWrapper
-            Medusa representation of a LSL stream
+            Medusa representation of an LSL stream
         max_chunk_size: int
             Max chunk size to receive
         timeout: int
@@ -406,49 +484,45 @@ class LSLStreamReceiver:
         """
         # LSL info
         self.TAG = '[LSLStreamReceiver] '
-        self.lsl_stream_info = lsl_stream_mds
+        self.lsl_stream = lsl_stream_mds
+        self.min_chunk_size = min_chunk_size
         self.max_chunk_size = max_chunk_size
         self.timeout = timeout
         # Copy some attributes from lsl stream info for direct access
-        self.name = self.lsl_stream_info.medusa_uid
-        self.fs = self.lsl_stream_info.fs
-        self.n_cha = self.lsl_stream_info.n_cha
-        self.l_cha = self.lsl_stream_info.l_cha
-        self.info_cha = self.lsl_stream_info.cha_info
-        self.idx_cha = self.lsl_stream_info.selected_channels_idx
+        self.name = self.lsl_stream.medusa_uid
+        self.fs = self.lsl_stream.fs
+        self.n_cha = self.lsl_stream.n_cha
+        self.l_cha = self.lsl_stream.l_cha
+        self.info_cha = self.lsl_stream.cha_info
+        self.idx_cha = self.lsl_stream.selected_channels_idx
         self.lsl_clock_offset = \
-            np.mean([time.time() - pylsl.local_clock() for i in range(10)])
+            np.mean([time.time() - pylsl.local_clock() for _ in range(10)]) + \
+            self.lsl_stream.lsl_stream_inlet.time_correction()
         self.chunk_counter = 0
         self.last_t = -1
         self.aliasing_correction = True
-        # ============================================================ #
-        # DELETE
-        # self.lsl_clock_offset = None
-        # ============================================================ #
 
     def get_chunk(self):
         """Get signal chunk. Throws an error if the reception time exceeds
         the timeout
         """
         timer = self.Timer()
+        samples = list()
+        times = list()
         while True:
             chunk, timestamps = \
-                self.lsl_stream_info.lsl_stream_inlet.pull_chunk(
-                    max_samples=self.max_chunk_size
-                )
-            if len(timestamps) > 0:
-                # ============================================================ #
-                # DELETE
-                # if self.lsl_clock_offset is None:
-                #     self.lsl_clock_offset = time.time() - timestamps[0]
-                # times2 = np.array(timestamps) + self.time_offset
-                # ============================================================ #
+                self.lsl_stream.lsl_stream_inlet.pull_chunk(
+                    max_samples=self.max_chunk_size)
+            samples += chunk
+            times += timestamps
+            if len(times) >= self.min_chunk_size:
                 # Increment chunk counter
                 self.chunk_counter += 1
                 # LSL time to local time
-                times = np.array(timestamps) + self.lsl_clock_offset
-                samples = np.array(chunk)
-                # # debug
+                times = np.array(times) + self.lsl_clock_offset
+                samples = np.array(samples)
+                # ============================================================ #
+                # UNCOMMENT FOR DEBUGGING
                 # if self.chunk_counter == 1:
                 #     print('diff respect old offset: %.4f ms' % (1000*(
                 #             self.lsl_clock_offset - (time.time() -
@@ -465,10 +539,13 @@ class LSLStreamReceiver:
                 # ============================================================ #
                 # Aliasing detection and correction
                 if self.aliasing_correction:
-                    # dt_aliasing = \
-                    #     (times[-1] - (len(times) - 1) * 1 / self.fs) - self.last_t
-                    # print('dt: %.4f \t time[0]: %.4f' % (dt_aliasing, times[0]
-                    #                                     - self.last_t))
+                    # ======================================================== #
+                    # UNCOMMENT FOR DEBUGGING
+                    # dt_aliasing = (times[-1] - (
+                    #         len(times) - 1) * 1 / self.fs) - self.last_t
+                    # print('dt: %.4f \t time[0]: %.4f' %
+                    #       (dt_aliasing, times[0] - self.last_t))
+                    # ======================================================== #
                     dt_aliasing = times[0] - self.last_t
                     if dt_aliasing < 0 and self.last_t != -1:
                         print('%sCorrecting an aliasing of %.4f ms...' %
@@ -487,7 +564,7 @@ class LSLStreamReceiver:
         """Call this function to stop queueing input data, but preserve the
         StreamInlet. Calling pull_chunk will open the stream again
         """
-        self.lsl_stream_info.lsl_stream_inlet.flush()
+        self.lsl_stream.lsl_stream_inlet.flush()
 
     def get_channel_indexes_from_labels(self, l_cha, case_sensitive=False):
         """Returns the index of the channels given by l_cha

@@ -50,7 +50,8 @@ class MedusaDialog(QDialog):
         return layout
 
 
-def confirmation_dialog(text, title, informative_text=None, theme_colors=None):
+def confirmation_dialog(text, title, informative_text=None, theme_colors=None,
+                        icon_path=None):
     """ Shows a confirmation dialog with 2 buttons that displays the input
     message.
 
@@ -66,7 +67,11 @@ def confirmation_dialog(text, title, informative_text=None, theme_colors=None):
         msg.setInformativeText(informative_text)
     msg.setWindowTitle(title)
     msg.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
-    msg.setWindowIcon(QIcon(os.getcwd() + '/gui/images/medusa_task_icon.png'))
+    if icon_path is None:
+        msg.setWindowIcon(QIcon(os.getcwd() +
+                                '/gui/images/medusa_task_icon.png'))
+    else:
+        msg.setWindowIcon(QIcon(icon_path))
     msg.setWindowFlags(msg.windowFlags() | Qt.WindowStaysOnTopHint)
     theme_colors = gui_utils.get_theme_colors('dark') if \
         theme_colors is None else theme_colors
@@ -197,6 +202,7 @@ class ThreadProgressDialog(MedusaDialog):
         self.max_pbar_value = max_pbar_value
         self.queue = multiprocessing.Queue()
         self.abort = False
+        self._finished = False
 
         # Set layout
         super().__init__(window_title, theme_colors)
@@ -218,12 +224,16 @@ class ThreadProgressDialog(MedusaDialog):
         self.progress_bar = QProgressBar(self)
         self.progress_bar.setRange(self.min_pbar_value, self.max_pbar_value)
         self.log_box = QTextBrowser()
+        self.ok_button = QPushButton('Ok')
+        self.ok_button.setEnabled(False)
+        self.ok_button.clicked.connect(self.on_ok_button_clicked)
         # Create layout
         layout = QVBoxLayout()
         # Add widgets
         layout.addWidget(self.action_label)
         layout.addWidget(self.progress_bar)
         layout.addWidget(self.log_box)
+        layout.addWidget(self.ok_button)
         return layout
 
     def update_action(self, action):
@@ -238,15 +248,56 @@ class ThreadProgressDialog(MedusaDialog):
     def __update_value(self, value):
         self.progress_bar.setValue(value)
 
-    def update_log(self, message):
-        self.queue.put(('log', message))
+    def update_log(self, message, style=None):
+        self.queue.put(('log', [message, style]))
 
-    def __update_log(self, message):
-        self.log_box.append(message)
+    def __update_log(self, message, style):
+        # Default styles
+        if isinstance(style, str):
+            if style == 'error':
+                style = {'color': self.theme_colors['THEME_RED']}
+            elif style == 'warning':
+                style = {'color': self.theme_colors['THEME_YELLOW']}
+            else:
+                raise ValueError('Custom style %s not recognized' % style)
+        elif isinstance(style, dict):
+            pass
+        elif style is None:
+            style = {}
+        else:
+            raise ValueError('Unrecognized style type')
+        # Append message
+        formatted_msg = self.format_log_msg(message, **style)
+        self.log_box.append(formatted_msg)
         self.log_box.moveCursor(QTextCursor.End)
 
+    def format_log_msg(self, msg, **kwargs):
+        # Default style
+        kwargs.setdefault('color', self.theme_colors['THEME_TEXT_LIGHT'])
+        kwargs.setdefault('font-size', '9pt')
+        # Format css
+        style = ''
+        for key, value in kwargs.items():
+            if not isinstance(value, str):
+                raise ValueError('Type of %s must be str' % key)
+            style += '%s: %s;' % (key, value)
+        return '<p style="margin:0;margin-top:2;%s"> >> %s </p>' % (style, msg)
+
+    def on_ok_button_clicked(self, checked=None):
+        self.close()
+
+    def finish(self):
+        self._finished = True
+        self.ok_button.setEnabled(True)
+
     def closeEvent(self, event):
-        self.abort = True
+        if not self._finished:
+            self.abort = True
+            # todo: implement abort functionality
+            error_dialog('The operation must finish before closing the '
+                         'dialog', 'Wait')
+            event.ignore()
+            return
         self.listener.finish()
         self.done.emit()
         event.accept()
@@ -255,7 +306,7 @@ class ThreadProgressDialog(MedusaDialog):
 
         update_action_signal = pyqtSignal(str)
         update_value_signal = pyqtSignal(int)
-        update_log_signal = pyqtSignal(str)
+        update_log_signal = pyqtSignal(str, object)
 
         def __init__(self, queue):
             super().__init__()
@@ -270,7 +321,7 @@ class ThreadProgressDialog(MedusaDialog):
                 elif el == 'value':
                     self.update_value_signal.emit(val)
                 elif el == 'log':
-                    self.update_log_signal.emit(val)
+                    self.update_log_signal.emit(val[0], val[1])
 
         def finish(self):
             self.stop = True

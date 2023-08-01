@@ -7,14 +7,13 @@ import ctypes
 import threading
 import webbrowser
 import datetime
-from time import sleep
+import pkg_resources
 
 # EXTERNAL MODULES
 from PyQt5 import uic
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
 from PyQt5.QtGui import *
-
 
 # MEDUSA general
 import constants, resources, exceptions, accounts_manager, app_manager
@@ -47,32 +46,26 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         self.setupUi(self)
 
         # Load version
-        self.release_info = self.get_release_info()
+        self.platform_release_info = self.get_platform_release_info()
+        self.kernel_release_info = self.get_kernel_release_info()
 
         # Qt parameters
         self.setWindowIcon(QIcon('%s/medusa_task_icon.png' %
                                  constants.IMG_FOLDER))
         self.setWindowTitle('MEDUSA© Platform %s [%s]' %
-                            (self.release_info['version'],
-                             self.release_info['name']))
+                            (self.platform_release_info['version'],
+                             self.platform_release_info['name']))
         self.setFocusPolicy(Qt.StrongFocus)
         self.setAttribute(Qt.WA_DeleteOnClose)
         # self.setWindowFlags(Qt.FramelessWindowHint)
 
         # Tell windows that this application is not pythonw.exe so it can
         # have its own icon
-        medusaid = u'gib.medusa.' + self.release_info['version']
+        medusaid = u'gib.medusa.' + self.platform_release_info['version']
         ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(medusaid)
 
-        # Initial sizes
-        self.default_width = 1600
-        self.default_height = 900
-        self.default_splitter_ratio = 0.36
-        self.default_splitter_2_ratio = 0.28
-        self.reset_sizes()
-
         # Splash screen
-        splash_screen = SplashScreen(self.release_info)
+        splash_screen = SplashScreen(self.platform_release_info)
         splash_screen.set_state(0, "Initializing...")
 
         # Instantiate accounts manager
@@ -80,7 +73,11 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
 
         # Get gui settings of the user
         self.gui_config = None
-        self.theme = None
+        self.screen_size = None
+        self.display_size = None
+        self.load_gui_config()
+
+        # Set theme
         self.theme_colors = None
         self.set_theme()
 
@@ -103,35 +100,28 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
 
         # Instantiate updates managers
         self.updates_manager = updates_manager.UpdatesManager(
-            self.medusa_interface, self.release_info)
+            self.medusa_interface, self.platform_release_info,
+            self.kernel_release_info)
         splash_screen.set_state(75, "Checking for updates...")
 
         # Reset panels
-        self.working_lsl_streams = None
+        self.lsl_config = None
         self.apps_manager = None
         self.reset_panels()
         splash_screen.set_state(100, "Tidying up the panels...")
 
         # Set up
-        sleep(1)
         splash_screen.hide()
 
+        # Set window sizes
+        self.set_window_config()
+
+        # Show
         self.set_status('Ready')
         self.show()
 
         # User account
         self.set_up_user_account()
-
-    @exceptions.error_handler(scope='general')
-    def reset_sizes(self):
-        # Define size and splitters
-        self.resize(self.default_width, self.default_height)
-        self.splitter.setSizes(
-            [int(self.default_splitter_ratio * self.default_width),
-             int((1-self.default_splitter_ratio) * self.default_width)])
-        self.splitter_2.setSizes(
-            [int(self.default_splitter_2_ratio * self.default_height),
-             int((1 - self.default_splitter_2_ratio) * self.default_height)])
 
     @exceptions.error_handler(scope='general')
     def set_status(self, msg):
@@ -144,20 +134,79 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
 
     # ================================ SET UP ================================ #
     @exceptions.error_handler(scope='general')
-    def set_theme(self):
-        # Load user theme
+    def load_gui_config(self):
+        # Get display environment
+        desktop_widget = QDesktopWidget()
+        screen_size = desktop_widget.availableGeometry(self).size()
+        self.screen_size = [screen_size.width(), screen_size.height()]
+        self.display_size = [0, 0]
+        for i in range(desktop_widget.screenCount()):
+            screen_size = desktop_widget.screenGeometry(i).size()
+            self.display_size[0] += screen_size.width()
+            self.display_size[1] += screen_size.height()
+
+        # Load gui config
         gui_config_file_path = self.accounts_manager.wrap_path(
             constants.GUI_CONFIG_FILE)
         if os.path.isfile(gui_config_file_path):
             with open(gui_config_file_path, 'r') as f:
                 self.gui_config = json.load(f)
+                # todo: check config file , it can be corrupted (e.g., missing
+                #  keys, incorrect values, etc)
         else:
+            # Default configuration
             self.gui_config = dict()
+            # Default window sizes
+            self.gui_config['width'] = self.screen_size[0] * 0.75
+            self.gui_config['height'] = self.screen_size[1] * 0.75
+            self.gui_config['splitter_ratio'] = 0.36
+            self.gui_config['splitter_2_ratio'] = 0.28
+            self.gui_config['maximized'] = False
+            # Default theme
             self.gui_config['theme'] = 'dark'
-        # Set theme
-        self.theme = self.gui_config['theme']
-        self.theme_colors = gu.get_theme_colors(self.theme)
+
+    @exceptions.error_handler(scope='general')
+    def save_gui_config(self):
+        # Update sizes
+        self.gui_config['width'] = self.width()
+        self.gui_config['height'] = self.height()
+        self.gui_config['splitter_ratio'] = \
+            self.splitter.sizes()[0] / sum(self.splitter.sizes())
+        self.gui_config['splitter_2_ratio'] = \
+            self.splitter_2.sizes()[0] / sum(self.splitter_2.sizes())
+        self.gui_config['position'] = [self.pos().x(), self.pos().y()]
+        self.gui_config['maximized'] = self.isMaximized()
+        # Save config
+        gui_config_file_path = self.accounts_manager.wrap_path(
+            constants.GUI_CONFIG_FILE)
+        with open(gui_config_file_path, 'w') as f:
+            json.dump(self.gui_config, f, indent=4)
+
+    @exceptions.error_handler(scope='general')
+    def set_theme(self):
+        self.theme_colors = gu.get_theme_colors(self.gui_config['theme'])
         gu.set_css_and_theme(self, self.theme_colors)
+
+    @exceptions.error_handler(scope='general')
+    def set_window_config(self):
+        # Define size and splitters
+        self.resize(self.gui_config['width'], self.gui_config['height'])
+        self.splitter.setSizes(
+            [int(self.gui_config['splitter_ratio'] *
+                 self.gui_config['width']),
+             int((1 - self.gui_config['splitter_ratio']) *
+                 self.gui_config['width'])])
+        self.splitter_2.setSizes(
+            [int(self.gui_config['splitter_2_ratio'] *
+                 self.gui_config['height']),
+             int((1 - self.gui_config['splitter_2_ratio']) *
+                 self.gui_config['height'])])
+        if self.gui_config['position'][0] < self.display_size[0] and \
+                self.gui_config['position'][1] < self.display_size[1]:
+            self.move(self.gui_config['position'][0],
+                      self.gui_config['position'][1])
+        if self.gui_config['maximized']:
+            self.showMaximized()
 
     @exceptions.error_handler(scope='general')
     def reset_panels(self):
@@ -166,11 +215,12 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         self.log_panel_widget = None
         self.set_up_log_panel()
         # LSL config
-        self.working_lsl_streams = None
+        self.lsl_config = None
         self.set_up_lsl_config()
         # Apps panel
         self.apps_manager = app_manager.AppManager(
-            self.accounts_manager, self.medusa_interface, self.release_info)
+            self.accounts_manager, self.medusa_interface,
+            self.platform_release_info)
         self.apps_panel_widget = None
         self.set_up_apps_panel()
         # Plots dashboard
@@ -178,19 +228,38 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         self.set_up_plots_panel()
 
     def check_updates(self):
-        update, latest_version_info = self.updates_manager.check_for_updates()
+        # Check for available updates of MEDUSA Platform
+        update, latest_version_info = \
+            self.updates_manager.check_for_medusa_platform_updates()
         if update:
             # Initialize progress dialog
             self.progress_dialog = ThreadProgressDialog(
-                window_title='Updating...',
+                window_title='Updating MEDUSA\u00A9 Platform...',
                 min_pbar_value=0, max_pbar_value=100,
                 theme_colors=self.theme_colors)
             self.progress_dialog.done.connect(self.update_finished)
             self.progress_dialog.show()
 
-            th = threading.Thread(target=self.updates_manager.update_version,
-                                  args=(latest_version_info,
-                                        self.progress_dialog))
+            th = threading.Thread(
+                target=self.updates_manager.update_platform,
+                args=(latest_version_info, self.progress_dialog))
+            th.start()
+        # Check for available updates of MEDUSA Kernel
+        update, latest_version_info = \
+            self.updates_manager.check_for_medusa_kernel_updates()
+        if update:
+            # Initialize progress dialog
+            self.progress_dialog = ThreadProgressDialog(
+                window_title='Updating MEDUSA\u00A9 Kernel...',
+                min_pbar_value=0, max_pbar_value=100,
+                theme_colors=self.theme_colors)
+            self.progress_dialog.done.connect(self.update_finished)
+            self.progress_dialog.show()
+
+            th = threading.Thread(
+                target=self.updates_manager.update_kernel,
+                args=('medusa-kernel==%s' % latest_version_info,
+                      self.progress_dialog))
             th.start()
         return update
 
@@ -202,7 +271,8 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
     def set_up_medusa_interface_listener(self, interface_queue):
         self.medusa_interface_listener = self.MedusaInterfaceListener(
             interface_queue)
-        self.medusa_interface_listener.msg_signal.connect(self.print_log)
+        self.medusa_interface_listener.msg_signal.connect(
+            self.print_log)
         self.medusa_interface_listener.exception_signal.connect(
             self.handle_exception)
         self.medusa_interface_listener.app_state_changed_signal.connect(
@@ -232,41 +302,68 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
     def set_up_lsl_config(self):
         lsl_config_file_path = self.accounts_manager.wrap_path(
                 constants.LSL_CONFIG_FILE)
-        self.working_lsl_streams = list()
+        # Load last config (if available)
+        working_lsl_streams = list()
         if os.path.isfile(lsl_config_file_path):
-            with open(lsl_config_file_path, 'r') as f:
-                last_streams = json.load(f)
-            for lsl_stream_info_dict in last_streams:
-                try:
-                    lsl_stream_info = \
-                        lsl_utils.LSLStreamWrapper.from_serializable_obj(
-                            lsl_stream_info_dict)
-                except exceptions.LSLStreamNotFound as e:
-                    self.print_log('No match for LSL stream "%s"' %
-                                   lsl_stream_info_dict['medusa_uid'],
-                                   style='error')
-                    # raise exceptions.MedusaException(
-                    #     e, scope='acquisition', importance='mild')
-                    continue
-                # Check uid
-                if not lsl_utils.check_if_medusa_uid_is_available(
-                        self.working_lsl_streams, lsl_stream_info.medusa_uid):
-                    error_dialog(
-                        'Incorrect LSL configuration with duplicated LSL stream'
-                        'UID %s. MEDUSA LSL UIDs must be unique. Please '
-                        'reconfigure LSL.' % lsl_stream_info.medusa_uid,
-                        'Incorrect MEDUSA LSL UID')
-                    self.working_lsl_streams = list()
-                    break
-                self.working_lsl_streams.append(lsl_stream_info)
-                self.print_log('Connected to LSL stream: %s' %
-                               lsl_stream_info.medusa_uid)
+            try:
+                with open(lsl_config_file_path, 'r') as f:
+                    self.lsl_config = json.load(f)
+                last_streams_info = self.lsl_config['working_streams']
+                for lsl_stream_info_dict in last_streams_info:
+                    try:
+                        lsl_stream = \
+                            lsl_utils.LSLStreamWrapper.from_serializable_obj(
+                                lsl_stream_info_dict,
+                                weak_search=self.lsl_config['weak_search'])
+                        # Check uid
+                        if not lsl_utils.check_if_medusa_uid_is_available(
+                                working_lsl_streams, lsl_stream.medusa_uid):
+                            error_dialog(
+                                'Incorrect LSL configuration with duplicated '
+                                'LSL stream UID %s. MEDUSA LSL UIDs must be '
+                                'unique. Please reconfigure LSL.' %
+                                lsl_stream.medusa_uid,
+                                'Incorrect MEDUSA LSL UID')
+                            working_lsl_streams = list()
+                            break
+                        working_lsl_streams.append(lsl_stream)
+                        self.print_log('Connected to LSL stream: %s' %
+                                       lsl_stream.medusa_uid)
+                    except exceptions.LSLStreamNotFound as e:
+                        self.print_log('No match for LSL stream "%s"' %
+                                       lsl_stream_info_dict['medusa_uid'],
+                                       style='warning')
+                        # raise exceptions.MedusaException(
+                        #     e, scope='acquisition', importance='mild')
+                        continue
+                    except exceptions.UnspecificLSLStreamInfo as e:
+                        self.print_log('%s. Disable weak LSL search to avoid '
+                                       'this error' % str(e), style='error')
+                        continue
+                self.lsl_config['working_streams'] = working_lsl_streams
+            except Exception as e:
+                # Message
+                self.print_log('The LSL configuration file might be corrupted. '
+                               'The reason might be an external modification '
+                               'or a software update. Please, reconfigure.',
+                               style='error')
+                # Default configuration
+                self.lsl_config = dict()
+                self.lsl_config['weak_search'] = False
+                self.lsl_config['working_streams'] = list()
+        else:
+            # Default configuration
+            self.lsl_config = dict()
+            self.lsl_config['weak_search'] = False
+            self.lsl_config['working_streams'] = list()
+        # Update menu action
+        self.update_menu_action_lsl_search_mode()
 
     @exceptions.error_handler(scope='general')
     def set_up_apps_panel(self):
         self.apps_panel_widget = apps_panel.AppsPanelWidget(
             self.apps_manager,
-            self.working_lsl_streams,
+            self.lsl_config['working_streams'],
             self.app_state,
             self.run_state,
             self.medusa_interface,
@@ -287,7 +384,7 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
     def set_up_plots_panel(self):
         # Create widget
         self.plots_panel_widget = plots_panel.PlotsPanelWidget(
-            self.working_lsl_streams,
+            self.lsl_config,
             self.plot_state,
             self.medusa_interface,
             self.accounts_manager.wrap_path(constants.PLOTS_CONFIG_FILE),
@@ -318,7 +415,8 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         # self.print_log(d_key, style={'color': 'green'})
         pass
 
-    def get_release_info(self):
+    @staticmethod
+    def get_platform_release_info():
         try:
             with open('../version', 'r') as f:
                 release_info = dict(zip(['tag_name', 'name', 'date'],
@@ -338,6 +436,17 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
             release_info['minor_patch'] = release_tag_split[2]
         return release_info
 
+    @staticmethod
+    def get_kernel_release_info():
+        kernel_version = utils.get_python_package_version('medusa-kernel')
+        kernel_version_split = kernel_version.split('.')
+        release_info = dict()
+        release_info['tag_name'] = kernel_version
+        release_info['version'] = kernel_version_split[0]
+        release_info['major_patch'] = kernel_version_split[1]
+        release_info['minor_patch'] = kernel_version_split[2]
+        return release_info
+
     # =============================== MENU BAR =============================== #
     @exceptions.error_handler(scope='general')
     def set_up_menu_bar_main(self):
@@ -348,13 +457,15 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         self.menuAction_color_light.triggered.connect(
             self.set_light_theme)
         # Lab streaming layer
-        # TODO: menuAction_lsl_doc, menuAction_lsl_repo, menuAction_lsl_about
         self.menuAction_lsl_doc.triggered.connect(
             self.open_lsl_doc)
         self.menuAction_lsl_repo.triggered.connect(
             self.open_lsl_repo)
         self.menuAction_lsl_settings.triggered.connect(
             self.open_lsl_config_window)
+        self.menuAction_weak_search.triggered.connect(
+            self.change_lsl_search_mode
+        )
         # Developer tools
         self.menuAction_dev_tutorial.triggered.connect(
             self.open_dev_tutorial)
@@ -371,19 +482,11 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
     # ============================== PREFERENCES ============================= #
     def set_dark_theme(self):
         self.gui_config['theme'] = 'dark'
-        gui_config_file_path = self.accounts_manager.wrap_path(
-            constants.GUI_CONFIG_FILE)
-        with open(gui_config_file_path, 'w') as f:
-            json.dump(self.gui_config, f)
         self.set_theme()
         self.reset_panels()
 
     def set_light_theme(self):
         self.gui_config['theme'] = 'light'
-        gui_config_file_path = self.accounts_manager.wrap_path(
-            constants.GUI_CONFIG_FILE)
-        with open(gui_config_file_path, 'w') as f:
-            json.dump(self.gui_config, f)
         self.set_theme()
         self.reset_panels()
 
@@ -500,24 +603,49 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
     @exceptions.error_handler(scope='general')
     def open_lsl_config_window(self, checked=None):
         self.lsl_config_window = \
-            lsl_config.LSLConfig(
-                self.working_lsl_streams,
+            lsl_config.LSLConfigDialog(
+                self.lsl_config,
                 self.accounts_manager.wrap_path(constants.LSL_CONFIG_FILE),
                 theme_colors=self.theme_colors)
         self.lsl_config_window.accepted.connect(self.set_lsl_streams)
         self.lsl_config_window.rejected.connect(self.reset_lsl_streams)
 
     @exceptions.error_handler(scope='general')
+    def change_lsl_search_mode(self, checked=None):
+        self.lsl_config['weak_search'] = not self.lsl_config['weak_search']
+        # Load current lsl config
+        lsl_config_file_path = self.accounts_manager.wrap_path(
+            constants.LSL_CONFIG_FILE)
+        # Load last config (if available) and update only weak search field
+        if os.path.isfile(lsl_config_file_path):
+            with open(lsl_config_file_path, 'r') as f:
+                last_lsl_config = json.load(f)
+            last_lsl_config['weak_search'] = self.lsl_config['weak_search']
+            with open(lsl_config_file_path, 'w') as f:
+                json.dump(last_lsl_config, f, indent=4)
+        else:
+            with open(lsl_config_file_path, 'w') as f:
+                json.dump(self.lsl_config, f, indent=4)
+        self.update_menu_action_lsl_search_mode()
+
+    @exceptions.error_handler(scope='general')
+    def update_menu_action_lsl_search_mode(self):
+        if self.lsl_config['weak_search']:
+            self.menuAction_weak_search.setText('Disable weak search')
+        else:
+            self.menuAction_weak_search.setText('Activate weak search')
+
+    @exceptions.error_handler(scope='general')
     def set_lsl_streams(self):
         # Set working streamsicon.png
-        self.working_lsl_streams = self.lsl_config_window.working_streams
+        self.lsl_config = self.lsl_config_window.lsl_config
         # Update the working streams within the panels
-        self.plots_panel_widget.update_working_lsl_streams(
-            self.working_lsl_streams)
+        self.plots_panel_widget.update_lsl_config(
+            self.lsl_config)
         self.apps_panel_widget.update_working_lsl_streams(
-            self.working_lsl_streams)
+            self.lsl_config['working_streams'])
         # Print log info
-        for lsl_stream_info in self.working_lsl_streams:
+        for lsl_stream_info in self.lsl_config['working_streams']:
             self.print_log('Connected to LSL stream: %s' %
                            lsl_stream_info.medusa_uid)
 
@@ -567,7 +695,7 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
     def open_help_about(self, checked=None):
         dialog = AboutDialog(
             alias=self.accounts_manager.current_session.user_info['alias'],
-            release_info=self.release_info
+            release_info=self.platform_release_info
         )
         dialog.exec_()
 
@@ -714,7 +842,7 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
     def print_log(self, msg, style=None, mode='append'):
         """ Prints in the application log."""
         # hasattr is needed because if an exception occurs before
-        # log_panel_widget is initialized, the program enters in an infinite
+        # log_panel_widget is initialized, the program enters an infinite
         # loop because of exception handling
         if hasattr(self, 'log_panel_widget'):
             self.log_panel_widget.print_log(msg, style, mode)
@@ -840,7 +968,9 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
             # Close medusa interface queue
             self.medusa_interface_listener.terminate()
             self.interface_queue.close()
-            # let the window close
+            # Save gui config
+            self.save_gui_config()
+            # Let the window close
             event.accept()
 
     class MedusaInterfaceQueue:
@@ -1004,7 +1134,7 @@ class AboutDialog(QDialog, gui_about):
         style = 'p, li { white-space: pre-wrap; } p { font-family: "Roboto ' \
                 'Mono"; font-size:8pt; color: white;} a {text-decoration: ' \
                 'none; color:#55aa00;}'
-        body_ = '<br><p>Developed by (MSc) Eduardo Santamaría-Vázquez & (PhD) ' \
+        body_ = '<br><p>Developed by (PhD) Eduardo Santamaría-Vázquez & (PhD) ' \
                 'Víctor Martínez-Cagigal.<br><br>' \
                 'More information at <a ' \
                 'href="https://medusabci.com/">www.medusabci.com</a><br><br' \
@@ -1024,14 +1154,16 @@ class SplashScreen:
         self.release_info = release_info
         img_path = glob.glob('gui/images/medusa_splash_v2023.png')[0]
         splash_image = QPixmap(img_path)
-        self.splash_screen = QSplashScreen(splash_image,
-                                           Qt.WindowStaysOnTopHint)
+        # self.splash_screen = QSplashScreen(splash_image,
+        #                                    Qt.WindowStaysOnTopHint)
+        self.splash_screen = QSplashScreen(splash_image)
         self.splash_screen.setStyleSheet("QSplashScreen { margin-right: 0px; "
                                          "padding-right: 0px;}")
         self.splash_screen.setMask(splash_image.mask())
 
         # Creating the progress bar
         self.splash_progbar = QProgressBar(self.splash_screen)
+        self.splash_progbar.setTextVisible(False)
         self.splash_progbar.setStyleSheet(
             "QProgressBar{ "
             "height: 8px; "

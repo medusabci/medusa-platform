@@ -50,7 +50,7 @@ class NotificationBubble(QLabel):
         self.timer_ms = timer_ms
         self.anim_ms = anim_ms
         self.setObjectName('notification')  # For the stylesheet
-        self.setMinimumSize(600, 50)        # Required to view the border
+        self.setMinimumSize(200, 50)        # Required to view the border
         # rounded
 
         # Compute the initial and target positions

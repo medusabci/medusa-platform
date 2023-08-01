@@ -11,7 +11,7 @@ import time
 import threading
 import matplotlib
 from medusa.components import SerializableComponent
-from medusa.plots.topographic_plots import plot_topography, plot_head
+from medusa.plots.head_plots import plot_head
 import numpy as np
 from medusa import meeg
 import matplotlib.pyplot as plt
@@ -26,7 +26,7 @@ class ChannelSelectionWidget(QtWidgets.QDialog, ui_main_file):
     """This class allows you to control the GUI of the EEG channel selection widget."""
     close_signal = QtCore.pyqtSignal(object)
 
-    def __init__(self, standard='10-20', ch_labels=None):
+    def __init__(self, montage='10-20', ch_labels=None):
         QtWidgets.QDialog.__init__(self)
         self.setupUi(self)
         self.TAG = '[widget/EEG Channel Selection]'
@@ -48,7 +48,7 @@ class ChannelSelectionWidget(QtWidgets.QDialog, ui_main_file):
         self.changes_made = False
 
         # Initialize the plot
-        self.interactive_selection = EEGChannelSelectionPlot(standard=standard, ch_labels=ch_labels)
+        self.interactive_selection = EEGChannelSelectionPlot(montage=montage, ch_labels=ch_labels)
         self.plotLayout.addWidget(self.interactive_selection.fig.canvas)
 
         # Button connections
@@ -196,14 +196,14 @@ class EEGChannelSelectionPlot(SerializableComponent):
         After selection, a dictionary with an EEGChannelSet consisting of
         the selected channels, the selected reference and the selected
         ground is returned."""
-    def __init__(self, standard, ch_labels=None, channels_selected=None):
+    def __init__(self, montage, ch_labels=None, channels_selected=None):
         # Parameters
-        self.standard = standard
+        self.montage = montage
         self.ch_labels = ch_labels
 
         # Initialize Variables
         self.channel_set = meeg.EEGChannelSet()
-        self.channel_set.set_standard_montage(l_cha=self.ch_labels, standard=self.standard, )
+        self.channel_set.set_standard_montage(l_cha=self.ch_labels, montage=self.montage, )
         self.l_cha = self.channel_set.l_cha
         self.channels_selected = channels_selected
         self.channel_location = None
@@ -223,10 +223,15 @@ class EEGChannelSelectionPlot(SerializableComponent):
         }
         # Plot Channel Plot
         self.set_tolerance_radius()
-        self.fig, self.axes = plot_head(self.channel_set, plot_clabels=True, plot_contour_ch=True,
-                                              show=False, chcontour_radius=self.tolerance_radius,
-                                              plot_skin_in_color=True,
-                                              plot_channels=True)
+        self.fig = plt.figure()
+        self.fig.patch.set_alpha(False)
+        self.axes = self.fig.add_subplot(111)
+        plot_head(axes=self.axes,
+                  channel_set=self.channel_set,
+                  plot_channel_labels=True, plot_contour_ch=True,
+                  channel_radius_size=self.tolerance_radius,
+                  head_skin_color='#E8BEAC',
+                  plot_channel_points=True)
 
         # Set channel coordinates
         self.set_channel_location()
@@ -269,17 +274,17 @@ class EEGChannelSelectionPlot(SerializableComponent):
         dist_matrix = self.channel_set.compute_dist_matrix()
         dist_matrix.sort()
         percentage = self.set_tolerance_parameter()
-        self.tolerance_radius = percentage * dist_matrix[:, 1].min()
+        self.tolerance_radius = 1.5 * percentage * dist_matrix[:, 1].min()
 
     def set_tolerance_parameter(self):
         """ Computes the percentage of the minimum distance between channels
             depending the montage standard with a linear function"""
         global M
-        if self.standard == '10-05':
+        if self.montage == '10-05':
             M = 345
-        elif self.standard == '10-10':
+        elif self.montage == '10-10':
             M = 71
-        elif self.standard == '10-20':
+        elif self.montage == '10-20':
             M = 21
         return len(self.l_cha) * (0.25 / (M - 2)) + 0.25 * ((M - 4) / (M - 2))
 
@@ -412,7 +417,7 @@ class EEGChannelSelectionPlot(SerializableComponent):
         saved_channel_set = meeg.EEGChannelSet()
         saved_channel_set.set_standard_montage(l_cha=list(self.channels_selected['Labels']
                                                           [self.channels_selected['Used']]),
-                                               standard=self.standard)
+                                               montage=self.montage)
         self.final_channel_selection['Used'] = saved_channel_set
         self.final_channel_selection['Ground'] = list(
             self.channels_selected['Labels'][self.channels_selected['Ground']])
@@ -422,7 +427,7 @@ class EEGChannelSelectionPlot(SerializableComponent):
     def to_serializable_obj(self):
         channels_selected = {k: v.tolist() for k, v in self.channels_selected.items()}
         del channels_selected['Plot line']
-        sett_dict = {'standard': self.standard,
+        sett_dict = {'montage': self.montage,
                      'ch_labels': self.ch_labels,
                      'channels_selected': channels_selected}
         return sett_dict
@@ -435,5 +440,5 @@ class EEGChannelSelectionPlot(SerializableComponent):
 if __name__ == '__main__':
     # self.show must be uncommented
     app = QtWidgets.QApplication([])
-    mw = ChannelSelectionWidget(standard='10-05')
+    mw = ChannelSelectionWidget(montage='10-05')
     app.exec_()

@@ -169,6 +169,11 @@ QSpinBox, QDoubleSpinBox {
     background: @THEME_TEXT_LIGHT;
 	color: @THEME_BG_MID;
 }
+QSpinBox::disabled, QSpinBox::up-button::disabled, QSpinBox::down-button::disabled,
+QDoubleSpinBox::disabled, QDoubleSpinBox::up-button::disabled, QDoubleSpinBox::down-button::disabled {
+    background-color: @THEME_TEXT_DARK;
+    color: @THEME_TEXT_LIGHT;
+}
 
 QSpinBox::up-arrow:on, QDoubleSpinBox::up-arrow:on{
     image: url("gui/images/icons/small_arrow_up.png");
@@ -195,11 +200,18 @@ QSpinBox::down-button, QDoubleSpinBox::down-button {
     border-top-width: 0;
 }
 
+QSpinBox::up-arrow:disabled,
+QSpinBox::up-arrow:off,
+QDoubleSpinBox::up-arrow:disabled,
+QDoubleSpinBox::up-arrow:off{ /* off state when value in min */
+   image: url("gui/images/icons/small_arrow_up_disabled.png");
+}
+
 QSpinBox::down-arrow:disabled,
 QSpinBox::down-arrow:off,
 QDoubleSpinBox::down-arrow:disabled,
 QDoubleSpinBox::down-arrow:off{ /* off state when value in min */
-   image: url("gui/images/icons/down_arrow_disabled.png");
+   image: url("gui/images/icons/small_arrow_down_disabled.png");
 }
 
 /* 1.4 QPushButton ---------------------------------------------------------- */

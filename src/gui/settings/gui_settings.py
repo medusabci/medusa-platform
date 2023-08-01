@@ -21,7 +21,7 @@ class SettingsConfig(QtWidgets.QDialog, ui_main_file):
         # Initialize the gui application
         dir = os.path.dirname(__file__)
         #self.stl = gui_utils.set_css_and_theme(self, os.path.join(dir, '../gui_stylesheet.css'), 'dark')
-        self.setWindowIcon(QtGui.QIcon(os.path.join(dir, '../images/medusa_favicon.png')))
+        self.setWindowIcon(QtGui.QIcon(os.path.join(dir, '../images/medusa_task_icon.png')))
         self.setWindowTitle('Settings')
 
         # Set the current parameters
@@ -81,7 +81,9 @@ class SettingsConfig(QtWidgets.QDialog, ui_main_file):
         """ This function shows a warning dialog. """
         msg = QtWidgets.QMessageBox()
         msg.setIcon(QtWidgets.QMessageBox.Warning)
-        msg.setWindowIcon(QtGui.QIcon(os.path.join(os.path.dirname(__file__), '../images/medusa_favicon.png')))
+        msg.setWindowIcon(QtGui.QIcon(
+            os.path.join(os.path.dirname(__file__),
+                         '../images/medusa_task_icon.png')))
         msg.setText(message)
         msg.setWindowTitle(title)
         msg.setStandardButtons(QtWidgets.QMessageBox.Ok)

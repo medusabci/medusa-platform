@@ -1,14 +1,12 @@
 # PYTHON MODULES
-import sys, os, json, time, traceback
+import sys, os, json, traceback
 from math import floor
-import xml.etree.ElementTree as xml_et
 
 # EXTERNAL MODULES
 from PyQt5 import uic
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
 from PyQt5.QtGui import *
-import pyqtgraph as pg
 
 # MEDUSA COMPONENTS
 from medusa import components
@@ -16,9 +14,9 @@ from acquisition import lsl_utils
 import exceptions, constants
 
 # MEDUSA
+from gui.qt_widgets import dialogs
 from gui import gui_utils as gu
 from gui.plots_panel import real_time_plots
-from gui.qt_widgets.notifications import NotificationStack
 
 # Load the .ui files
 ui_plots_panel_config = uic.loadUiType(
@@ -299,7 +297,7 @@ class QToolButtonConfigPlotFrame(QToolButton):
     def mousePressEvent(self, event):
         try:
             if event.button() == Qt.LeftButton:
-                print('Hola!')
+                pass
         except Exception as e:
             print('Exception: %s' % str(e))
             raise e
@@ -344,7 +342,7 @@ class PanelConfig(components.SerializableComponent):
             raise e
 
     def create_plot_frame(self, plot_frame_uid, coordinates, span,
-                          plot_info=None, preprocessing_settings=None,
+                          plot_info=None, signal_settings=None,
                           visualization_settings=None, lsl_stream_info=None):
         try:
             # Check uid
@@ -370,7 +368,7 @@ class PanelConfig(components.SerializableComponent):
             self.set_plot_settings(
                 uid=plot_frame_uid,
                 plot_info=plot_info,
-                preprocessing_settings=preprocessing_settings,
+                signal_settings=signal_settings,
                 visualization_settings=visualization_settings,
                 lsl_stream_info=lsl_stream_info
             )
@@ -398,7 +396,7 @@ class PanelConfig(components.SerializableComponent):
             print('Exception: %s' % str(e))
             raise e
 
-    def set_plot_settings(self, uid, plot_info, preprocessing_settings,
+    def set_plot_settings(self, uid, plot_info, signal_settings,
                           visualization_settings, lsl_stream_info):
         try:
             # Check errors
@@ -407,7 +405,7 @@ class PanelConfig(components.SerializableComponent):
             plot_uid = None if plot_info is None else plot_info['uid']
             self.plots_settings[uid] = {
                 'plot_uid': plot_uid,
-                'preprocessing_settings': preprocessing_settings,
+                'signal_settings': signal_settings,
                 'visualization_settings': visualization_settings,
                 'lsl_stream_info': lsl_stream_info,
             }
@@ -482,6 +480,7 @@ class PanelConfig(components.SerializableComponent):
     @classmethod
     def from_serializable_obj(cls, dict_data):
         try:
+            lsl_config = dict_data['lsl_config']
             n_rows = dict_data['n_rows']
             n_cols = dict_data['n_cols']
             config = cls(n_rows, n_cols)
@@ -492,15 +491,44 @@ class PanelConfig(components.SerializableComponent):
                 uid = item['uid']
                 plot_info = real_time_plots.get_plot_info(
                     config.plots_settings[uid]['plot_uid'])
-                preprocessing_settings = \
-                    config.plots_settings[uid]['preprocessing_settings']
+                signal_settings = \
+                    config.plots_settings[uid]['signal_settings']
                 visualization_settings = \
                     config.plots_settings[uid]['visualization_settings']
+                lsl_stream_info = config.plots_settings[uid]['lsl_stream_info']
                 try:
-                    lsl_stream_info = \
-                        lsl_utils.LSLStreamWrapper.from_serializable_obj(
-                            config.plots_settings[uid]['lsl_stream_info'])
+                    # Update lsl_stream (necessary for weak LSL search)
+                    if lsl_config['weak_search']:
+                        lsl_stream = lsl_utils.find_lsl_stream(
+                            lsl_streams=lsl_config['working_streams'],
+                            force_one_stream=True,
+                            medusa_uid=lsl_stream_info['medusa_uid'],
+                            name=lsl_stream_info['lsl_name'],
+                            type=lsl_stream_info['lsl_type'],
+                            source_id=lsl_stream_info['lsl_source_id'],
+                            channel_count=lsl_stream_info['lsl_n_cha'],
+                            nominal_srate=lsl_stream_info['fs'])
+                    else:
+                        lsl_stream = lsl_utils.find_lsl_stream(
+                            lsl_streams=lsl_config['working_streams'],
+                            force_one_stream=True,
+                            medusa_uid=lsl_stream_info['medusa_uid'],
+                            uid=lsl_stream_info['lsl_uid'],
+                            name=lsl_stream_info['lsl_name'],
+                            type=lsl_stream_info['lsl_type'],
+                            source_id=lsl_stream_info['lsl_source_id'],
+                            channel_count=lsl_stream_info['lsl_n_cha'],
+                            nominal_srate=lsl_stream_info['fs'])
+                    # New instance to avoid pulling data from the same stream
+                    # for several plots
+                    lsl_stream_info = lsl_utils.LSLStreamWrapper(
+                        lsl_stream.lsl_stream)
+                    lsl_stream_info.update_medusa_parameters_from_lslwrapper(
+                        lsl_stream)
                 except exceptions.LSLStreamNotFound as e:
+                    lsl_stream_info = None
+                    item['configured'] = False
+                except exceptions.UnspecificLSLStreamInfo as e:
                     lsl_stream_info = None
                     item['configured'] = False
                 plot_idx = config.create_plot_frame(
@@ -508,7 +536,7 @@ class PanelConfig(components.SerializableComponent):
                     item['coordinates'],
                     item['span'],
                     plot_info=plot_info,
-                    preprocessing_settings=preprocessing_settings,
+                    signal_settings=signal_settings,
                     visualization_settings=visualization_settings,
                     lsl_stream_info=lsl_stream_info)
                 if item['configured']:
@@ -516,7 +544,6 @@ class PanelConfig(components.SerializableComponent):
                         set_configured(dict_data['theme_colors']['THEME_GREEN'])
             return config
         except Exception as e:
-            print('Exception: %s' % str(e))
             raise e
 
     def clear(self):
@@ -531,13 +558,12 @@ class PanelConfig(components.SerializableComponent):
 
 class ConfigPlotFrameDialog(QDialog, ui_plot_config_dialog):
 
-    def __init__(self, uid, preprocessing_settings, visualization_settings,
+    def __init__(self, uid, signal_settings, visualization_settings,
                  lsl_streams, plots_info, selected_lsl_stream=None,
                  selected_plot_info=None, theme_colors=None):
         try:
             super().__init__()
             self.setupUi(self)
-            self.notifications = NotificationStack(parent=self)
             # Set style
             self.dir = os.path.dirname(__file__)
             self.theme_colors = gu.get_theme_colors('dark') if \
@@ -563,7 +589,7 @@ class ConfigPlotFrameDialog(QDialog, ui_plot_config_dialog):
                 raise ValueError('Parameter selected_plot '
                                  'must be None or dict')
             if selected_lsl_stream is not None:
-                if not lsl_utils.check_if_medusa_uid_is_available(
+                if lsl_utils.check_if_medusa_uid_is_available(
                         lsl_streams, selected_lsl_stream.medusa_uid):
                     # Perhaps the name of the stream has been changed and is no
                     # longer available
@@ -572,7 +598,7 @@ class ConfigPlotFrameDialog(QDialog, ui_plot_config_dialog):
             self.uid = uid
             self.working_lsl_streams = lsl_streams
             self.plots_info = plots_info
-            self.preprocessing_settings = preprocessing_settings
+            self.signal_settings = signal_settings
             self.visualization_settings = visualization_settings
             self.selected_lsl_stream_info = None
             self.selected_plot_info = None
@@ -580,7 +606,7 @@ class ConfigPlotFrameDialog(QDialog, ui_plot_config_dialog):
             self.set_lsl_streams(selected_lsl_stream)
             self.set_plot_types(selected_plot_info)
             if selected_plot_info is not None:
-                self.set_settings_in_text_edits(preprocessing_settings,
+                self.set_settings_in_text_edits(signal_settings,
                                                 visualization_settings)
         except Exception as e:
             self.exception_handler(e)
@@ -640,22 +666,23 @@ class ConfigPlotFrameDialog(QDialog, ui_plot_config_dialog):
             # Check signal and get signal and plot options
             if plot_class.check_signal(signal_type):
                 # Get default settings of the new plot
-                preprocessing_settings, visualization_settings = \
+                signal_settings, visualization_settings = \
                     plot_class.get_default_settings()
-                self.set_settings_in_text_edits(preprocessing_settings,
+                self.set_settings_in_text_edits(signal_settings,
                                                 visualization_settings)
             else:
                 raise ValueError('Wrong signal type %s for plot type %s' %
                                  (signal_type, plot_type))
+
         except Exception as e:
             self.exception_handler(e)
 
-    def set_settings_in_text_edits(self, preprocessing_settings,
+    def set_settings_in_text_edits(self, signal_settings,
                                    visualization_settings):
         try:
             # Update settings and text areas
             self.textEdit_signal_options.setText(
-                json.dumps(preprocessing_settings, indent=4))
+                json.dumps(signal_settings, indent=4))
             self.textEdit_plot_options.setText(
                 json.dumps(visualization_settings, indent=4))
         except Exception as e:
@@ -671,11 +698,11 @@ class ConfigPlotFrameDialog(QDialog, ui_plot_config_dialog):
     def accept(self):
         try:
             # Update plot instance settings
-            preprocessing_settings = json.loads(
+            signal_settings = json.loads(
                 self.textEdit_signal_options.toPlainText())
             visualization_settings = json.loads(
                 self.textEdit_plot_options.toPlainText())
-            self.preprocessing_settings = preprocessing_settings
+            self.signal_settings = signal_settings
             self.visualization_settings = visualization_settings
             super().accept()
         except Exception as e:
@@ -689,23 +716,18 @@ class ConfigPlotFrameDialog(QDialog, ui_plot_config_dialog):
 
     def exception_handler(self, ex):
         traceback.print_exc()
-        self.notifications.new_notification('[ERROR] %s' % str(ex))
+        dialogs.error_dialog(str(ex), 'Error!')
 
 
 class PlotsPanelConfigDialog(QDialog, ui_plots_panel_config):
-    """ This class represents the main GUI of medusa. All the modules that are
-    needed in the working flow are instantiated here, so this is the only class
-    you have to change in order to add or change modules.
+    """ This class implements the config dialog of the plots panel.
     """
 
-    def __init__(self, working_lsl_streams, plots_config_file_path,
+    def __init__(self, lsl_config, plots_config_file_path,
                  config=None, theme_colors=None):
         try:
-            self.notifications = NotificationStack(parent=self)
             super().__init__()
             self.setupUi(self)
-            # todo: theme
-            self.theme = 'dark'
             # Initialize the application
             self.dir = os.path.dirname(__file__)
             self.theme_colors = gu.get_theme_colors('dark') if \
@@ -716,14 +738,23 @@ class PlotsPanelConfigDialog(QDialog, ui_plots_panel_config):
             self.setWindowTitle('Real time plots panel configuration')
             self.gridLayout_grid.setSpacing(2)
             # Init variables
-            self.working_lsl_streams = working_lsl_streams
+            self.lsl_config = lsl_config
             self.plots_config_file_path = plots_config_file_path
             self.plots_info = real_time_plots.__plots_info__
             if config is None:
                 config = PanelConfig(n_rows=8, n_cols=8)
             else:
                 config['theme_colors'] = self.theme_colors
-                config = PanelConfig.from_serializable_obj(config)
+                config['lsl_config'] = self.lsl_config
+                try:
+                    config = PanelConfig.from_serializable_obj(config)
+                except Exception as e:
+                    dialogs.error_dialog(
+                        'The plots panel configuration is corrupted. The '
+                        'reason could be an external modification of the '
+                        'configuration file or a software update. '
+                        'Please, reconfigure.', 'Error')
+                    config = PanelConfig(n_rows=8, n_cols=8)
             self.config = config
             self.set_panel_config()
             # Initial state
@@ -871,14 +902,14 @@ class PlotsPanelConfigDialog(QDialog, ui_plots_panel_config):
             plot_settings = self.config.plots_settings[uid]
             curr_plot_info = real_time_plots.get_plot_info(
                 plot_settings['plot_uid'])
-            curr_preprocessing_settings = \
-                plot_settings['preprocessing_settings']
+            curr_signal_settings = \
+                plot_settings['signal_settings']
             curr_visualization_settings = \
                 plot_settings['visualization_settings']
             curr_lsl_stream_info = plot_settings['lsl_stream_info']
             self.config_dialog = ConfigPlotFrameDialog(
-                uid, curr_preprocessing_settings, curr_visualization_settings,
-                self.working_lsl_streams, self.plots_info,
+                uid, curr_signal_settings, curr_visualization_settings,
+                self.lsl_config['working_streams'], self.plots_info,
                 selected_lsl_stream=curr_lsl_stream_info,
                 selected_plot_info=curr_plot_info,
                 theme_colors=self.theme_colors)
@@ -893,15 +924,15 @@ class PlotsPanelConfigDialog(QDialog, ui_plots_panel_config):
         try:
             uid = self.config_dialog.uid
             curr_plot_info = self.config_dialog.selected_plot_info
-            curr_preprocessing_settings = \
-                self.config_dialog.preprocessing_settings
+            curr_signal_settings = \
+                self.config_dialog.signal_settings
             curr_visualization_settings = \
                 self.config_dialog.visualization_settings
             curr_lsl_stream_info = self.config_dialog.selected_lsl_stream_info
             self.config.set_plot_settings(
                 uid=uid,
                 plot_info=curr_plot_info,
-                preprocessing_settings=curr_preprocessing_settings,
+                signal_settings=curr_signal_settings,
                 visualization_settings=curr_visualization_settings,
                 lsl_stream_info=curr_lsl_stream_info
             )
@@ -1109,7 +1140,7 @@ class PlotsPanelConfigDialog(QDialog, ui_plots_panel_config):
         plot_frame_index = self.config.create_plot_frame(
             uid, new_coordinates, new_span,
             plot_info=real_time_plots.get_plot_info(settings['plot_uid']),
-            preprocessing_settings=settings['preprocessing_settings'],
+            signal_settings=settings['signal_settings'],
             visualization_settings=settings['visualization_settings'],
             lsl_stream_info=settings['lsl_stream_info']
         )
@@ -1152,11 +1183,5 @@ class PlotsPanelConfigDialog(QDialog, ui_plots_panel_config):
 
     def exception_handler(self, ex):
         traceback.print_exc()
-        self.notifications.new_notification('[ERROR] %s' % str(ex))
+        dialogs.error_dialog(str(ex), 'Error!')
 
-
-if __name__ == '__main__':
-    """ Example of use of the GuiMainClass() """
-    application = QApplication(sys.argv)
-    main_window = PlotsPanelConfigDialog()
-    sys.exit(application.exec_())

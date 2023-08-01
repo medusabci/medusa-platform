@@ -28,12 +28,22 @@
            <enum>Qt::Vertical</enum>
           </property>
           <widget class="QGroupBox" name="box_apps_panel">
+           <property name="font">
+            <font>
+             <pointsize>9</pointsize>
+            </font>
+           </property>
            <property name="title">
             <string>APPLICATIONS</string>
            </property>
            <layout class="QVBoxLayout" name="verticalLayout_2"/>
           </widget>
           <widget class="QGroupBox" name="box_log_panel">
+           <property name="font">
+            <font>
+             <pointsize>9</pointsize>
+            </font>
+           </property>
            <property name="title">
             <string>LOG </string>
            </property>
@@ -47,6 +57,11 @@
        <layout class="QVBoxLayout" name="verticalLayout_5">
         <item>
          <widget class="QGroupBox" name="box_plots_panel">
+          <property name="font">
+           <font>
+            <pointsize>9</pointsize>
+           </font>
+          </property>
           <property name="title">
            <string>REAL TIME PLOTS</string>
           </property>
@@ -86,7 +101,7 @@
      <x>0</x>
      <y>0</y>
      <width>1037</width>
-     <height>26</height>
+     <height>22</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuInfo_2">
@@ -136,6 +151,7 @@
     <addaction name="menuAction_lsl_repo"/>
     <addaction name="separator"/>
     <addaction name="menuAction_lsl_settings"/>
+    <addaction name="menuAction_weak_search"/>
    </widget>
    <addaction name="menuPreferences"/>
    <addaction name="menuLab_Streaming_Layer"/>
@@ -244,7 +260,7 @@
   </action>
   <action name="menuAction_lsl_settings">
    <property name="text">
-    <string>Settings</string>
+    <string>Workspace</string>
    </property>
   </action>
   <action name="menuAction_view_integrated">
@@ -275,6 +291,11 @@
   <action name="menuAction_help_tutorials">
    <property name="text">
     <string>Tutorials</string>
+   </property>
+  </action>
+  <action name="menuAction_weak_search">
+   <property name="text">
+    <string>Activate weak search</string>
    </property>
   </action>
  </widget>

@@ -160,6 +160,13 @@ def hsv_to_rgb(hsv):
 
 
 # ---------------------------- USEFUL METHODS -------------------------------- #
+def set_point_size(element, size):
+    font = element.font()
+    font.setPointSize(size)
+    element.setFont(font)
+    return element
+
+
 def img_to_icon(image):
     """ Converts a PIL Image into a QIcon
 

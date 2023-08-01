@@ -1,6 +1,6 @@
 import xml.etree.ElementTree as et
 import requests
-import subprocess, os, sys, json, datetime
+import subprocess, os, sys, json, datetime, pkg_resources
 
 
 def xml_string_to_json(xml_str, convert_numbers=False):
@@ -81,7 +81,7 @@ def __str_to_number(number_str):
     return n
 
 
-def execute_shell_commands(cmds):
+def execute_shell_commands(cmds, progress_dialog=None):
     # Save temporal bat file
     bat_file_name = 'temp_bat_venv.bat'
     with open(bat_file_name, 'w') as f:
@@ -95,14 +95,20 @@ def execute_shell_commands(cmds):
         while True:
             if p.poll() is not None:
                 break
+            # if p.returncode is not None:
+            #     break
             for line in p.stdout:
                 if line == '\n':
                     continue
                 print(line)
+                if progress_dialog is not None:
+                    progress_dialog.update_log(line)
             for line in p.stderr:
                 if line == '\n':
                     continue
                 print(line, file=sys.stderr)
+                if progress_dialog is not None:
+                    progress_dialog.update_log(line, style='error')
     # Delete bat file
     os.remove(bat_file_name)
 
@@ -213,6 +219,8 @@ def restart():
     os.execv(sys.executable, ['python'] + sys.argv)
 
 
+def get_python_package_version(package):
+    return pkg_resources.get_distribution(package).version
 
 
 
