@@ -80,8 +80,8 @@ class UpdatesManager:
         if self.kernel_versions_info is None:
             return False, None
         # Check development
-        # if self.platform_release_info['version'] == 'Dev':
-        #     return False, None
+        if self.platform_release_info['version'] == 'Dev':
+            return False, None
         # Get requirement of this version
         with open('../requirements.txt', 'r') as f:
             for line in f:
