@@ -34,11 +34,11 @@ class UpdatesManager:
             self.platform_versions_info = \
                 utils.get_medusa_repo_releases_info(
                     depth=0, repo='medusa-platform',
-                    exclude_non_final=False)
+                    exclude_non_final=True)
             self.kernel_versions_info = \
                 utils.get_medusa_repo_releases_info(
                     depth=2, repo='medusa-kernel',
-                    exclude_non_final=False)
+                    exclude_non_final=True)
         except requests.exceptions.ConnectionError as e:
             # If there is no connection, updates are not possible
             self.platform_versions_info = None
