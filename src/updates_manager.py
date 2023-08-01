@@ -1,4 +1,5 @@
 import shutil, json, requests, os, sys, tempfile, zipfile, pathlib
+import subprocess
 
 import constants, exceptions
 import utils
@@ -23,7 +24,8 @@ class UpdatesManager:
         # self.url_server = 'http://localhost/api'
         # Get versions info
         try:
-            self.versions_info = utils.get_medusa_repo_releases_info(depth=0)
+            self.versions_info = utils.get_medusa_repo_releases_info(
+                depth=0, exclude_non_final=False)
         except requests.exceptions.ConnectionError as e:
             # If there is no connection, updates are not possible
             self.versions_info = None
@@ -46,13 +48,13 @@ class UpdatesManager:
         if int(latest_version_info['major_patch']) > \
                 int(self.release_info['major_patch']):
             update = dialogs.confirmation_dialog(
-                'MEDUSA Platform %s is out! You want to update?' %
+                'MEDUSA Platform %s is out! Do you want to update?' %
                 latest_version_info['tag_name'], 'Major update available'
             )
         elif int(latest_version_info['minor_patch']) > \
                 int(self.release_info['minor_patch']):
             update = dialogs.confirmation_dialog(
-                'MEDUSA Platform %s is out! You want to update?' %
+                'MEDUSA Platform %s is out! Do you want to update?' %
                 latest_version_info['tag_name'], 'Minor update available'
             )
         return update, latest_version_info
@@ -122,11 +124,26 @@ class UpdatesManager:
                 f.write('\n'.join([latest_version_info['depth_2_tag'],
                                    latest_version_info['name'],
                                    latest_version_info['date']]))
+            # Upgrade MEDUSA Kernel?
+            with open('../requirements.txt', 'r') as f:
+                for line in f:
+                    if line.find('medusa-kernel') == 0:
+                        self.update_medusa_kernel(line, progress_dialog)
             # Update progress bar
             progress_dialog.update_action('Finished')
             progress_dialog.update_value(100)
             progress_dialog.finish()
         except Exception as e:
-            progress_dialog.update_log('ERROR: %s' % str(e))
+            progress_dialog.update_log('ERROR: %s' % str(e), style='error')
             progress_dialog.finish()
 
+    def update_medusa_kernel(self, requirement, progress_dialog):
+        # Write bat file with the commands to install python dependencies
+        cmds = list()
+        # cmds.append('%s:' % self.mds_path.split(':')[0])
+        # cmds.append('cd "%s"' % self.mds_path)
+        cmds.append('call "..\\venv\\Scripts\\activate"')
+        cmds.append('python -m pip install --upgrade pip')
+        cmds.append('pip install %s' % requirement)
+        # Execute
+        utils.execute_shell_commands(cmds, progress_dialog)

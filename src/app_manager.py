@@ -158,9 +158,8 @@ class AppManager:
                 info['installation-date'] = self.get_date_today()
                 self.apps_dict[info['id']] = info
                 self.update_apps_file()
-
         except Exception as e:
-            progress_dialog.update_log('ERROR: %s' % str(e))
+            progress_dialog.update_log('ERROR: %s' % str(e), style='error')
             progress_dialog.finish()
             self.handle_exception(e)
 
@@ -232,7 +231,7 @@ class AppManager:
             progress_dialog.update_action('Finished!')
             progress_dialog.finish()
         except Exception as e:
-            progress_dialog.update_log('ERROR: %s' % str(e))
+            progress_dialog.update_log('ERROR: %s' % str(e), style='error')
             progress_dialog.finish()
             self.handle_exception(e)
 

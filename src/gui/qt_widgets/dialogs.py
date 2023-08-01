@@ -248,12 +248,39 @@ class ThreadProgressDialog(MedusaDialog):
     def __update_value(self, value):
         self.progress_bar.setValue(value)
 
-    def update_log(self, message):
-        self.queue.put(('log', message))
+    def update_log(self, message, style=None):
+        self.queue.put(('log', [message, style]))
 
-    def __update_log(self, message):
-        self.log_box.append(message)
+    def __update_log(self, message, style):
+        # Default styles
+        if isinstance(style, str):
+            if style == 'error':
+                style = {'color': self.theme_colors['THEME_RED']}
+            elif style == 'warning':
+                style = {'color': self.theme_colors['THEME_YELLOW']}
+            else:
+                raise ValueError('Custom style %s not recognized' % style)
+        elif isinstance(style, dict):
+            pass
+        elif style is None:
+            style = {}
+        else:
+            raise ValueError('Unrecognized style type')
+        # Append message
+        formatted_msg = self.format_log_msg(message, **style)
+        self.log_box.append(formatted_msg)
         self.log_box.moveCursor(QTextCursor.End)
+
+    def format_log_msg(self, msg, **kwargs):
+        # Default style
+        kwargs.setdefault('color', self.theme_colors['THEME_TEXT_LIGHT'])
+        # Format css
+        style = ''
+        for key, value in kwargs.items():
+            if not isinstance(value, str):
+                raise ValueError('Type of %s must be str' % key)
+            style += '%s: %s;' % (key, value)
+        return '<p style="margin:0;margin-top:2;%s"> >> %s </p>' % (style, msg)
 
     def on_ok_button_clicked(self, checked=None):
         self.close()
@@ -278,7 +305,7 @@ class ThreadProgressDialog(MedusaDialog):
 
         update_action_signal = pyqtSignal(str)
         update_value_signal = pyqtSignal(int)
-        update_log_signal = pyqtSignal(str)
+        update_log_signal = pyqtSignal(str, object)
 
         def __init__(self, queue):
             super().__init__()
@@ -293,7 +320,7 @@ class ThreadProgressDialog(MedusaDialog):
                 elif el == 'value':
                     self.update_value_signal.emit(val)
                 elif el == 'log':
-                    self.update_log_signal.emit(val)
+                    self.update_log_signal.emit(val[0], val[1])
 
         def finish(self):
             self.stop = True

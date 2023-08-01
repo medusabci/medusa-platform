@@ -81,7 +81,7 @@ def __str_to_number(number_str):
     return n
 
 
-def execute_shell_commands(cmds):
+def execute_shell_commands(cmds, progress_dialog=None):
     # Save temporal bat file
     bat_file_name = 'temp_bat_venv.bat'
     with open(bat_file_name, 'w') as f:
@@ -99,10 +99,14 @@ def execute_shell_commands(cmds):
                 if line == '\n':
                     continue
                 print(line)
+                if progress_dialog is not None:
+                    progress_dialog.update_log(line)
             for line in p.stderr:
                 if line == '\n':
                     continue
                 print(line, file=sys.stderr)
+                if progress_dialog is not None:
+                    progress_dialog.update_log(line, style='error')
     # Delete bat file
     os.remove(bat_file_name)
 
