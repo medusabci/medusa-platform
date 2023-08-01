@@ -1134,7 +1134,7 @@ class AboutDialog(QDialog, gui_about):
         style = 'p, li { white-space: pre-wrap; } p { font-family: "Roboto ' \
                 'Mono"; font-size:8pt; color: white;} a {text-decoration: ' \
                 'none; color:#55aa00;}'
-        body_ = '<br><p>Developed by (MSc) Eduardo Santamaría-Vázquez & (PhD) ' \
+        body_ = '<br><p>Developed by (PhD) Eduardo Santamaría-Vázquez & (PhD) ' \
                 'Víctor Martínez-Cagigal.<br><br>' \
                 'More information at <a ' \
                 'href="https://medusabci.com/">www.medusabci.com</a><br><br' \

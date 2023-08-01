@@ -274,6 +274,7 @@ class ThreadProgressDialog(MedusaDialog):
     def format_log_msg(self, msg, **kwargs):
         # Default style
         kwargs.setdefault('color', self.theme_colors['THEME_TEXT_LIGHT'])
+        kwargs.setdefault('font-size', '9pt')
         # Format css
         style = ''
         for key, value in kwargs.items():

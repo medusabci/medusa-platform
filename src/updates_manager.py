@@ -39,7 +39,7 @@ class UpdatesManager:
                 utils.get_medusa_repo_releases_info(
                     depth=2, repo='medusa-kernel',
                     exclude_non_final=True)
-        except requests.exceptions.ConnectionError as e:
+        except (ConnectionError, requests.exceptions.ConnectionError) as e:
             # If there is no connection, updates are not possible
             self.platform_versions_info = None
             self.kernel_versions_info = None
@@ -72,8 +72,8 @@ class UpdatesManager:
         if self.kernel_versions_info is None:
             return False, None
         # Check development
-        if self.platform_release_info['version'] == 'Dev':
-            return False, None
+        # if self.platform_release_info['version'] == 'Dev':
+        #     return False, None
         # Get requirement of this version
         with open('../requirements.txt', 'r') as f:
             requirement = None
@@ -106,8 +106,7 @@ class UpdatesManager:
                     'recommended for the current version of MEDUSA\u00A9 '
                     'Platform. Do you want to update?' % latest_version_info,
                     'Update available')
-                if update:
-                    break
+                break
         return update, latest_version_info
 
     @exceptions.error_handler(scope='general')
