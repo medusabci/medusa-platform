@@ -127,8 +127,9 @@ class UpdatesManager:
                 bytes_down = 0
                 total_bytes = int(r.headers['Content-Length']) \
                     if 'Content-Length' in r.headers else 0
+                print('Total bytes: %i' % total_bytes)
                 if total_bytes == 0:
-                    total_bytes = 140
+                    total_bytes = 140 * 1e6
                 progress_dialog.update_log('Download size: %.2f MB' %
                                            (total_bytes / 1e6))
                 for data in r.iter_content(chunk_size=int(1e6)):
