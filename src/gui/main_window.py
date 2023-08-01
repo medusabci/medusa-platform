@@ -7,6 +7,7 @@ import ctypes
 import threading
 import webbrowser
 import datetime
+import pkg_resources
 
 # EXTERNAL MODULES
 from PyQt5 import uic
@@ -45,25 +46,26 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         self.setupUi(self)
 
         # Load version
-        self.release_info = self.get_release_info()
+        self.platform_release_info = self.get_platform_release_info()
+        self.kernel_release_info = self.get_kernel_release_info()
 
         # Qt parameters
         self.setWindowIcon(QIcon('%s/medusa_task_icon.png' %
                                  constants.IMG_FOLDER))
         self.setWindowTitle('MEDUSA© Platform %s [%s]' %
-                            (self.release_info['version'],
-                             self.release_info['name']))
+                            (self.platform_release_info['version'],
+                             self.platform_release_info['name']))
         self.setFocusPolicy(Qt.StrongFocus)
         self.setAttribute(Qt.WA_DeleteOnClose)
         # self.setWindowFlags(Qt.FramelessWindowHint)
 
         # Tell windows that this application is not pythonw.exe so it can
         # have its own icon
-        medusaid = u'gib.medusa.' + self.release_info['version']
+        medusaid = u'gib.medusa.' + self.platform_release_info['version']
         ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(medusaid)
 
         # Splash screen
-        splash_screen = SplashScreen(self.release_info)
+        splash_screen = SplashScreen(self.platform_release_info)
         splash_screen.set_state(0, "Initializing...")
 
         # Instantiate accounts manager
@@ -98,7 +100,8 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
 
         # Instantiate updates managers
         self.updates_manager = updates_manager.UpdatesManager(
-            self.medusa_interface, self.release_info)
+            self.medusa_interface, self.platform_release_info,
+            self.kernel_release_info)
         splash_screen.set_state(75, "Checking for updates...")
 
         # Reset panels
@@ -216,7 +219,8 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         self.set_up_lsl_config()
         # Apps panel
         self.apps_manager = app_manager.AppManager(
-            self.accounts_manager, self.medusa_interface, self.release_info)
+            self.accounts_manager, self.medusa_interface,
+            self.platform_release_info)
         self.apps_panel_widget = None
         self.set_up_apps_panel()
         # Plots dashboard
@@ -224,19 +228,38 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         self.set_up_plots_panel()
 
     def check_updates(self):
-        update, latest_version_info = self.updates_manager.check_for_updates()
+        # Check for available updates of MEDUSA Platform
+        update, latest_version_info = \
+            self.updates_manager.check_for_medusa_platform_updates()
         if update:
             # Initialize progress dialog
             self.progress_dialog = ThreadProgressDialog(
-                window_title='Updating...',
+                window_title='Updating MEDUSA\u00A9 Platform...',
                 min_pbar_value=0, max_pbar_value=100,
                 theme_colors=self.theme_colors)
             self.progress_dialog.done.connect(self.update_finished)
             self.progress_dialog.show()
 
-            th = threading.Thread(target=self.updates_manager.update_version,
-                                  args=(latest_version_info,
-                                        self.progress_dialog))
+            th = threading.Thread(
+                target=self.updates_manager.update_platform,
+                args=(latest_version_info, self.progress_dialog))
+            th.start()
+        # Check for available updates of MEDUSA Kernel
+        update, latest_version_info = \
+            self.updates_manager.check_for_medusa_kernel_updates()
+        if update:
+            # Initialize progress dialog
+            self.progress_dialog = ThreadProgressDialog(
+                window_title='Updating MEDUSA\u00A9 Kernel...',
+                min_pbar_value=0, max_pbar_value=100,
+                theme_colors=self.theme_colors)
+            self.progress_dialog.done.connect(self.update_finished)
+            self.progress_dialog.show()
+
+            th = threading.Thread(
+                target=self.updates_manager.update_kernel,
+                args=('medusa-kernel==%s' % latest_version_info,
+                      self.progress_dialog))
             th.start()
         return update
 
@@ -296,9 +319,10 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
                         if not lsl_utils.check_if_medusa_uid_is_available(
                                 working_lsl_streams, lsl_stream.medusa_uid):
                             error_dialog(
-                                'Incorrect LSL configuration with duplicated LSL stream'
-                                'UID %s. MEDUSA LSL UIDs must be unique. Please '
-                                'reconfigure LSL.' % lsl_stream.medusa_uid,
+                                'Incorrect LSL configuration with duplicated '
+                                'LSL stream UID %s. MEDUSA LSL UIDs must be '
+                                'unique. Please reconfigure LSL.' %
+                                lsl_stream.medusa_uid,
                                 'Incorrect MEDUSA LSL UID')
                             working_lsl_streams = list()
                             break
@@ -391,7 +415,8 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         # self.print_log(d_key, style={'color': 'green'})
         pass
 
-    def get_release_info(self):
+    @staticmethod
+    def get_platform_release_info():
         try:
             with open('../version', 'r') as f:
                 release_info = dict(zip(['tag_name', 'name', 'date'],
@@ -409,6 +434,17 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
             release_info['version'] = release_tag_split[0]
             release_info['major_patch'] = release_tag_split[1]
             release_info['minor_patch'] = release_tag_split[2]
+        return release_info
+
+    @staticmethod
+    def get_kernel_release_info():
+        kernel_version = utils.get_python_package_version('medusa-kernel')
+        kernel_version_split = kernel_version.split('.')
+        release_info = dict()
+        release_info['tag_name'] = kernel_version
+        release_info['version'] = kernel_version_split[0]
+        release_info['major_patch'] = kernel_version_split[1]
+        release_info['minor_patch'] = kernel_version_split[2]
         return release_info
 
     # =============================== MENU BAR =============================== #
@@ -659,7 +695,7 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
     def open_help_about(self, checked=None):
         dialog = AboutDialog(
             alias=self.accounts_manager.current_session.user_info['alias'],
-            release_info=self.release_info
+            release_info=self.platform_release_info
         )
         dialog.exec_()
 
