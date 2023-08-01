@@ -1,7 +1,12 @@
-import shutil, json, requests, os, sys, tempfile, zipfile, pathlib
-import subprocess
+import os
+import pathlib
+import requests
+import shutil
+import tempfile
+import zipfile
+import sys
 
-import constants, exceptions
+import exceptions
 import utils
 from gui.qt_widgets import dialogs
 
@@ -75,34 +80,33 @@ class UpdatesManager:
         if self.kernel_versions_info is None:
             return False, None
         # Check development
-        if self.platform_release_info['version'] == 'Dev':
-            return False, None
+        # if self.platform_release_info['version'] == 'Dev':
+        #     return False, None
         # Get requirement of this version
-        try:
-            with open('../requirements.txt', 'r') as f:
-                for line in f:
-                    if line.find('medusa-kernel') == 0:
-                        requirement = line.replace('medusa-kernel', '')
-                        # It must have this format >=min_version<max_version
-                        requirement = requirement.split('<')
-                        min_version = requirement[0].replace('>=', '')
-                        max_version = requirement[1]
-                        break
-            # Check if there are updates available
-            update = False
-            latest_version_info = None
-            sorted_versions = sorted(self.kernel_versions_info)
-            for versionv in sorted_versions:
-                version = versionv.replace('v', '')
-                if self.kernel_release_info['tag_name'] >= version:
-                    continue
-                # Check if this kernel version fits the requirements
-                if min_version <= version < max_version:
-                    update = True
-                    latest_version_info = version
-            return update, latest_version_info
-        except Exception as e:
-            print(e)
+        with open('../requirements.txt', 'r') as f:
+            for line in f:
+                if line.find('medusa-kernel') == 0:
+                    requirement = line.replace('medusa-kernel', '')
+                    # It must have this format >=min_version<max_version
+                    requirement = requirement.split('<')
+                    min_version = requirement[0].replace('>=', '')
+                    max_version = requirement[1]
+                    break
+            print('The file requirements.txt has been corrupted. '
+                  'Dependency medusa-kernel cannot be found.', file=sys.stderr)
+        # Check if there are updates available
+        update = False
+        latest_version_info = None
+        sorted_versions = sorted(self.kernel_versions_info)
+        for versionv in sorted_versions:
+            version = versionv.replace('v', '')
+            if self.kernel_release_info['tag_name'] >= version:
+                continue
+            # Check if this kernel version fits the requirements
+            if min_version <= version < max_version:
+                update = True
+                latest_version_info = version
+        return update, latest_version_info
 
     @exceptions.error_handler(scope='general')
     def update_platform(self, latest_version_info, progress_dialog):
