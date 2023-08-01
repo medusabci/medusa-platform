@@ -512,6 +512,7 @@ class PanelConfig(components.SerializableComponent):
                         lsl_stream = lsl_utils.find_lsl_stream(
                             lsl_streams=lsl_config['working_streams'],
                             force_one_stream=True,
+                            medusa_uid=lsl_stream_info['medusa_uid'],
                             uid=lsl_stream_info['lsl_uid'],
                             name=lsl_stream_info['lsl_name'],
                             type=lsl_stream_info['lsl_type'],
@@ -588,7 +589,7 @@ class ConfigPlotFrameDialog(QDialog, ui_plot_config_dialog):
                 raise ValueError('Parameter selected_plot '
                                  'must be None or dict')
             if selected_lsl_stream is not None:
-                if not lsl_utils.check_if_medusa_uid_is_available(
+                if lsl_utils.check_if_medusa_uid_is_available(
                         lsl_streams, selected_lsl_stream.medusa_uid):
                     # Perhaps the name of the stream has been changed and is no
                     # longer available

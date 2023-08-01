@@ -184,6 +184,7 @@ class PlotsPanelWidget(QWidget, ui_plots_panel_widget):
                             lsl_streams=self.lsl_config['working_streams'],
                             force_one_stream=True,
                             uid=dict_data['lsl_uid'],
+                            medusa_uid=dict_data['medusa_uid'],
                             name=dict_data['lsl_name'],
                             type=dict_data['lsl_type'],
                             source_id=dict_data['lsl_source_id'],

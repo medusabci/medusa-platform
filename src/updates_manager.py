@@ -182,8 +182,6 @@ class UpdatesManager:
             progress_dialog.finish()
 
     def update_kernel(self, requirement, progress_dialog):
-        # Write bat file with the commands to install python dependencies
-        print(requirement)
         cmds = list()
         cmds.append('call "..\\venv\\Scripts\\activate"')
         cmds.append('python -m pip install --upgrade pip')
