@@ -18,7 +18,7 @@ ui_stream_config_dialog = \
     uic.loadUiType('gui/ui_files/lsl_config_medusa_params_dialog.ui')[0]
 
 
-class LSLConfig(QtWidgets.QDialog, ui_main_dialog):
+class LSLConfigDialog(QtWidgets.QDialog, ui_main_dialog):
     """ Main dialog class of the LSL config panel
     """
     def __init__(self, lsl_config, lsl_config_file_path,
@@ -283,11 +283,12 @@ class LSLConfig(QtWidgets.QDialog, ui_main_dialog):
         """
         try:
             super().accept()
+            lsl_config = dict(self.lsl_config)
             with open(self.lsl_config_file_path, 'w') as f:
-                self.lsl_config['working_streams'] = \
+                lsl_config['working_streams'] = \
                     [stream.to_serializable_obj() for stream in
-                     self.lsl_config['working_streams']]
-                json.dump(self.lsl_config, f, indent=4)
+                     lsl_config['working_streams']]
+                json.dump(lsl_config, f, indent=4)
         except Exception as e:
             self.handle_exception(e)
 
@@ -533,33 +534,3 @@ class EditStreamDialog(QtWidgets.QDialog, ui_stream_config_dialog):
     def handle_exception(self, ex):
         traceback.print_exc()
         dialogs.error_dialog(str(ex), 'Error', self.theme_colors)
-
-
-if __name__ == '__main__':
-    """ Example of use of the SettingsConfig() class. """
-    # CREATE LSL STREAM
-    # Create the steam outlet
-    from pylsl import StreamInfo, StreamOutlet
-    n_cha = 8
-    lsl_info = StreamInfo(name='test-stream',
-                          type='EEG',
-                          channel_count=n_cha,
-                          nominal_srate=100,
-                          channel_format='float32',
-                          source_id='test')
-    # lsl_info.desc().append_child_value("manufacturer", "")
-    channels = lsl_info.desc().append_child("channels")
-    for c in range(n_cha):
-        channels.append_child("channel") \
-            .append_child_value("label", str(c+1)) \
-            .append_child_value("units", 'uV') \
-            .append_child_value("type", 'EEG')
-
-    lsl_outlet = StreamOutlet(info=lsl_info,
-                              chunk_size=8,
-                              max_buffered=360)
-    print('[SignalGenerator] > LSL stream created.')
-
-    app = QtWidgets.QApplication(sys.argv)
-    application = LSLConfig(lsl_config=None)
-    sys.exit(app.exec_())

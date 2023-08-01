@@ -95,7 +95,7 @@ class PlotsPanelWidget(QWidget, ui_plots_panel_widget):
         self.reset_tool_bar_plot_buttons()
         # Connect signals
         self.toolButton_plot_start.clicked.connect(self.plot_start)
-        self.toolButton_plot_config.clicked.connect(self.plots_panel_config)
+        self.toolButton_plot_config.clicked.connect(self.open_plots_panel_config_dialog)
 
     @exceptions.error_handler(scope='plots')
     def update_lsl_config(self, lsl_config):
@@ -103,17 +103,9 @@ class PlotsPanelWidget(QWidget, ui_plots_panel_widget):
         self.update_plots_panel()
 
     @exceptions.error_handler(scope='plots')
-    def plots_panel_config(self, checked=None):
+    def open_plots_panel_config_dialog(self, checked=None):
         # Check errors
         if len(self.lsl_config['working_streams']) == 0:
-            # ex = exceptions.MedusaException(
-            #     exceptions.NoLSLStreamsAvailable(),
-            #     importance='mild',
-            #     scope='plots',
-            #     origin='PlotsWidget/plot_panel_config'
-            # )
-            # ex.set_handled(True)
-            # raise ex
             dialogs.error_dialog('No LSL streams available. Please, '
                                  'add at least 1 LSL stream to the workspace '
                                  'before configuring the real-time charts',
@@ -122,7 +114,7 @@ class PlotsPanelWidget(QWidget, ui_plots_panel_widget):
         # Dashboard config window
         self.plots_panel_config_dialog = \
             plots_panel_config.PlotsPanelConfigDialog(
-                self.lsl_config['working_streams'],
+                self.lsl_config,
                 self.plots_config_file_path,
                 config=self.plots_panel_config,
                 theme_colors=self.theme_colors)
@@ -174,35 +166,62 @@ class PlotsPanelWidget(QWidget, ui_plots_panel_widget):
                     self.plots_handlers[plot_uid].set_settings(
                         plot_settings['signal_settings'],
                         plot_settings['visualization_settings'])
+                    # Get the lsl stream from the working lsl streams
+                    dict_data = plot_settings['lsl_stream_info']
+                    if self.lsl_config['weak_search']:
+                        working_lsl_stream = lsl_utils.find_lsl_stream(
+                            lsl_streams=self.lsl_config['working_streams'],
+                            force_one_stream=True,
+                            medusa_uid=dict_data['medusa_uid'],
+                            name=dict_data['lsl_name'],
+                            type=dict_data['lsl_type'],
+                            source_id=dict_data['lsl_source_id'],
+                            channel_count=dict_data['lsl_n_cha'],
+                            nominal_srate=dict_data['fs']
+                        )
+                    else:
+                        working_lsl_stream = lsl_utils.find_lsl_stream(
+                            lsl_streams=self.lsl_config['working_streams'],
+                            force_one_stream=True,
+                            uid=dict_data['lsl_uid'],
+                            name=dict_data['lsl_name'],
+                            type=dict_data['lsl_type'],
+                            source_id=dict_data['lsl_source_id'],
+                            channel_count=dict_data['lsl_n_cha'],
+                            nominal_srate=dict_data['fs']
+                        )
+                    # New instance to avoid pulling data from the same stream
+                    # for several plots
+                    lsl_stream = lsl_utils.LSLStreamWrapper(
+                        working_lsl_stream.lsl_stream)
+                    lsl_stream.update_medusa_parameters_from_lslwrapper(
+                                    working_lsl_stream)
+                    # self.check_and_update_lsl_stream(lsl_stream)
                     # Set receiver
-                    lsl_stream_info = \
-                        lsl_utils.LSLStreamWrapper.from_serializable_obj(
-                            plot_settings['lsl_stream_info'],
-                            weak_search=self.lsl_config['weak_search'])
-                    self.check_and_update_lsl_stream(lsl_stream_info)
                     self.plots_handlers[plot_uid].set_lsl_worker(
-                        lsl_stream_info)
+                        lsl_stream)
                     self.plots_handlers[plot_uid].init_plot()
                     self.plots_handlers[plot_uid].set_ready()
                 except exceptions.LSLStreamNotFound as e:
                     msg = 'Plot %i. The LSL stream associated with this plot ' \
                           'is no longer available. Please, reconfigure' % \
                           (plot_uid)
-                    ex = exceptions.MedusaException(
-                        exceptions.LSLStreamNotFound(msg),
-                        importance='mild',
-                        scope='plots',
-                        origin='PlotsWidget/update_plots_panel'
-                    )
                     self.medusa_interface.log(msg, style='warning')
                     continue
-                    # # Remove plot
-                    # self.medusa_interface.error(ex)
-                    # continue
+                except exceptions.UnspecificLSLStreamInfo as e:
+                    # If this exception occurs, the error has already been
+                    # displayed by method set_up_lsl_config in main_window, so
+                    # it is not necessary to repeat information
+                    msg = 'Plot %i. There are more than one LSL stream that' \
+                          'can be associated with this plot. Disable weak ' \
+                          'search to avoid these issues. Please, ' \
+                          'reconfigure' % (plot_uid)
+                    self.medusa_interface.log(msg, style='warning')
+                    continue
                 except Exception as e:
-                    msg = 'Plot %i. %s' % (plot_uid, str(e))
+                    msg = type(e)('Plot %i. %s' % (plot_uid, str(e)))
                     ex = exceptions.MedusaException(
-                        e, importance='unknown',
+                        msg, importance='unknown',
                         scope='plots',
                         origin='PlotsWidget/update_plots_panel'
                     )
@@ -215,42 +234,6 @@ class PlotsPanelWidget(QWidget, ui_plots_panel_widget):
                     item['coordinates'][1],
                     item['span'][0],
                     item['span'][1])
-
-    def check_and_update_lsl_stream(self, lsl_stream):
-        """This function has two objectives. First, it checks that the LSL
-        stream that is configured for the plot is available in working LSL
-        streams in MEDUSA. Second, it updates the stream configured for the plot
-        with the last parameters configured in MEDUSA. For example, the user may
-        have changed the number of channels available in MEDUSA in the LSL
-        config panel.
-
-        Take care in not returning the working_lsl_stream directly. If several
-        plots are fed with the same LSL stream and the Inlet is the same, they
-        will crash!
-
-        Parameters
-        ----------
-        lsl_stream: lsl_utils.LSLStreamWrapper
-            LSL Stream to check and update
-        """
-        # Get LSL stream
-        for working_lsl_stream in self.lsl_config['working_streams']:
-            if lsl_stream.lsl_uid == working_lsl_stream.lsl_uid and \
-                    lsl_stream.medusa_uid == working_lsl_stream.medusa_uid:
-                # Update MEDUSA params
-                lsl_stream.update_medusa_parameters_from_lslwrapper(
-                    working_lsl_stream)
-                return
-        # If the LSL stream was not found, launch an error
-        prop_dict = {
-            'name': lsl_stream.lsl_name,
-            'type': lsl_stream.lsl_type,
-            'uid': lsl_stream.lsl_uid,
-            'source_id': lsl_stream.lsl_source_id,
-            'channel_count': lsl_stream.lsl_n_cha,
-            'nominal_srate': lsl_stream.fs
-        }
-        raise exceptions.LSLStreamNotFound(prop_dict)
 
     @exceptions.error_handler(scope='plots')
     def clear_plots_grid(self):

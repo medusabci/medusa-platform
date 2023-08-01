@@ -148,6 +148,8 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         if os.path.isfile(gui_config_file_path):
             with open(gui_config_file_path, 'r') as f:
                 self.gui_config = json.load(f)
+                # todo: check config file , it can be corrupted (e.g., missing
+                #  keys, incorrect values, etc)
         else:
             # Default configuration
             self.gui_config = dict()
@@ -280,41 +282,58 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         # Load last config (if available)
         working_lsl_streams = list()
         if os.path.isfile(lsl_config_file_path):
-            with open(lsl_config_file_path, 'r') as f:
-                self.lsl_config = json.load(f)
-            last_streams = self.lsl_config['working_streams']
-            for lsl_stream_info_dict in last_streams:
-                try:
-                    lsl_stream_info = \
-                        lsl_utils.LSLStreamWrapper.from_serializable_obj(
-                            lsl_stream_info_dict,
-                            weak_search=self.lsl_config['weak_search'])
-                except exceptions.LSLStreamNotFound as e:
-                    self.print_log('No match for LSL stream "%s"' %
-                                   lsl_stream_info_dict['medusa_uid'],
-                                   style='warning')
-                    # raise exceptions.MedusaException(
-                    #     e, scope='acquisition', importance='mild')
-                    continue
-                # Check uid
-                if not lsl_utils.check_if_medusa_uid_is_available(
-                        working_lsl_streams, lsl_stream_info.medusa_uid):
-                    error_dialog(
-                        'Incorrect LSL configuration with duplicated LSL stream'
-                        'UID %s. MEDUSA LSL UIDs must be unique. Please '
-                        'reconfigure LSL.' % lsl_stream_info.medusa_uid,
-                        'Incorrect MEDUSA LSL UID')
-                    working_lsl_streams = list()
-                    break
-                working_lsl_streams.append(lsl_stream_info)
-                self.print_log('Connected to LSL stream: %s' %
-                               lsl_stream_info.medusa_uid)
-            self.lsl_config['working_streams'] = working_lsl_streams
+            try:
+                with open(lsl_config_file_path, 'r') as f:
+                    self.lsl_config = json.load(f)
+                last_streams_info = self.lsl_config['working_streams']
+                for lsl_stream_info_dict in last_streams_info:
+                    try:
+                        lsl_stream = \
+                            lsl_utils.LSLStreamWrapper.from_serializable_obj(
+                                lsl_stream_info_dict,
+                                weak_search=self.lsl_config['weak_search'])
+                        # Check uid
+                        if not lsl_utils.check_if_medusa_uid_is_available(
+                                working_lsl_streams, lsl_stream.medusa_uid):
+                            error_dialog(
+                                'Incorrect LSL configuration with duplicated LSL stream'
+                                'UID %s. MEDUSA LSL UIDs must be unique. Please '
+                                'reconfigure LSL.' % lsl_stream.medusa_uid,
+                                'Incorrect MEDUSA LSL UID')
+                            working_lsl_streams = list()
+                            break
+                        working_lsl_streams.append(lsl_stream)
+                        self.print_log('Connected to LSL stream: %s' %
+                                       lsl_stream.medusa_uid)
+                    except exceptions.LSLStreamNotFound as e:
+                        self.print_log('No match for LSL stream "%s"' %
+                                       lsl_stream_info_dict['medusa_uid'],
+                                       style='warning')
+                        # raise exceptions.MedusaException(
+                        #     e, scope='acquisition', importance='mild')
+                        continue
+                    except exceptions.UnspecificLSLStreamInfo as e:
+                        self.print_log('%s. Disable weak LSL search to avoid '
+                                       'this error' % str(e), style='error')
+                        continue
+                self.lsl_config['working_streams'] = working_lsl_streams
+            except Exception as e:
+                # Message
+                self.print_log('The LSL configuration file might be corrupted. '
+                               'The reason might be an external modification '
+                               'or a software update. Please, reconfigure.',
+                               style='error')
+                # Default configuration
+                self.lsl_config = dict()
+                self.lsl_config['weak_search'] = False
+                self.lsl_config['working_streams'] = list()
         else:
             # Default configuration
             self.lsl_config = dict()
             self.lsl_config['weak_search'] = False
             self.lsl_config['working_streams'] = list()
+        # Update menu action
+        self.update_menu_action_lsl_search_mode()
 
     @exceptions.error_handler(scope='general')
     def set_up_apps_panel(self):
@@ -402,13 +421,15 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         self.menuAction_color_light.triggered.connect(
             self.set_light_theme)
         # Lab streaming layer
-        # TODO: menuAction_lsl_doc, menuAction_lsl_repo, menuAction_lsl_about
         self.menuAction_lsl_doc.triggered.connect(
             self.open_lsl_doc)
         self.menuAction_lsl_repo.triggered.connect(
             self.open_lsl_repo)
         self.menuAction_lsl_settings.triggered.connect(
             self.open_lsl_config_window)
+        self.menuAction_weak_search.triggered.connect(
+            self.change_lsl_search_mode
+        )
         # Developer tools
         self.menuAction_dev_tutorial.triggered.connect(
             self.open_dev_tutorial)
@@ -546,7 +567,7 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
     @exceptions.error_handler(scope='general')
     def open_lsl_config_window(self, checked=None):
         self.lsl_config_window = \
-            lsl_config.LSLConfig(
+            lsl_config.LSLConfigDialog(
                 self.lsl_config,
                 self.accounts_manager.wrap_path(constants.LSL_CONFIG_FILE),
                 theme_colors=self.theme_colors)
@@ -554,14 +575,39 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         self.lsl_config_window.rejected.connect(self.reset_lsl_streams)
 
     @exceptions.error_handler(scope='general')
+    def change_lsl_search_mode(self, checked=None):
+        self.lsl_config['weak_search'] = not self.lsl_config['weak_search']
+        # Load current lsl config
+        lsl_config_file_path = self.accounts_manager.wrap_path(
+            constants.LSL_CONFIG_FILE)
+        # Load last config (if available) and update only weak search field
+        if os.path.isfile(lsl_config_file_path):
+            with open(lsl_config_file_path, 'r') as f:
+                last_lsl_config = json.load(f)
+            last_lsl_config['weak_search'] = self.lsl_config['weak_search']
+            with open(lsl_config_file_path, 'w') as f:
+                json.dump(last_lsl_config, f, indent=4)
+        else:
+            with open(lsl_config_file_path, 'w') as f:
+                json.dump(self.lsl_config, f, indent=4)
+        self.update_menu_action_lsl_search_mode()
+
+    @exceptions.error_handler(scope='general')
+    def update_menu_action_lsl_search_mode(self):
+        if self.lsl_config['weak_search']:
+            self.menuAction_weak_search.setText('Disable weak search')
+        else:
+            self.menuAction_weak_search.setText('Activate weak search')
+
+    @exceptions.error_handler(scope='general')
     def set_lsl_streams(self):
         # Set working streamsicon.png
         self.lsl_config = self.lsl_config_window.lsl_config
         # Update the working streams within the panels
         self.plots_panel_widget.update_lsl_config(
-            self.lsl_config['working_streams'])
-        self.apps_panel_widget.update_lsl_config(
             self.lsl_config)
+        self.apps_panel_widget.update_working_lsl_streams(
+            self.lsl_config['working_streams'])
         # Print log info
         for lsl_stream_info in self.lsl_config['working_streams']:
             self.print_log('Connected to LSL stream: %s' %
@@ -1072,8 +1118,9 @@ class SplashScreen:
         self.release_info = release_info
         img_path = glob.glob('gui/images/medusa_splash_v2023.png')[0]
         splash_image = QPixmap(img_path)
-        self.splash_screen = QSplashScreen(splash_image,
-                                           Qt.WindowStaysOnTopHint)
+        # self.splash_screen = QSplashScreen(splash_image,
+        #                                    Qt.WindowStaysOnTopHint)
+        self.splash_screen = QSplashScreen(splash_image)
         self.splash_screen.setStyleSheet("QSplashScreen { margin-right: 0px; "
                                          "padding-right: 0px;}")
         self.splash_screen.setMask(splash_image.mask())

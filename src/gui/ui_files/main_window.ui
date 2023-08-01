@@ -101,7 +101,7 @@
      <x>0</x>
      <y>0</y>
      <width>1037</width>
-     <height>26</height>
+     <height>22</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuInfo_2">
@@ -151,6 +151,7 @@
     <addaction name="menuAction_lsl_repo"/>
     <addaction name="separator"/>
     <addaction name="menuAction_lsl_settings"/>
+    <addaction name="menuAction_weak_search"/>
    </widget>
    <addaction name="menuPreferences"/>
    <addaction name="menuLab_Streaming_Layer"/>
@@ -259,7 +260,7 @@
   </action>
   <action name="menuAction_lsl_settings">
    <property name="text">
-    <string>Settings</string>
+    <string>Workspace</string>
    </property>
   </action>
   <action name="menuAction_view_integrated">
@@ -290,6 +291,11 @@
   <action name="menuAction_help_tutorials">
    <property name="text">
     <string>Tutorials</string>
+   </property>
+  </action>
+  <action name="menuAction_weak_search">
+   <property name="text">
+    <string>Activate weak search</string>
    </property>
   </action>
  </widget>

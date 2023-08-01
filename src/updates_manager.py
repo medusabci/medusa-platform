@@ -10,10 +10,6 @@ class UpdatesManager:
     """Class to manage updates in MEDUSA. It should distinguish patch updates
     (from v2022.0.0 to v2022.0.1) which are bug fixes and minor updates (from
     v2022.0.1 to v2022.1.0) which add features assuring apps compatibility.
-    Things to consider:
-
-        - Check shutil.copytree with dirs_exist_ok=True for updates
-        - Having a file named version is probably a good idea to manage versions
     """
 
     ZIPBALL_SIZE = 400
