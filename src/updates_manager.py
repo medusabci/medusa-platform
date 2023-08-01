@@ -59,17 +59,11 @@ class UpdatesManager:
         latest_version_info = self.platform_versions_info[
             self.platform_release_info['version']]
         update = False
-        if int(latest_version_info['major_patch']) > \
-                int(self.platform_release_info['major_patch']):
+        if latest_version_info['depth_2_tag'] > \
+                self.platform_release_info['tag_name']:
             update = dialogs.confirmation_dialog(
                 'MEDUSA\u00A9 Platform %s is out! Do you want to update?' %
-                latest_version_info['tag_name'], 'Major update available'
-            )
-        elif int(latest_version_info['minor_patch']) > \
-                int(self.platform_release_info['minor_patch']):
-            update = dialogs.confirmation_dialog(
-                'MEDUSA\u00A9 Platform %s is out! Do you want to update?' %
-                latest_version_info['tag_name'], 'Minor update available'
+                latest_version_info['tag_name'], 'Update available'
             )
         return update, latest_version_info
 
@@ -78,8 +72,8 @@ class UpdatesManager:
         if self.kernel_versions_info is None:
             return False, None
         # Check development
-        # if self.platform_release_info['version'] == 'Dev':
-        #     return False, None
+        if self.platform_release_info['version'] == 'Dev':
+            return False, None
         # Get requirement of this version
         with open('../requirements.txt', 'r') as f:
             requirement = None
@@ -109,9 +103,9 @@ class UpdatesManager:
                 latest_version_info = version
                 update = dialogs.confirmation_dialog(
                     'MEDUSA\u00A9 Kernel %s is out! This version is '
-                    'recommended for the current software. Do you want to '
-                    'update?' % latest_version_info,
-                    'Major update available')
+                    'recommended for the current version of MEDUSA\u00A9 '
+                    'Platform. Do you want to update?' % latest_version_info,
+                    'Update available')
                 if update:
                     break
         return update, latest_version_info
