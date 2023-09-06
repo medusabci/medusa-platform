@@ -153,7 +153,7 @@ class MedusaException(Exception):
     """
 
     IMPORTANCES = ['critical', 'important', 'mild', 'unknown']
-    SCOPES = ['app', 'plots', 'log', 'acquisition', 'general']
+    SCOPES = ['app', 'plots', 'log', 'studies', 'acquisition', 'general']
 
     def __init__(self, exception, uid=None, importance='unknown', msg=None,
                  scope=None, origin=None):

@@ -14,65 +14,7 @@
    <string>MainWindow</string>
   </property>
   <widget class="QWidget" name="centralwidget">
-   <layout class="QVBoxLayout" name="verticalLayout_3">
-    <item>
-     <widget class="QSplitter" name="splitter">
-      <property name="orientation">
-       <enum>Qt::Horizontal</enum>
-      </property>
-      <widget class="QWidget" name="widget_left_side" native="true">
-       <layout class="QVBoxLayout" name="verticalLayout">
-        <item>
-         <widget class="QSplitter" name="splitter_2">
-          <property name="orientation">
-           <enum>Qt::Vertical</enum>
-          </property>
-          <widget class="QGroupBox" name="box_apps_panel">
-           <property name="font">
-            <font>
-             <pointsize>9</pointsize>
-            </font>
-           </property>
-           <property name="title">
-            <string>APPLICATIONS</string>
-           </property>
-           <layout class="QVBoxLayout" name="verticalLayout_2"/>
-          </widget>
-          <widget class="QGroupBox" name="box_log_panel">
-           <property name="font">
-            <font>
-             <pointsize>9</pointsize>
-            </font>
-           </property>
-           <property name="title">
-            <string>LOG </string>
-           </property>
-           <layout class="QVBoxLayout" name="verticalLayout_8"/>
-          </widget>
-         </widget>
-        </item>
-       </layout>
-      </widget>
-      <widget class="QWidget" name="widget_right_side" native="true">
-       <layout class="QVBoxLayout" name="verticalLayout_5">
-        <item>
-         <widget class="QGroupBox" name="box_plots_panel">
-          <property name="font">
-           <font>
-            <pointsize>9</pointsize>
-           </font>
-          </property>
-          <property name="title">
-           <string>REAL TIME PLOTS</string>
-          </property>
-          <layout class="QVBoxLayout" name="verticalLayout_9"/>
-         </widget>
-        </item>
-       </layout>
-      </widget>
-     </widget>
-    </item>
-   </layout>
+   <layout class="QVBoxLayout" name="verticalLayout_3"/>
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
   <widget class="QToolBar" name="toolBar">
@@ -101,7 +43,7 @@
      <x>0</x>
      <y>0</y>
      <width>1037</width>
-     <height>22</height>
+     <height>21</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuInfo_2">
@@ -131,6 +73,7 @@
     </widget>
     <addaction name="menu_view"/>
     <addaction name="menu_color_theme"/>
+    <addaction name="menuAction_study_mode"/>
    </widget>
    <widget class="QMenu" name="menuAbout">
     <property name="title">
@@ -296,6 +239,11 @@
   <action name="menuAction_weak_search">
    <property name="text">
     <string>Activate weak search</string>
+   </property>
+  </action>
+  <action name="menuAction_study_mode">
+   <property name="text">
+    <string>Activate study mode</string>
    </property>
   </action>
  </widget>
