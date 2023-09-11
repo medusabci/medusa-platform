@@ -451,6 +451,9 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         # Add widget
         self.box_apps_panel.layout().addWidget(self.apps_panel_widget)
         self.box_apps_panel.layout().setContentsMargins(0, 0, 0, 0)
+        # Connect external actions
+        self.apps_panel_widget.toolButton_app_undock.clicked.connect(
+            self.undock_apps_panel)
 
     @exceptions.error_handler(scope='general')
     def set_up_plots_panel(self):
@@ -779,6 +782,42 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         )
         dialog.exec_()
 
+    # ====================== APPS PANEL FUNCTIONS ======================== #
+
+    @exceptions.error_handler(scope='general')
+    def undock_apps_panel(self, checked=None):
+        if not self.apps_panel_widget.undocked:
+            # Get current dimensions
+            window_height = self.height()
+            apps_panel_width = self.apps_panel_widget.width()
+            # Create main window
+            self.apps_panel_window = apps_panel.AppsPanelWindow(
+                self.apps_panel_widget, self.theme_colors,
+                width=apps_panel_width, height=window_height)
+            self.apps_panel_widget.set_undocked(True)
+            self.apps_panel_window.close_signal.connect(
+                self.dock_apps_panel)
+            # Delete group box
+            self.box_apps_panel.deleteLater()
+        else:
+            self.apps_panel_window.close()
+
+    @exceptions.error_handler(scope='general')
+    def dock_apps_panel(self, checked=None):
+        # Update state
+        self.apps_panel_widget.set_undocked(False)
+        # Add widget
+        self.box_apps_panel = QGroupBox('APPS')
+        self.box_apps_panel.setLayout(QVBoxLayout())
+        self.box_apps_panel.layout().addWidget(self.apps_panel_widget)
+        self.box_apps_panel.layout().setContentsMargins(0, 0, 0, 0)
+        self.splitter_2.insertWidget(self.splitter_2.count()-1,
+                                     self.box_apps_panel)
+        self.splitter_2.setSizes(
+            [int(r * self.gui_config['height'])
+             for r in self.gui_config['splitter_2_ratio']]
+        )
+
     # ======================= PLOTS PANEL FUNCTIONS ========================== #
     @exceptions.error_handler(scope='general')
     def undock_plots_panel(self, checked=None):
@@ -786,8 +825,7 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
             # Get current dimensions
             window_height = self.height()
             plots_panel_width = self.plots_panel_widget.width()
-            apps_panel_width = self.apps_panel_widget.width()
-            # Create main window
+            # Create new window
             self.plots_panel_window = plots_panel.PlotsPanelWindow(
                 self.plots_panel_widget, self.theme_colors,
                 plots_panel_width, window_height

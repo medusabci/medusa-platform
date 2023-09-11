@@ -46,15 +46,22 @@ class StudiesPanelWidget(QWidget, ui_plots_panel_widget):
 
     def reset_tool_bar_studies_buttons(self):
         try:
-            # Creates QIcons for the app tool bar
-            studies_config_icon = gu.get_icon("settings.svg", self.theme_colors)
-            studies_undock_icon = gu.get_icon("open_in_new.svg", self.theme_colors)
-
             # Set icons in buttons
-            self.toolButton_studies_config.setIcon(studies_config_icon)
+            self.toolButton_studies_config.setIcon(
+                gu.get_icon("settings.svg", self.theme_colors))
             self.toolButton_studies_config.setToolTip('Studies settings')
-            self.toolButton_studies_undock.setIcon(studies_undock_icon)
-            self.toolButton_studies_undock.setToolTip('Undock')
+            self.toolButton_studies_set_path.setIcon(
+                gu.get_icon("folder.svg", self.theme_colors))
+            self.toolButton_studies_set_path.setToolTip('Set root path')
+            if self.undocked:
+                self.toolButton_studies_undock.setIcon(
+                    gu.get_icon("open_in_new_down.svg", self.theme_colors))
+                self.toolButton_studies_undock.setToolTip(
+                    'Redock in main window')
+            else:
+                self.toolButton_studies_undock.setIcon(
+                    gu.get_icon("open_in_new.svg", self.theme_colors))
+                self.toolButton_studies_undock.setToolTip('Undock')
         except Exception as e:
             self.handle_exception(e)
 
@@ -87,6 +94,10 @@ class StudiesPanelWindow(QMainWindow):
         self.theme_colors = theme_colors
         self.setCentralWidget(studies_panel_widget)
         gu.set_css_and_theme(self, self.theme_colors)
+        # Window title and icon
+        self.setWindowIcon(QIcon('%s/medusa_task_icon.png' %
+                                 constants.IMG_FOLDER))
+        self.setWindowTitle('Studies management panel')
         # Resize plots window
         self.resize(width, height)
         self.show()

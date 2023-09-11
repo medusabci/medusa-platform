@@ -33,7 +33,6 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
     def __init__(self, apps_manager, working_lsl_streams, app_state, run_state,
                  medusa_interface, apps_folder, theme_colors):
         super().__init__()
-        self.is_loaded = False
         self.setupUi(self)
         # Attributes
         self.screen_size = QDesktopWidget().availableGeometry(self).size()
@@ -44,6 +43,7 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
         self.medusa_interface = medusa_interface
         self.apps_folder = apps_folder
         self.theme_colors = theme_colors
+        self.undocked = False
         self.app_process = None
         self.app_settings = None
         self.current_app_key = None
@@ -53,7 +53,7 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
         # Set scroll area
         self.apps_panel_grid_widget = AppsPanelGridWidget(
             min_app_widget_width=int(0.1*min(self.screen_size.width(),
-                                              self.screen_size.height())),
+                                             self.screen_size.height())),
             apps_folder=self.apps_folder,
             theme_colors=theme_colors)
         self.fill_apps_panel()
@@ -66,7 +66,6 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
         self.scrollArea_apps.setWidget(self.apps_panel_grid_widget)
         self.scrollArea_apps.setWidgetResizable(True)
         self.verticalLayout_apps_panel.addWidget(self.scrollArea_apps)
-        self.is_loaded = True
 
     def handle_exception(self, mds_ex):
         # Send exception to gui main
@@ -137,35 +136,39 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
         w_scr = self.scrollArea_apps.width()
         self.apps_panel_grid_widget.arrange_panel(w_scr)
 
+    def set_undocked(self, undocked):
+        self.undocked = undocked
+        self.reset_tool_bar_app_buttons()
+
     def reset_tool_bar_app_buttons(self):
-        # Creates QIcons for the app tool bar
-        power_icon = gu.get_icon("power.svg", self.theme_colors)
-        play_icon = gu.get_icon("play.svg", custom_color=self.theme_colors[
-            'THEME_GREEN'])
-        stop_icon = gu.get_icon("stop.svg", custom_color=self.theme_colors[
-            'THEME_RED'])
-        config_icon = gu.get_icon("settings.svg", self.theme_colors)
-        search_icon = gu.get_icon("search.svg", self.theme_colors)
-        install_icon = gu.get_icon("add.svg", self.theme_colors)
-        undock_icon = gu.get_icon("open_in_new.svg", self.theme_colors)
-
         # Set icons in buttons
-        self.toolButton_app_power.setIcon(power_icon)
-        self.toolButton_app_play.setIcon(play_icon)
-        self.toolButton_app_stop.setIcon(stop_icon)
-        self.toolButton_app_config.setIcon(config_icon)
-        self.toolButton_app_search.setIcon(search_icon)
-        self.toolButton_app_install.setIcon(install_icon)
-
-        self.toolButton_app_search.setToolTip('Search apps')
-        self.toolButton_app_play.setToolTip('Play')
-        self.toolButton_app_stop.setToolTip('Stop')
+        self.toolButton_app_power.setIcon(
+            gu.get_icon("power.svg", self.theme_colors))
         self.toolButton_app_power.setToolTip('Start selected app')
+        self.toolButton_app_play.setIcon(
+            gu.get_icon("play.svg", custom_color=self.theme_colors['THEME_GREEN']))
+        self.toolButton_app_play.setToolTip('Play')
+        self.toolButton_app_stop.setIcon(
+            gu.get_icon("stop.svg", custom_color=self.theme_colors['THEME_RED']))
+        self.toolButton_app_stop.setToolTip('Stop')
+        self.toolButton_app_config.setIcon(
+            gu.get_icon("settings.svg", self.theme_colors))
         self.toolButton_app_config.setToolTip('Configure selected app')
+        self.toolButton_app_search.setIcon(
+            gu.get_icon("search.svg", self.theme_colors))
+        self.toolButton_app_search.setToolTip('Search apps')
+        self.toolButton_app_install.setIcon(
+            gu.get_icon("add.svg", self.theme_colors))
         self.toolButton_app_install.setToolTip('Install a new app')
-
-        self.toolButton_app_undock.setIcon(undock_icon)
-        self.toolButton_app_undock.setToolTip('Undock')
+        if self.undocked:
+            self.toolButton_app_undock.setIcon(
+                gu.get_icon("open_in_new_down.svg", self.theme_colors))
+            self.toolButton_app_undock.setToolTip(
+                'Redock in main window')
+        else:
+            self.toolButton_app_undock.setIcon(
+                gu.get_icon("open_in_new.svg", self.theme_colors))
+            self.toolButton_app_undock.setToolTip('Undock')
         # Set button states
         self.toolButton_app_power.setDisabled(False)
         self.toolButton_app_play.setDisabled(True)
@@ -666,19 +669,29 @@ class AppWidget(QFrame):
         self.app_uninstall.emit(self.app_key)
 
 
-class MainWindow(QMainWindow):
+class AppsPanelWindow(QMainWindow):
 
-    def __init__(self):
+    """This window holds the plots panel widget in undocked mode"""
+
+    close_signal = pyqtSignal()
+
+    def __init__(self, apps_panel_widget, theme_colors,
+                 width=1200, height=900):
         super().__init__()
-        # Set central widget
-        # self.setMaximumWidth(200)
-        self.apps_panel_widget = AppsPanelGridWidget()
-        self.setCentralWidget(self.apps_panel_widget)
+        self.theme_colors = theme_colors
+        self.setCentralWidget(apps_panel_widget)
+        gu.set_css_and_theme(self, self.theme_colors)
+        # Window title and icon
+        self.setWindowIcon(QIcon('%s/medusa_task_icon.png' %
+                                 constants.IMG_FOLDER))
+        self.setWindowTitle('Apps panel')
+        # Resize plots window
+        self.resize(width, height)
         self.show()
 
+    def closeEvent(self, event):
+        self.close_signal.emit()
+        event.accept()
 
-if __name__ == '__main__':
-    """ Example of use of the GuiMainClass() """
-    application = QApplication(sys.argv)
-    main_window = MainWindow()
-    sys.exit(application.exec_())
+    def get_plots_panel_widget(self):
+        return self.centralWidget()

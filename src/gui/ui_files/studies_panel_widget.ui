@@ -33,17 +33,20 @@
       </widget>
      </item>
      <item>
-      <spacer name="horizontalSpacer_3">
-       <property name="orientation">
-        <enum>Qt::Horizontal</enum>
+      <widget class="QLineEdit" name="lineEdit_studies_path"/>
+     </item>
+     <item>
+      <widget class="QToolButton" name="toolButton_studies_set_path">
+       <property name="text">
+        <string>...</string>
        </property>
-       <property name="sizeHint" stdset="0">
+       <property name="iconSize">
         <size>
-         <width>40</width>
+         <width>20</width>
          <height>20</height>
         </size>
        </property>
-      </spacer>
+      </widget>
      </item>
      <item>
       <widget class="QToolButton" name="toolButton_studies_undock">
