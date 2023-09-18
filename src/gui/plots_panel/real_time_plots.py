@@ -879,14 +879,14 @@ class TimePlot(RealTimePlotPyQtGraph):
 
         def select_channel(self):
             cha_label = self.sender().text()
-            for i in range(self.plot_handler.lsl_stream.n_cha):
-                if self.plot_handler.lsl_stream.l_cha[i] == cha_label:
+            for i in range(self.plot_handler.lsl_stream_info.n_cha):
+                if self.plot_handler.lsl_stream_info.l_cha[i] == cha_label:
                     self.plot_handler.select_channel(i)
 
         def set_channel_list(self):
-            for i in range(self.plot_handler.lsl_stream.n_cha):
+            for i in range(self.plot_handler.lsl_stream_info.n_cha):
                 channel_action = QAction(
-                    self.plot_handler.lsl_stream.l_cha[i], self)
+                    self.plot_handler.lsl_stream_info.l_cha[i], self)
                 channel_action.triggered.connect(self.select_channel)
                 self.addAction(channel_action)
 
@@ -1470,14 +1470,14 @@ class PSDPlot(RealTimePlotPyQtGraph):
 
         def select_channel(self):
             cha_label = self.sender().text()
-            for i in range(self.psd_plot_handler.lsl_stream.n_cha):
-                if self.psd_plot_handler.lsl_stream.l_cha[i] == cha_label:
+            for i in range(self.psd_plot_handler.lsl_stream_info.n_cha):
+                if self.psd_plot_handler.lsl_stream_info.l_cha[i] == cha_label:
                     self.psd_plot_handler.select_channel(i)
 
         def set_channel_list(self):
-            for i in range(self.psd_plot_handler.lsl_stream.n_cha):
+            for i in range(self.psd_plot_handler.lsl_stream_info.n_cha):
                 channel_action = QAction(
-                    self.psd_plot_handler.lsl_stream.l_cha[i], self)
+                    self.psd_plot_handler.lsl_stream_info.l_cha[i], self)
                 channel_action.triggered.connect(self.select_channel)
                 self.addAction(channel_action)
 

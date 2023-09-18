@@ -48,14 +48,14 @@ class LogPanelWidget(QWidget, ui_plots_panel_widget):
         try:
             # Creates QIcons for the app tool bar
             log_save_icon = gu.get_icon("save_as.svg", self.theme_colors)
-            log_config_clean = gu.get_icon("delete_sweep.svg", self.theme_colors)
+            log_clean_icon = gu.get_icon("delete_sweep.svg", self.theme_colors)
             log_config_icon = gu.get_icon("settings.svg", self.theme_colors)
             log_undock_icon = gu.get_icon("open_in_new.svg", self.theme_colors)
 
             # Set icons in buttons
             self.toolButton_log_save.setIcon(log_save_icon)
             self.toolButton_log_save.setToolTip('Save to file')
-            self.toolButton_log_clean.setIcon(log_config_clean)
+            self.toolButton_log_clean.setIcon(log_clean_icon)
             self.toolButton_log_clean.setToolTip('Clear log')
             self.toolButton_log_config.setIcon(log_config_icon)
             self.toolButton_log_config.setToolTip('Log settings')

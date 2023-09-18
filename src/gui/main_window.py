@@ -26,6 +26,7 @@ from gui.lsl_config import lsl_config
 from gui.create_app import create_app
 from gui.apps_panel import apps_panel
 from gui.log_panel import log_panel
+from gui.studies_panel import studies_panel
 from gui.user_profile import login
 from gui.user_profile import user_profile
 from gui.qt_widgets.dialogs import info_dialog, error_dialog
@@ -71,17 +72,16 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         # Instantiate accounts manager
         self.accounts_manager = accounts_manager.AccountsManager()
 
-        # Get gui settings of the user
+        # Set GUI settings
         self.gui_config = None
         self.screen_size = None
         self.display_size = None
-        self.load_gui_config()
-
-        # Set theme
         self.theme_colors = None
+        self.load_gui_config()
         self.set_theme()
 
-        # Menu and toolbar action initializing
+        # Build layout
+        self.build_layout()
         self.set_up_menu_bar_main()
         self.set_up_tool_bar_main()
         splash_screen.set_state(25, "Setting everything up...")
@@ -98,7 +98,7 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         self.medusa_interface = resources.MedusaInterface(self.interface_queue)
         splash_screen.set_state(50, "Loading resources...")
 
-        # Instantiate updates managers
+        # Update managers
         self.updates_manager = updates_manager.UpdatesManager(
             self.medusa_interface, self.platform_release_info,
             self.kernel_release_info)
@@ -113,10 +113,8 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         # Set up
         splash_screen.hide()
 
-        # Set window sizes
-        self.set_window_config()
-
         # Show
+        self.set_window_config()
         self.set_status('Ready')
         self.show()
 
@@ -133,6 +131,34 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         self.statusBar().showMessage(msg)
 
     # ================================ SET UP ================================ #
+    @exceptions.error_handler(scope='general')
+    def build_layout(self):
+        # todo: configurable layout
+        # Left widget
+        self.widget_left_side = QWidget()
+        self.widget_left_side.setLayout(QVBoxLayout())
+        self.box_apps_panel = QGroupBox('APPS')
+        self.box_apps_panel.setLayout(QVBoxLayout())
+        self.widget_left_side.layout().addWidget(self.box_apps_panel)
+        self.box_log_panel = QGroupBox('LOG')
+        self.box_log_panel.setLayout(QVBoxLayout())
+        self.splitter_2 = QSplitter(Qt.Orientation.Vertical)
+        self.splitter_2.addWidget(self.box_apps_panel)
+        self.splitter_2.addWidget(self.box_log_panel)
+        self.widget_left_side.layout().addWidget(self.splitter_2)
+        # Right widget
+        self.widget_right_side = QWidget()
+        self.widget_right_side.setLayout(QVBoxLayout())
+        self.box_plots_panel = QGroupBox('REAL TIME PLOTS')
+        self.box_plots_panel.setLayout(QVBoxLayout())
+        self.widget_right_side.layout().addWidget(self.box_plots_panel)
+        # Splitter
+        self.splitter = QSplitter(Qt.Orientation.Horizontal)
+        self.splitter.addWidget(self.widget_left_side)
+        self.splitter.addWidget(self.widget_right_side)
+        # Add to main window
+        self.setCentralWidget(self.splitter)
+
     @exceptions.error_handler(scope='general')
     def load_gui_config(self):
         # Get display environment
@@ -153,27 +179,45 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
                 self.gui_config = json.load(f)
                 # todo: check config file , it can be corrupted (e.g., missing
                 #  keys, incorrect values, etc)
+                gui_config_fielfs = ['width', 'height', 'position',
+                                     'splitter_ratio', 'splitter_2_ratio',
+                                     'maximized', 'study_mode', 'theme']
+                if not all(name in self.gui_config
+                           for name in gui_config_fielfs):
+                    # Corrupted gui_config.json file
+                    self.set_default_gui_config()
+                    raise exceptions.IncorrectSettingsConfig(
+                        'Corrupted file gui_config.json. '
+                        'Switching to default configuration.')
         else:
-            # Default configuration
-            self.gui_config = dict()
-            # Default window sizes
-            self.gui_config['width'] = self.screen_size[0] * 0.75
-            self.gui_config['height'] = self.screen_size[1] * 0.75
-            self.gui_config['splitter_ratio'] = 0.36
-            self.gui_config['splitter_2_ratio'] = 0.28
-            self.gui_config['maximized'] = False
-            # Default theme
-            self.gui_config['theme'] = 'dark'
+            self.set_default_gui_config()
+
+    def set_default_gui_config(self):
+        # Default configuration
+        self.gui_config = dict()
+        # Default window sizes
+        self.gui_config['width'] = int(self.screen_size[0] * 0.75)
+        self.gui_config['height'] = int(self.screen_size[1] * 0.75)
+        self.gui_config['position'] = \
+            [int(self.screen_size[0] * 0.125),
+             int(self.screen_size[1] * 0.125)]
+        self.gui_config['splitter_ratio'] = [0.36, 0.64]
+        self.gui_config['splitter_2_ratio'] = [0.28, 0.72]
+        self.gui_config['maximized'] = False
+        # Study mode
+        self.gui_config['study_mode'] = False
+        # Default theme
+        self.gui_config['theme'] = 'dark'
 
     @exceptions.error_handler(scope='general')
     def save_gui_config(self):
-        # Update sizes
+        # Update values
         self.gui_config['width'] = self.width()
         self.gui_config['height'] = self.height()
-        self.gui_config['splitter_ratio'] = \
-            self.splitter.sizes()[0] / sum(self.splitter.sizes())
-        self.gui_config['splitter_2_ratio'] = \
-            self.splitter_2.sizes()[0] / sum(self.splitter_2.sizes())
+        self.gui_config['splitter_ratio'] = [
+            s/sum(self.splitter.sizes()) for s in self.splitter.sizes()]
+        self.gui_config['splitter_2_ratio'] = [
+            s/sum(self.splitter_2.sizes()) for s in self.splitter_2.sizes()]
         self.gui_config['position'] = [self.pos().x(), self.pos().y()]
         self.gui_config['maximized'] = self.isMaximized()
         # Save config
@@ -192,15 +236,13 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         # Define size and splitters
         self.resize(self.gui_config['width'], self.gui_config['height'])
         self.splitter.setSizes(
-            [int(self.gui_config['splitter_ratio'] *
-                 self.gui_config['width']),
-             int((1 - self.gui_config['splitter_ratio']) *
-                 self.gui_config['width'])])
+            [int(r * self.gui_config['width'])
+             for r in self.gui_config['splitter_ratio']]
+        )
         self.splitter_2.setSizes(
-            [int(self.gui_config['splitter_2_ratio'] *
-                 self.gui_config['height']),
-             int((1 - self.gui_config['splitter_2_ratio']) *
-                 self.gui_config['height'])])
+            [int(r * self.gui_config['height'])
+             for r in self.gui_config['splitter_2_ratio']]
+        )
         if self.gui_config['position'][0] < self.display_size[0] and \
                 self.gui_config['position'][1] < self.display_size[1]:
             self.move(self.gui_config['position'][0],
@@ -223,6 +265,10 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
             self.platform_release_info)
         self.apps_panel_widget = None
         self.set_up_apps_panel()
+        # Studies panel
+        self.box_studies_panel = None
+        self.studies_panel_widget = None
+        self.set_up_studies_panel()
         # Plots dashboard
         self.plots_panel_widget = None
         self.set_up_plots_panel()
@@ -280,6 +326,43 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         self.medusa_interface_listener.run_state_changed_signal.connect(
             self.on_run_state_changed)
         self.medusa_interface_listener.start()
+
+    @exceptions.error_handler(scope='general')
+    def set_up_studies_panel(self):
+        # Todo: eliminate these lines when study mode is ready
+        self.menuAction_study_mode.setDisabled(True)
+        self.menuAction_study_mode.setVisible(False)
+        # Set study mode
+        if self.gui_config['study_mode']:
+            # Group box
+            self.box_studies_panel = QGroupBox('STUDIES')
+            self.box_studies_panel.setLayout(QVBoxLayout())
+            self.splitter_2.insertWidget(0, self.box_studies_panel)
+            if len(self.gui_config['splitter_2_ratio']) != 3:
+                self.gui_config['splitter_2_ratio'] = [0.25, 0.25, 0.5]
+                self.splitter_2.setSizes(
+                    [int(r * self.gui_config['height'])
+                     for r in self.gui_config['splitter_2_ratio']]
+                )
+            # Panel widget
+            self.studies_panel_widget = studies_panel.StudiesPanelWidget(
+                self.medusa_interface,
+                self.theme_colors)
+            # Clear layout
+            while self.box_studies_panel.layout().count():
+                child = self.box_studies_panel.layout().takeAt(0)
+                if child.widget():
+                    child.widget().deleteLater()
+            # Add widget
+            self.box_studies_panel.layout().addWidget(self.studies_panel_widget)
+            self.box_studies_panel.layout().setContentsMargins(0, 0, 0, 0)
+            # Connect external actions
+            self.studies_panel_widget.toolButton_studies_undock.clicked.connect(
+                self.undock_studies_panel)
+        else:
+            if self.box_studies_panel is not None:
+                self.box_studies_panel.deleteLater()
+        self.update_menu_action_study_mode()
 
     @exceptions.error_handler(scope='general')
     def set_up_log_panel(self):
@@ -456,6 +539,8 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
             self.set_dark_theme)
         self.menuAction_color_light.triggered.connect(
             self.set_light_theme)
+        self.menuAction_study_mode.triggered.connect(
+            self.change_study_mode)
         # Lab streaming layer
         self.menuAction_lsl_doc.triggered.connect(
             self.open_lsl_doc)
@@ -490,6 +575,19 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         self.set_theme()
         self.reset_panels()
 
+    @exceptions.error_handler(scope='general')
+    def change_study_mode(self, checked=None):
+        self.gui_config['study_mode'] = not self.gui_config['study_mode']
+        # Insert studies box
+        self.set_up_studies_panel()
+
+    @exceptions.error_handler(scope='general')
+    def update_menu_action_study_mode(self):
+        if self.gui_config['study_mode']:
+            self.menuAction_study_mode.setText('Disable study mode')
+        else:
+            self.menuAction_study_mode.setText('Activate study mode')
+
     # =============================== TOOL BAR =============================== #
     @exceptions.error_handler(scope='general')
     def reset_tool_bar_main(self):
@@ -497,20 +595,13 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         lsl_config_icon = gu.get_icon("link.svg", self.theme_colors)
         plots_icon = gu.get_icon("waves.svg", self.theme_colors)
         profile_icon = gu.get_icon("person.svg", self.theme_colors)
-
-        # lsl_config_icon = QIcon("%s/icons/link_enabled_icon.png" %
-        #                         constants.IMG_FOLDER)
-        # plots_icon = QIcon("%s/icons/signal_enabled_icon.png" %
-        #                    constants.IMG_FOLDER)
-        # profile_icon = QIcon("%s/icons/user_enabled.png" %
-        #                      constants.IMG_FOLDER)
         # Create QToolButton
         self.toolButton_lsl_config.setIcon(lsl_config_icon)
-        self.toolButton_analyzer.setIcon(plots_icon)
-        self.toolButton_profile.setIcon(profile_icon)
         self.toolButton_lsl_config.setToolTip('Configure LSL streams')
-        self.toolButton_analyzer.setToolTip('MEDUSA Analyzer')
+        self.toolButton_profile.setIcon(profile_icon)
         self.toolButton_profile.setToolTip('User profile')
+        # self.toolButton_analyzer.setIcon(plots_icon)
+        # self.toolButton_analyzer.setToolTip('MEDUSA Analyzer')
 
     @exceptions.error_handler(scope='general')
     def set_up_tool_bar_main(self):
@@ -519,9 +610,9 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         self.setProperty("class", "main-toolbar-button")
         self.toolButton_lsl_config.clicked.connect(self.open_lsl_config_window)
         # Create plots button
-        self.toolButton_analyzer = QToolButton(self.toolBar)
-        self.setProperty("class", "main-toolbar-button")
-        self.toolButton_analyzer.clicked.connect(self.open_analyzer_window)
+        # self.toolButton_analyzer = QToolButton(self.toolBar)
+        # self.setProperty("class", "main-toolbar-button")
+        # self.toolButton_analyzer.clicked.connect(self.open_analyzer_window)
         # Create profile button
         self.toolButton_profile = QToolButton(self.toolBar)
         self.setProperty("class", "main-toolbar-button")
@@ -531,7 +622,7 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         spacer.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         # Add QActions to QToolBar
         self.toolBar.addWidget(self.toolButton_lsl_config)
-        self.toolBar.addWidget(self.toolButton_analyzer)
+        # self.toolBar.addWidget(self.toolButton_analyzer)
         self.toolBar.addWidget(spacer)
         self.toolBar.addWidget(self.toolButton_profile)
         # Set default
@@ -715,31 +806,29 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
             self.plots_panel_widget.set_undocked(True)
             self.plots_panel_window.close_signal.connect(
                 self.dock_plots_panel)
-            # Hide group box and set splitter
-            self.widget_right_side.hide()
-            self.resize(apps_panel_width, window_height)
-            self.splitter.setSizes([apps_panel_width, 0])
+            # Delete group box
+            self.box_plots_panel.deleteLater()
+            self.widget_right_side.deleteLater()
         else:
             self.plots_panel_window.close()
 
     @exceptions.error_handler(scope='general')
     def dock_plots_panel(self, checked=None):
-        # Get current dimensions
-        window_height = self.height()
-        window_width = self.width()
-        plots_panel_width = self.plots_panel_widget.width()
-        apps_panel_width = self.apps_panel_widget.width()
         # Update state
         self.plots_panel_widget.set_undocked(False)
-        # Reset sizes
-        # self.resize(apps_panel_width + plots_panel_width, window_height)
-        self.splitter.setSizes(
-            [int(self.default_splitter_ratio*window_width),
-             int((1-self.default_splitter_ratio)*window_width)])
         # Add widget
+        self.widget_right_side = QWidget()
+        self.widget_right_side.setLayout(QVBoxLayout())
+        self.box_plots_panel = QGroupBox('REAL TIME PLOTS')
+        self.box_plots_panel.setLayout(QVBoxLayout())
+        self.widget_right_side.layout().addWidget(self.box_plots_panel)
         self.box_plots_panel.layout().addWidget(self.plots_panel_widget)
         self.box_plots_panel.layout().setContentsMargins(0, 0, 0, 0)
-        self.widget_right_side.show()
+        self.splitter.insertWidget(self.splitter.count(), self.box_plots_panel)
+        self.splitter.setSizes(
+            [int(r * self.gui_config['width'])
+             for r in self.gui_config['splitter_ratio']]
+        )
 
     # ======================== LOG PANEL FUNCTIONS =========================== #
     @exceptions.error_handler(scope='general')
@@ -755,27 +844,60 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
             self.log_panel_widget.set_undocked(True)
             self.log_panel_window.close_signal.connect(
                 self.dock_log_panel)
-            # Hide group box and set splitter
-            self.box_log_panel.hide()
-            self.splitter_2.setSizes([log_panel_width, 0])
+            # Delete group box
+            self.box_log_panel.deleteLater()
         else:
             self.log_panel_window.close()
 
     @exceptions.error_handler(scope='general')
     def dock_log_panel(self, checked=None):
-        # Get current dimensions
-        window_height = self.height()
         # Update state
         self.log_panel_widget.set_undocked(False)
-        # Reset sizes
-        # self.resize(window_width, apps_panel_height + log_panel_height)
-        self.splitter_2.setSizes(
-            [int(self.default_splitter_2_ratio * window_height),
-             int((1 - self.default_splitter_2_ratio) * window_height)])
         # Add widget
+        self.box_log_panel = QGroupBox('LOG')
+        self.box_log_panel.setLayout(QVBoxLayout())
         self.box_log_panel.layout().addWidget(self.log_panel_widget)
         self.box_log_panel.layout().setContentsMargins(0, 0, 0, 0)
-        self.box_log_panel.show()
+        self.splitter_2.insertWidget(self.splitter_2.count(),
+                                     self.box_log_panel)
+        self.splitter_2.setSizes(
+            [int(r * self.gui_config['height'])
+             for r in self.gui_config['splitter_2_ratio']]
+        )
+
+    # ====================== STUDIES PANEL FUNCTIONS ========================= #
+    @exceptions.error_handler(scope='general')
+    def undock_studies_panel(self, checked=None):
+        if not self.studies_panel_widget.undocked:
+            # Get current dimensions
+            window_height = self.height()
+            studies_panel_width = self.apps_panel_widget.width()
+            # Create main window
+            self.studies_panel_window = studies_panel.StudiesPanelWindow(
+                self.studies_panel_widget, self.theme_colors,
+                width=studies_panel_width, height=window_height)
+            self.studies_panel_widget.set_undocked(True)
+            self.studies_panel_window.close_signal.connect(
+                self.dock_studies_panel)
+            # Delete group box
+            self.box_studies_panel.deleteLater()
+        else:
+            self.studies_panel_window.close()
+
+    @exceptions.error_handler(scope='general')
+    def dock_studies_panel(self, checked=None):
+        # Update state
+        self.studies_panel_widget.set_undocked(False)
+        # Add box and widget
+        self.box_studies_panel = QGroupBox('STUDIES')
+        self.box_studies_panel.setLayout(QVBoxLayout())
+        self.box_studies_panel.layout().addWidget(self.studies_panel_widget)
+        self.box_studies_panel.layout().setContentsMargins(0, 0, 0, 0)
+        self.splitter_2.insertWidget(0, self.box_studies_panel)
+        self.splitter_2.setSizes(
+            [int(r * self.gui_config['height'])
+             for r in self.gui_config['splitter_2_ratio']]
+        )
 
     # ========================== OTHER FUNCTIONS ============================= #
     @exceptions.error_handler(scope='general')

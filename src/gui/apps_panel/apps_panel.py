@@ -147,6 +147,7 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
         config_icon = gu.get_icon("settings.svg", self.theme_colors)
         search_icon = gu.get_icon("search.svg", self.theme_colors)
         install_icon = gu.get_icon("add.svg", self.theme_colors)
+        undock_icon = gu.get_icon("open_in_new.svg", self.theme_colors)
 
         # Set icons in buttons
         self.toolButton_app_power.setIcon(power_icon)
@@ -163,6 +164,8 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
         self.toolButton_app_config.setToolTip('Configure selected app')
         self.toolButton_app_install.setToolTip('Install a new app')
 
+        self.toolButton_app_undock.setIcon(undock_icon)
+        self.toolButton_app_undock.setToolTip('Undock')
         # Set button states
         self.toolButton_app_power.setDisabled(False)
         self.toolButton_app_play.setDisabled(True)
