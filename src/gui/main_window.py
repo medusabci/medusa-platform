@@ -72,20 +72,16 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         # Instantiate accounts manager
         self.accounts_manager = accounts_manager.AccountsManager()
 
-        # Build layout
-        self.build_layout()
-
-        # Get gui settings of the user
+        # Set GUI settings
         self.gui_config = None
         self.screen_size = None
         self.display_size = None
-        self.load_gui_config()
-
-        # Set theme
         self.theme_colors = None
+        self.load_gui_config()
         self.set_theme()
 
-        # Menu and toolbar action initializing
+        # Build layout
+        self.build_layout()
         self.set_up_menu_bar_main()
         self.set_up_tool_bar_main()
         splash_screen.set_state(25, "Setting everything up...")
@@ -102,7 +98,7 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         self.medusa_interface = resources.MedusaInterface(self.interface_queue)
         splash_screen.set_state(50, "Loading resources...")
 
-        # Instantiate updates managers
+        # Update managers
         self.updates_manager = updates_manager.UpdatesManager(
             self.medusa_interface, self.platform_release_info,
             self.kernel_release_info)
@@ -117,10 +113,8 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         # Set up
         splash_screen.hide()
 
-        # Set window sizes
-        self.set_window_config()
-
         # Show
+        self.set_window_config()
         self.set_status('Ready')
         self.show()
 
@@ -185,26 +179,39 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
                 self.gui_config = json.load(f)
                 # todo: check config file , it can be corrupted (e.g., missing
                 #  keys, incorrect values, etc)
+                gui_config_fielfs = ['width', 'height', 'position',
+                                     'splitter_ratio', 'splitter_2_ratio',
+                                     'maximized', 'study_mode', 'theme']
+                if not all(name in self.gui_config
+                           for name in gui_config_fielfs):
+                    # Corrupted gui_config.json file
+                    self.set_default_gui_config()
+                    raise exceptions.IncorrectSettingsConfig(
+                        'Corrupted file gui_config.json. '
+                        'Switching to default configuration.')
         else:
-            # Default configuration
-            self.gui_config = dict()
-            # Default window sizes
-            self.gui_config['width'] = int(self.screen_size[0] * 0.75)
-            self.gui_config['height'] = int(self.screen_size[1] * 0.75)
-            self.gui_config['position'] = \
-                [int(self.screen_size[0]*0.125),
-                 int(self.screen_size[1]*0.125)]
-            self.gui_config['splitter_ratio'] = [0.36, 0.64]
-            self.gui_config['splitter_2_ratio'] = [0.28, 0.72]
-            self.gui_config['maximized'] = False
-            # Study mode
-            self.gui_config['study_mode'] = False
-            # Default theme
-            self.gui_config['theme'] = 'dark'
+            self.set_default_gui_config()
+
+    def set_default_gui_config(self):
+        # Default configuration
+        self.gui_config = dict()
+        # Default window sizes
+        self.gui_config['width'] = int(self.screen_size[0] * 0.75)
+        self.gui_config['height'] = int(self.screen_size[1] * 0.75)
+        self.gui_config['position'] = \
+            [int(self.screen_size[0] * 0.125),
+             int(self.screen_size[1] * 0.125)]
+        self.gui_config['splitter_ratio'] = [0.36, 0.64]
+        self.gui_config['splitter_2_ratio'] = [0.28, 0.72]
+        self.gui_config['maximized'] = False
+        # Study mode
+        self.gui_config['study_mode'] = False
+        # Default theme
+        self.gui_config['theme'] = 'dark'
 
     @exceptions.error_handler(scope='general')
     def save_gui_config(self):
-        # Update sizes
+        # Update values
         self.gui_config['width'] = self.width()
         self.gui_config['height'] = self.height()
         self.gui_config['splitter_ratio'] = [
@@ -322,6 +329,10 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
 
     @exceptions.error_handler(scope='general')
     def set_up_studies_panel(self):
+        # Todo: eliminate these lines when study mode is ready
+        self.menuAction_study_mode.setDisabled(True)
+        self.menuAction_study_mode.setVisible(False)
+        # Set study mode
         if self.gui_config['study_mode']:
             # Group box
             self.box_studies_panel = QGroupBox('STUDIES')
