@@ -344,6 +344,7 @@ class LSLStreamAppWorker(th.Thread):
         stop controls when the thread must finish.
         """
         error_counter = 0
+        self.receiver.flush_stream()
         while not self.stop:
             # Get data
             try:

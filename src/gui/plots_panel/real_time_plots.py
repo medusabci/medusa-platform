@@ -214,7 +214,7 @@ class TopographyPlot(RealTimePlot):
             'channel-standard': '10-05',
             'extra_radius': 0.29,
             'interp_points': 100,
-            'cmap': 'PiYG',
+            'cmap': 'YlOrRd',
             'head_skin_color': '#E8BEAC',
             'plot_channel_labels': True,
             'plot_channel_points': True
