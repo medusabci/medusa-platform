@@ -219,6 +219,13 @@ class PlotsPanelWidget(QWidget, ui_plots_panel_widget):
                           'reconfigure' % (plot_uid)
                     self.medusa_interface.log(msg, style='warning')
                     continue
+                except KeyError as e:
+                    msg = 'Plot %i. KeyError: %s The configuration of ' \
+                          'this plot is not valid. This may be due to ' \
+                          'a corrupted file or a software update. ' \
+                          'Please, reset the configuration of this ' \
+                          'plot.' % (plot_uid, str(e))
+                    raise exceptions.IncorrectSettingsConfig(msg)
                 except Exception as e:
                     msg = type(e)('Plot %i. %s' % (plot_uid, str(e)))
                     ex = exceptions.MedusaException(
