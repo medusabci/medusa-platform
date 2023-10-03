@@ -369,6 +369,7 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
 
     @exceptions.error_handler(scope='general')
     def set_up_log_panel(self):
+        # Instantiate Log layout
         self.log_panel_widget = log_panel.LogPanelWidget(
             self.medusa_interface,
             self.theme_colors)
