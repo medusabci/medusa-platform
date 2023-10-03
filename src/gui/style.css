@@ -704,3 +704,28 @@ QLineEdit#lineEdit_studies_path{
     margin: 0;
     padding: 2px;
 }
+
+QTreeView#treeView_studies{
+    background-color: @THEME_BG_DARK;
+    border: 0;
+    padding: 2px;
+}
+
+QTreeView#treeView_studies::branch::closed::has-children {
+    image: url(gui/images/icons/svg/chevron_right_grey.svg);
+}
+
+QTreeView::branch::open::has-children {
+    image: url(gui/images/icons/svg/expand_more_grey.svg);
+}
+
+QTextBrowser#textBrowser_subject
+{
+    background-color: @THEME_BG_DARK;
+    border: 0px;
+    padding: 2px;
+}
+
+.studies-tab-widget{
+    padding:0;
+}

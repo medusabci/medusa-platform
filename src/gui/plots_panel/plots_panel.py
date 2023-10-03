@@ -47,8 +47,8 @@ class PlotsPanelWidget(QWidget, ui_plots_panel_widget):
                     self.plots_panel_config = json.load(f)
                 self.update_plots_panel()
             except json.decoder.JSONDecodeError as e:
-                msg = '[ERROR] Corrupted file plots_panel_config.json. ' \
-                      'The plots config could not be loaded'
+                msg = '[ERROR] Corrupted file %s. The plots config could not ' \
+                      'be loaded' % self.plots_config_file_path
                 self.medusa_interface.log(msg)
 
     def handle_exception(self, ex):

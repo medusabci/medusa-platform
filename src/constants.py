@@ -48,6 +48,7 @@ PLOTS_CONFIG_FILE = 'plots_config.json'
 LOG_CONFIG_FILE = 'log_config.json'
 APPS_CONFIG_FILE = 'apps_config.json'
 GUI_CONFIG_FILE = 'gui_config.json'
+STUDIES_CONFIG_FILE = 'studies_config.json'
 
 # Images folder
 IMG_FOLDER = 'gui/images'

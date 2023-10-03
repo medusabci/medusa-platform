@@ -31,7 +31,7 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
     error_signal = pyqtSignal(Exception)
 
     def __init__(self, apps_manager, working_lsl_streams, app_state, run_state,
-                 medusa_interface, apps_folder, theme_colors):
+                 medusa_interface, apps_folder, study_mode, theme_colors):
         super().__init__()
         self.setupUi(self)
         # Attributes
@@ -42,8 +42,10 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
         self.run_state = run_state
         self.medusa_interface = medusa_interface
         self.apps_folder = apps_folder
+        self.study_mode = study_mode
         self.theme_colors = theme_colors
         self.undocked = False
+        self.study_selection_info = None
         self.app_process = None
         self.app_settings = None
         self.current_app_key = None
@@ -195,16 +197,36 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
         # Check LSL streams
         if len(self.working_lsl_streams) == 0:
             resp = dialogs.confirmation_dialog(
-                text='No LSL streams available. Do you want to continue?',
+                text='There are no LSL streams available. Do you want to '
+                     'continue?',
                 title='No LSL streams',
-                theme_colors=self.theme_colors
-            )
+                theme_colors=self.theme_colors)
             if not resp:
                 return
         # Check app selected
         current_app_key = self.apps_panel_grid_widget.get_selected_app()
         if current_app_key is None:
             raise ValueError('Select an app to start!')
+        # Check study mode
+        if self.study_mode:
+            if self.study_selection_info is None:
+                resp = dialogs.confirmation_dialog(
+                    text='The study mode is activated, but you have not '
+                         'selected any subject or session. Do you want to '
+                         'continue?',
+                    title='Subject information missing',
+                    theme_colors=self.theme_colors)
+                if not resp:
+                    return
+            else:
+                if self.study_selection_info['selected_item_type'] not in \
+                        ['subject', 'session']:
+                    dialogs.error_dialog(
+                        message='Please choose a subject or session from the '
+                                'studies panel to continue',
+                        title='Incorrect study selection',
+                        theme_colors=self.theme_colors)
+                    return
         # Start app
         if self.app_state.value is constants.APP_STATE_OFF:
             # Get selected app modules
@@ -227,7 +249,8 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
                 medusa_interface=self.medusa_interface,
                 app_state=self.app_state,
                 run_state=self.run_state,
-                working_lsl_streams_info=ser_lsl_streams
+                working_lsl_streams_info=ser_lsl_streams,
+                study_selection_info=self.study_selection_info
             )
             self.app_process.start()
             # Enabling, disabling and changing the buttons in the toolbar

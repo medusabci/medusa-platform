@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>400</width>
+    <width>527</width>
     <height>300</height>
    </rect>
   </property>
@@ -16,6 +16,19 @@
   <layout class="QVBoxLayout" name="verticalLayout">
    <item>
     <layout class="QHBoxLayout" name="log_toolbar">
+     <item>
+      <widget class="QToolButton" name="toolButton_studies_refresh">
+       <property name="text">
+        <string>...</string>
+       </property>
+       <property name="iconSize">
+        <size>
+         <width>20</width>
+         <height>20</height>
+        </size>
+       </property>
+      </widget>
+     </item>
      <item>
       <widget class="QToolButton" name="toolButton_studies_config">
        <property name="toolTip">
@@ -67,7 +80,17 @@
     </layout>
    </item>
    <item>
-    <widget class="QTreeView" name="treeView_studies"/>
+    <widget class="QSplitter" name="splitter">
+     <property name="orientation">
+      <enum>Qt::Horizontal</enum>
+     </property>
+     <widget class="QTreeView" name="treeView_studies"/>
+     <widget class="QTabWidget" name="tabWidget_studies">
+      <property name="currentIndex">
+       <number>-1</number>
+      </property>
+     </widget>
+    </widget>
    </item>
   </layout>
  </widget>
