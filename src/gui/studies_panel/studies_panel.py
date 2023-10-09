@@ -63,7 +63,7 @@ class StudiesPanelWidget(QWidget, ui_plots_panel_widget):
         #         scope='studies',
         #         origin='studies_panel/studies_panel/handle_exception')
         # # Notify exception to gui main
-        # self.medusa_interface.error(ex)
+        self.medusa_interface.error(ex)
         dialogs.error_dialog(str(ex), 'Error')
 
     @exceptions.error_handler(scope='studies')
@@ -141,37 +141,47 @@ class StudiesPanelWidget(QWidget, ui_plots_panel_widget):
         # Clean variables
         self.selected_item_type = None
         self.selected_item_tree = None
-        # Set root path
-        self.lineEdit_studies_path.setText(
-            self.studies_panel_config['root_path'])
-        studies = glob.glob('%s/*/' % self.studies_panel_config['root_path'])
-        # Create tree model
+        # Initialize the tree model
         self.tree_model = QStandardItemModel()
-        root_item = RootItem(self.theme_colors)
-        # Append studies
-        for study in studies:
-            subjects = glob.glob('%s/*/' % study)
-            study_item = StudyItem(os.path.basename(study[0:-1]),
-                                   self.theme_colors)
-            # Append subjects
-            for subject in subjects:
-                sessions = glob.glob('%s/*/' % subject)
-                subject_item = SubjectItem(os.path.basename(subject[0:-1]),
-                                           self.theme_colors)
-                for session in sessions:
-                    session_item = SessionItem(os.path.basename(session[0:-1]),
-                                               self.theme_colors)
-                    subject_item.appendRow(session_item)
-                study_item.appendRow(subject_item)
-            root_item.appendRow(study_item)
-        self.tree_model.appendRow(root_item)
         self.treeView_studies.setModel(self.tree_model)
         self.treeView_studies.setHeaderHidden(True)
-        self.treeView_studies.setExpanded(root_item.index(), True)
-        # Selection signal
         self.selection_model = self.treeView_studies.selectionModel()
         self.selection_model.selectionChanged.connect(self.on_item_selected)
         self.clear_tab_widget()
+        # Set root path
+        if 'root_path' not in self.studies_panel_config or \
+                not os.path.isdir(self.studies_panel_config['root_path']):
+            self.studies_panel_config['root_path'] = ''
+            self.studies_panel_config.pop('root_path')
+            self.lineEdit_studies_path.setText('')
+        else:
+            # Set root path
+            self.lineEdit_studies_path.setText(
+                self.studies_panel_config['root_path'])
+            # Create tree
+            root_item = RootItem(os.path.basename(
+                self.studies_panel_config['root_path']), self.theme_colors)
+            studies = glob.glob(
+                '%s/*/' % self.studies_panel_config['root_path'])
+            # Append studies
+            for study in studies:
+                subjects = glob.glob('%s/*/' % study)
+                study_item = StudyItem(os.path.basename(study[0:-1]),
+                                       self.theme_colors)
+                # Append subjects
+                for subject in subjects:
+                    sessions = glob.glob('%s/*/' % subject)
+                    subject_item = SubjectItem(
+                        os.path.basename(subject[0:-1]), self.theme_colors)
+                    for session in sessions:
+                        session_item = SessionItem(
+                            os.path.basename(session[0:-1]), self.theme_colors)
+                        subject_item.appendRow(session_item)
+                    study_item.appendRow(subject_item)
+                root_item.appendRow(study_item)
+            # Append root item to the model and expand tree
+            self.tree_model.appendRow(root_item)
+            self.treeView_studies.setExpanded(root_item.index(), True)
 
     @exceptions.error_handler(scope='studies')
     def on_custom_context_menu_requested(self, pos):
@@ -190,6 +200,11 @@ class StudiesPanelWidget(QWidget, ui_plots_panel_widget):
 
     @exceptions.error_handler(scope='studies')
     def on_create_element(self, checked=None):
+        # Check errors
+        if 'root_path' not in self.studies_panel_config:
+            raise ValueError('Please, set the root path first')
+        if self.selected_item_tree is None:
+            raise ValueError('Select the root element!')
         # The element to create is one logical level below the current
         # selection
         if len(self.selected_item_tree) == 0:
@@ -220,10 +235,13 @@ class StudiesPanelWidget(QWidget, ui_plots_panel_widget):
         element_path = self.get_element_dir(
             self.studies_panel_config['root_path'],
             self.selected_item_tree)
+        title = 'This %s is not empty!' % self.selected_item_type \
+            if self.selected_item_type != 'root' else \
+            'The root folder is not empty!'
         if len(glob.glob('%s/*' % element_path)):
             res = dialogs.confirmation_dialog(
                 text='All contents will be eliminated. Do you want to proceed?',
-                title='This %s is not empty.' % self.selected_item_type)
+                title=title)
             if not res:
                 return
         shutil.rmtree(element_path)
@@ -316,11 +334,11 @@ class StudiesPanelWidget(QWidget, ui_plots_panel_widget):
 
 
 class RootItem(QStandardItem):
-    def __init__(self, theme_colors):
+    def __init__(self, name, theme_colors):
         super().__init__()
         self.theme_colors = theme_colors
         self.setForeground(QColor(self.theme_colors['THEME_TEXT_LIGHT']))
-        self.setText('Studies')
+        self.setText(name)
         self.setEditable(False)
 
 
