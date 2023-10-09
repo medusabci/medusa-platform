@@ -465,6 +465,14 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
         # Update apps panel
         self.update_apps_panel()
 
+    def play_session(self, session_plan):
+        self.fake_user = FakeUser(self.medusa_interface, session_plan,
+                                  self.apps_manager)
+        self.fake_user.app_power.connect(self.app_power)
+        self.fake_user.app_play.connect(self.app_play)
+        self.fake_user.app_stop.connect(self.app_stop)
+        self.fake_user.start()
+
 
 class AppsPanelGridWidget(QWidget):
 
@@ -718,3 +726,31 @@ class AppsPanelWindow(QMainWindow):
 
     def get_plots_panel_widget(self):
         return self.centralWidget()
+
+
+class FakeUser(QThread):
+
+    app_power = pyqtSignal()
+    app_play = pyqtSignal()
+    app_stop = pyqtSignal()
+
+    def __init__(self, medusa_interface, session_plan, app_manager):
+        super().__init__()
+        self.medusa_interface = medusa_interface
+        self.session_plan = session_plan
+        self.app_manager = app_manager
+
+    def handle_exception(self, ex):
+        # # Treat exception
+        # if not isinstance(ex, exceptions.MedusaException):
+        #     ex = exceptions.MedusaException(
+        #         ex, importance='unknown',
+        #         scope='studies',
+        #         origin='studies_panel/studies_panel/handle_exception')
+        # # Notify exception to gui main
+        self.medusa_interface.error(ex)
+
+    def run(self):
+        for app, settings in self.session_plan:
+            if app not in self.app_manager:
+                raise Exception('Unknown app')

@@ -306,9 +306,14 @@ class StudiesPanelWidget(QWidget, ui_plots_panel_widget):
             if item_data is not None:
                 data_widget.setText(item_data)
             if item_plan is not None:
+                plan_layout = QVBoxLayout()
                 plan_widget = QTextBrowser()
-                tab_layout.addWidget(plan_widget)
                 plan_widget.setText(item_plan)
+                session_button = QPushButton('Start session')
+                session_button.clicked.connect(self.on_start_session)
+                plan_layout.addWidget(plan_widget)
+                plan_layout.addWidget(session_button)
+                tab_layout.addLayout(plan_layout)
             tab_widget = QWidget()
             tab_widget.setProperty("class", "studies-tab-widget")
             tab_widget.setLayout(tab_layout)
@@ -331,6 +336,10 @@ class StudiesPanelWidget(QWidget, ui_plots_panel_widget):
         for item in selected_item_tree:
             root_path += '/%s' % item['item_name']
         return root_path
+
+    @exceptions.error_handler(scope='studies')
+    def on_start_session(self, checked=None):
+        print(self.selected_item_tree[-1])
 
 
 class RootItem(QStandardItem):
@@ -503,3 +512,5 @@ class StudiesPanelWindow(QMainWindow):
 
     def get_plots_panel_widget(self):
         return self.centralWidget()
+
+
