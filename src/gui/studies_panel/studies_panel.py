@@ -22,6 +22,7 @@ ui_plots_panel_widget = \
 class StudiesPanelWidget(QWidget, ui_plots_panel_widget):
 
     selection_signal = pyqtSignal()
+    start_session_signal = pyqtSignal(list)
 
     def __init__(self, medusa_interface, studies_config_file_path,
                  theme_colors):
@@ -310,7 +311,8 @@ class StudiesPanelWidget(QWidget, ui_plots_panel_widget):
                 plan_widget = QTextBrowser()
                 plan_widget.setText(item_plan)
                 session_button = QPushButton('Start session')
-                session_button.clicked.connect(self.on_start_session)
+                session_button.clicked.connect(
+                    lambda: self.on_start_stop_session(session_button))
                 plan_layout.addWidget(plan_widget)
                 plan_layout.addWidget(session_button)
                 tab_layout.addLayout(plan_layout)
@@ -338,8 +340,13 @@ class StudiesPanelWidget(QWidget, ui_plots_panel_widget):
         return root_path
 
     @exceptions.error_handler(scope='studies')
-    def on_start_session(self, checked=None):
-        print(self.selected_item_tree[-1])
+    def on_start_stop_session(self, button, checked=None):
+        session = json.loads(self.selected_item_tree[-1]['item_plan'])
+        self.start_session_signal.emit(session)
+
+    @exceptions.error_handler(scope='studies')
+    def on_session_finished(self, checked=None):
+        print('Hola')
 
 
 class RootItem(QStandardItem):

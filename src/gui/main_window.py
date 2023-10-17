@@ -336,6 +336,8 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
                 self.theme_colors)
             self.studies_panel_widget.selection_signal.connect(
                 self.on_studies_panel_selection)
+            self.studies_panel_widget.start_session_signal.connect(
+                self.on_session_start)
             # Clear layout
             while self.box_studies_panel.layout().count():
                 child = self.box_studies_panel.layout().takeAt(0)
@@ -366,6 +368,16 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
             'selected_item_tree': selected_item_tree,
             'selected_item_path': selected_item_path
         }
+
+    @exceptions.error_handler(scope='general')
+    def on_session_start(self, session_plan):
+        print('main_window.on_studies_panel_start_session')
+        print(session_plan)
+        self.apps_panel_widget.play_session(session_plan)
+
+    @exceptions.error_handler(scope='general')
+    def on_session_finished(self):
+        self.studies_panel_widget.on_session_finished()
 
     @exceptions.error_handler(scope='general')
     def set_up_log_panel(self):
@@ -458,7 +470,10 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
             self.gui_config['study_mode'],
             self.theme_colors)
         # Connect signals
-        self.apps_panel_widget.error_signal.connect(self.handle_exception)
+        self.apps_panel_widget.error_signal.connect(
+            self.handle_exception)
+        self.apps_panel_widget.session_finished_signal.connect(
+            self.on_session_finished)
         # Clear layout
         while self.box_apps_panel.layout().count():
             child = self.box_apps_panel.layout().takeAt(0)

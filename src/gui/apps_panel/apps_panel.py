@@ -28,7 +28,9 @@ ui_plots_panel_widget = \
 
 
 class AppsPanelWidget(QWidget, ui_plots_panel_widget):
+
     error_signal = pyqtSignal(Exception)
+    session_finished_signal = pyqtSignal()
 
     def __init__(self, apps_manager, working_lsl_streams, app_state, run_state,
                  medusa_interface, apps_folder, study_mode, theme_colors):
@@ -466,12 +468,32 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
         self.update_apps_panel()
 
     def play_session(self, session_plan):
-        self.fake_user = FakeUser(self.medusa_interface, session_plan,
-                                  self.apps_manager)
-        self.fake_user.app_power.connect(self.app_power)
-        self.fake_user.app_play.connect(self.app_play)
-        self.fake_user.app_stop.connect(self.app_stop)
+        self.fake_user = FakeUser(
+            self.medusa_interface, self.app_state, self.run_state,
+            session_plan, self.apps_manager)
+        self.fake_user.app_power.connect(self.on_play_session_app_power)
+        self.fake_user.app_play.connect(self.on_play_session_app_play)
+        self.fake_user.app_stop.connect(self.on_play_session_app_stop)
+        self.fake_user.session_finished.connect(self.on_play_session_finished)
         self.fake_user.start()
+
+    def on_play_session_app_power(self, app_id):
+        # todo: select app
+        self.apps_panel_grid_widget.find_app(app_id)
+        print('apps_panel.on_play_session_app_power')
+        self.app_power()
+
+    def on_play_session_app_play(self):
+        print('apps_panel.on_play_session_app_play')
+        self.app_play()
+
+    def on_play_session_app_stop(self):
+        print('apps_panel.on_play_session_app_stop')
+        self.app_stop()
+
+    def on_play_session_finished(self):
+        print('Session finished 2')
+        self.session_finished_signal.emit()
 
 
 class AppsPanelGridWidget(QWidget):
@@ -558,11 +580,15 @@ class AppsPanelGridWidget(QWidget):
                 row, col + 1)
 
     def find_app(self, text):
+        """ Finds an application based on a provided text. If a single application
+        is found, it is selected.
+        """
         text = text.lower()
         found_items = list()
         for item in self.items:
-            app_name = item.app_params['name'].lower()
-            if text in app_name:
+            print(item.app_params)
+            if text in item.app_params['name'].lower() or \
+                    text in item.app_params['id'].lower():
                 found_items.append(item)
         if len(found_items) == 1:
             found_items[0].select()
@@ -730,27 +756,88 @@ class AppsPanelWindow(QMainWindow):
 
 class FakeUser(QThread):
 
-    app_power = pyqtSignal()
+    app_power = pyqtSignal(str)
     app_play = pyqtSignal()
     app_stop = pyqtSignal()
+    session_finished = pyqtSignal()
 
-    def __init__(self, medusa_interface, session_plan, app_manager):
+    def __init__(self, medusa_interface, app_state, run_state, session_plan,
+                 app_manager):
         super().__init__()
         self.medusa_interface = medusa_interface
+        self.app_state = app_state
+        self.run_state = run_state
         self.session_plan = session_plan
         self.app_manager = app_manager
+        self.stop = False
 
     def handle_exception(self, ex):
-        # # Treat exception
-        # if not isinstance(ex, exceptions.MedusaException):
-        #     ex = exceptions.MedusaException(
-        #         ex, importance='unknown',
-        #         scope='studies',
-        #         origin='studies_panel/studies_panel/handle_exception')
+        # Treat exception
+        if not isinstance(ex, exceptions.MedusaException):
+            ex = exceptions.MedusaException(
+                ex, importance='unknown',
+                scope='app',
+                origin='studies_panel/studies_panel/handle_exception')
         # # Notify exception to gui main
         self.medusa_interface.error(ex)
 
     def run(self):
-        for app, settings in self.session_plan:
-            if app not in self.app_manager:
-                raise Exception('Unknown app')
+        try:
+            for run in self.session_plan:
+                continue_to_next_run = False
+                app_id = run['app_id']
+                settings_path = run['settings_path']
+                if app_id not in self.app_manager.apps_dict:
+                    raise Exception('Unknown app')
+                print('\nStep -1 --------')
+                print('App state: %i' % self.app_state.value)
+                print('Run state: %i' % self.app_state.value)
+                while self.app_state.value != constants.APP_STATE_OFF:
+                    pass
+                print('\nStep 0 --------')
+                print('App state: %i' % self.app_state.value)
+                print('Run state: %i' % self.app_state.value)
+                self.app_power.emit(app_id)
+                print('\nStep 1 --------')
+                print('App state: %i' % self.app_state.value)
+                print('Run state: %i' % self.app_state.value)
+                # Wait until the app is ON
+                while self.app_state.value != constants.APP_STATE_ON:
+                    pass
+                print('\nStep 2 --------')
+                print('App state: %i' % self.app_state.value)
+                print('Run state: %i' % self.app_state.value)
+                self.app_play.emit()
+                print('\nStep 3 --------')
+                print('App state: %i' % self.app_state.value)
+                print('Run state: %i' % self.app_state.value)
+                # Wait until the run has finished
+                while self.run_state.value != constants.RUN_STATE_FINISHED:
+                    # Check manual interactions
+                    if self.run_state.value == constants.RUN_STATE_STOP:
+                        print('Manual stop!')
+                        continue_to_next_run = True
+                        break
+                if continue_to_next_run:
+                    continue
+                print('\nStep 4 --------')
+                print('App state: %i' % self.app_state.value)
+                print('Run state: %i' % self.app_state.value)
+                self.app_stop.emit()
+                print('\nStep 5 --------')
+                print('App state: %i' % self.app_state.value)
+                print('Run state: %i' % self.app_state.value)
+                # Wait until the app is OFF
+                while self.app_state.value != constants.APP_STATE_OFF:
+                    pass
+                print('\nStep 6 --------')
+                print('App state: %i' % self.app_state.value)
+                print('Run state: %i' % self.app_state.value)
+
+            print('Session finished')
+            self.session_finished.emit()
+
+        except Exception as e:
+            self.handle_exception(e)
+            self.session_finished.emit()
+
