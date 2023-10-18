@@ -463,6 +463,17 @@ QListWidget#listWidget_app{
     padding: 5px;
 }
 
+QLineEdit#lineEdit_session_file{
+    background-color: @THEME_BG_SELECTED;
+    border: 0;
+    border-radius: 5px;
+    border-bottom-right-radius: 0;
+    border-top-right-radius: 0;
+    color: @THEME_TEXT_LIGHT;
+    margin: 0;
+    padding: 2px;
+}
+
 /* =============================================================================
 3. LOG WIDGET
 

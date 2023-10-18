@@ -1,4 +1,5 @@
 # PYTHON MODULES
+import glob
 import sys
 import json
 import importlib
@@ -30,7 +31,6 @@ ui_plots_panel_widget = \
 class AppsPanelWidget(QWidget, ui_plots_panel_widget):
 
     error_signal = pyqtSignal(Exception)
-    session_finished_signal = pyqtSignal()
 
     def __init__(self, apps_manager, working_lsl_streams, app_state, run_state,
                  medusa_interface, apps_folder, study_mode, theme_colors):
@@ -47,21 +47,143 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
         self.study_mode = study_mode
         self.theme_colors = theme_colors
         self.undocked = False
-        self.study_selection_info = None
+        self.apps_panel_grid_widget = None
+        self.rec_info = None
         self.app_process = None
         self.app_settings = None
         self.current_app_key = None
         self.progress_dialog = None
-
+        self.session_plan = None
+        self.fake_user = None
+        # Create apps panel grid scroll area
+        self.set_up_apps_area()
+        # Set up tool bar
         self.set_up_tool_bar_app()
-        # Set scroll area
+
+    def handle_exception(self, mds_ex):
+        # Send exception to gui main
+        # self.medusa_interface.error(ex)
+        self.error_signal.emit(mds_ex)
+
+    def set_up_tool_bar_app(self):
+        """ This method creates the QAction buttons displayed in the toolbar
+        """
+        # Create app buttons
+        self.toolButton_app_power = QToolButton()
+        self.toolButton_app_power.setIconSize(QSize(20, 20))
+        self.toolButton_app_power.clicked.connect(self.app_power)
+        self.horizontalLayout_apps_toolbar.addWidget(self.toolButton_app_power)
+        self.toolButton_app_play = QToolButton()
+        self.toolButton_app_play.setIconSize(QSize(20, 20))
+        self.toolButton_app_play.clicked.connect(self.app_play)
+        self.horizontalLayout_apps_toolbar.addWidget(self.toolButton_app_play)
+        self.toolButton_app_stop = QToolButton()
+        self.toolButton_app_stop.setIconSize(QSize(20, 20))
+        self.toolButton_app_stop.clicked.connect(self.app_stop)
+        self.horizontalLayout_apps_toolbar.addWidget(self.toolButton_app_stop)
+        self.toolButton_app_config = QToolButton()
+        self.toolButton_app_config.setIconSize(QSize(20, 20))
+        self.toolButton_app_config.clicked.connect(self.app_config)
+        self.horizontalLayout_apps_toolbar.addWidget(self.toolButton_app_config)
+        self.toolButton_app_install = QToolButton()
+        self.toolButton_app_install.setIconSize(QSize(20, 20))
+        self.toolButton_app_install.clicked.connect(self.install_app)
+        self.horizontalLayout_apps_toolbar.addWidget(
+            self.toolButton_app_install)
+        separator = QFrame()
+        separator.setFrameShape(QFrame.VLine)
+        self.horizontalLayout_apps_toolbar.addWidget(separator)
+        # Create session buttons
+        self.toolButton_session_load = QToolButton()
+        self.toolButton_session_load.setIconSize(QSize(20, 20))
+        self.toolButton_session_load.clicked.connect(self.load_session)
+        self.horizontalLayout_apps_toolbar.addWidget(
+            self.toolButton_session_load)
+        self.toolButton_session_play = QToolButton()
+        self.toolButton_session_play.setIconSize(QSize(20, 20))
+        self.toolButton_session_play.clicked.connect(self.play_session)
+        self.horizontalLayout_apps_toolbar.addWidget(
+            self.toolButton_session_play)
+        self.toolButton_session_config = QToolButton()
+        self.toolButton_session_config.setIconSize(QSize(20, 20))
+        self.toolButton_session_config.clicked.connect(self.config_session)
+        self.horizontalLayout_apps_toolbar.addWidget(
+            self.toolButton_session_config)
+        self.toolButton_session_create = QToolButton()
+        self.toolButton_session_create.setIconSize(QSize(20, 20))
+        self.toolButton_session_create.clicked.connect(self.create_session)
+        self.horizontalLayout_apps_toolbar.addWidget(
+            self.toolButton_session_create)
+        # Create panel buttons
+        hspacer = QSpacerItem(0, 0, QSizePolicy.Expanding, QSizePolicy.Minimum)
+        self.horizontalLayout_apps_toolbar.addItem(hspacer)
+        self.toolButton_app_undock = QToolButton()
+        self.toolButton_app_undock.setIconSize(QSize(20, 20))
+        self.horizontalLayout_apps_toolbar.addWidget(
+            self.toolButton_app_undock)
+        # Set buttons icons
+        self.reset_tool_bar_app_buttons()
+
+    def reset_tool_bar_app_buttons(self):
+        # Set app
+        self.toolButton_app_power.setIcon(
+            gu.get_icon("power.svg", self.theme_colors))
+        self.toolButton_app_power.setToolTip('Start selected app')
+        self.toolButton_app_play.setIcon(
+            gu.get_icon("play.svg", custom_color=self.theme_colors['THEME_GREEN']))
+        self.toolButton_app_play.setToolTip('Play selected app')
+        self.toolButton_app_stop.setIcon(
+            gu.get_icon("stop.svg", custom_color=self.theme_colors['THEME_RED']))
+        self.toolButton_app_stop.setToolTip('Stop selected app')
+        self.toolButton_app_config.setIcon(
+            gu.get_icon("settings.svg", self.theme_colors))
+        self.toolButton_app_config.setToolTip('Configure selected app')
+        self.toolButton_app_install.setIcon(
+            gu.get_icon("add.svg", self.theme_colors))
+        self.toolButton_app_install.setToolTip('Install new app')
+        # Set session icons
+        self.toolButton_session_load.setIcon(
+            gu.get_icon("route.svg", self.theme_colors))
+        self.toolButton_session_load.setToolTip('Load session')
+        self.toolButton_session_play.setIcon(
+            gu.get_icon("fast_forward.svg", self.theme_colors))
+        self.toolButton_session_play.setToolTip('Play session')
+        self.toolButton_session_config.setIcon(
+            gu.get_icon("settings.svg", self.theme_colors))
+        self.toolButton_session_config.setToolTip('Configure session')
+        self.toolButton_session_create.setIcon(
+            gu.get_icon("add.svg", self.theme_colors))
+        self.toolButton_session_create.setToolTip('Create session')
+        # Set panel icons
+        if self.undocked:
+            self.toolButton_app_undock.setIcon(
+                gu.get_icon("open_in_new_down.svg", self.theme_colors))
+            self.toolButton_app_undock.setToolTip(
+                'Redock in main window')
+        else:
+            self.toolButton_app_undock.setIcon(
+                gu.get_icon("open_in_new.svg", self.theme_colors))
+            self.toolButton_app_undock.setToolTip('Undock')
+        # Set button states
+        if self.apps_panel_grid_widget.get_selected_app() is None:
+            self.toolButton_app_power.setDisabled(True)
+        else:
+            self.toolButton_app_power.setDisabled(False)
+        self.toolButton_app_play.setDisabled(True)
+        self.toolButton_app_stop.setDisabled(True)
+        self.toolButton_app_config.setDisabled(True)
+        self.toolButton_session_play.setDisabled(True)
+        self.toolButton_session_config.setDisabled(True)
+
+    def set_up_apps_area(self):
         self.apps_panel_grid_widget = AppsPanelGridWidget(
-            min_app_widget_width=int(0.1*min(self.screen_size.width(),
-                                             self.screen_size.height())),
+            min_app_widget_width=int(0.1 * min(self.screen_size.width(),
+                                               self.screen_size.height())),
             apps_folder=self.apps_folder,
-            theme_colors=theme_colors)
+            theme_colors=self.theme_colors)
         self.fill_apps_panel()
         self.apps_panel_grid_widget.arrange_panel(568)
+        # Create scroll area
         self.scrollArea_apps = QScrollArea()
         self.scrollArea_apps.setHorizontalScrollBarPolicy(
             Qt.ScrollBarAlwaysOff)
@@ -70,11 +192,6 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
         self.scrollArea_apps.setWidget(self.apps_panel_grid_widget)
         self.scrollArea_apps.setWidgetResizable(True)
         self.verticalLayout_apps_panel.addWidget(self.scrollArea_apps)
-
-    def handle_exception(self, mds_ex):
-        # Send exception to gui main
-        # self.medusa_interface.error(ex)
-        self.error_signal.emit(mds_ex)
 
     def get_app_module(self, app_key, module):
         app_module = '%s.%s.%s' % \
@@ -118,11 +235,17 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
         for app_key, app_params in self.apps_manager.apps_dict.items():
             widget = self.apps_panel_grid_widget.add_app_widget(
                 app_key, app_params)
+            widget.app_selected.connect(self.on_app_selected)
             widget.app_about.connect(self.about_app)
             widget.app_doc.connect(self.documentation_app)
             widget.app_update.connect(self.update_app)
             widget.app_package.connect(self.package_app)
             widget.app_uninstall.connect(self.uninstall_app)
+
+    @exceptions.error_handler(scope='general')
+    def on_app_selected(self, checked=None):
+        self.toolButton_app_power.setDisabled(False)
+        self.toolButton_app_config.setDisabled(False)
 
     @exceptions.error_handler(scope='general')
     def update_apps_panel(self):
@@ -144,53 +267,6 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
         self.undocked = undocked
         self.reset_tool_bar_app_buttons()
 
-    def reset_tool_bar_app_buttons(self):
-        # Set icons in buttons
-        self.toolButton_app_power.setIcon(
-            gu.get_icon("power.svg", self.theme_colors))
-        self.toolButton_app_power.setToolTip('Start selected app')
-        self.toolButton_app_play.setIcon(
-            gu.get_icon("play.svg", custom_color=self.theme_colors['THEME_GREEN']))
-        self.toolButton_app_play.setToolTip('Play')
-        self.toolButton_app_stop.setIcon(
-            gu.get_icon("stop.svg", custom_color=self.theme_colors['THEME_RED']))
-        self.toolButton_app_stop.setToolTip('Stop')
-        self.toolButton_app_config.setIcon(
-            gu.get_icon("settings.svg", self.theme_colors))
-        self.toolButton_app_config.setToolTip('Configure selected app')
-        self.toolButton_app_search.setIcon(
-            gu.get_icon("search.svg", self.theme_colors))
-        self.toolButton_app_search.setToolTip('Search apps')
-        self.toolButton_app_install.setIcon(
-            gu.get_icon("add.svg", self.theme_colors))
-        self.toolButton_app_install.setToolTip('Install a new app')
-        if self.undocked:
-            self.toolButton_app_undock.setIcon(
-                gu.get_icon("open_in_new_down.svg", self.theme_colors))
-            self.toolButton_app_undock.setToolTip(
-                'Redock in main window')
-        else:
-            self.toolButton_app_undock.setIcon(
-                gu.get_icon("open_in_new.svg", self.theme_colors))
-            self.toolButton_app_undock.setToolTip('Undock')
-        # Set button states
-        self.toolButton_app_power.setDisabled(False)
-        self.toolButton_app_play.setDisabled(True)
-        self.toolButton_app_stop.setDisabled(True)
-
-    def set_up_tool_bar_app(self):
-        """ This method creates the QAction buttons displayed in the toolbar
-        """
-        # Set buttons icons
-        self.reset_tool_bar_app_buttons()
-        # Connects signals to a functions
-        self.toolButton_app_power.clicked.connect(self.app_power)
-        self.toolButton_app_play.clicked.connect(self.app_play)
-        self.toolButton_app_stop.clicked.connect(self.app_stop)
-        self.toolButton_app_config.clicked.connect(self.app_config)
-        self.lineEdit_app_search.textChanged.connect(self.app_search)
-        self.toolButton_app_install.clicked.connect(self.install_app)
-
     @exceptions.error_handler(scope='general')
     def app_power(self, checked=None):
         """ This function starts the paradigm. Once the paradigm is powered, it
@@ -211,7 +287,7 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
             raise ValueError('Select an app to start!')
         # Check study mode
         if self.study_mode:
-            if self.study_selection_info is None:
+            if self.rec_info is None:
                 resp = dialogs.confirmation_dialog(
                     text='The study mode is activated, but you have not '
                          'selected any subject or session. Do you want to '
@@ -221,7 +297,7 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
                 if not resp:
                     return
             else:
-                if self.study_selection_info['selected_item_type'] not in \
+                if self.rec_info['selected_item_type'] not in \
                         ['subject', 'session']:
                     dialogs.error_dialog(
                         message='Please choose a subject or session from the '
@@ -252,7 +328,7 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
                 app_state=self.app_state,
                 run_state=self.run_state,
                 working_lsl_streams_info=ser_lsl_streams,
-                study_selection_info=self.study_selection_info
+                study_selection_info=self.rec_info
             )
             self.app_process.start()
             # Enabling, disabling and changing the buttons in the toolbar
@@ -350,11 +426,6 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
         """
         if settings is not None:
             self.app_settings = settings
-
-    @exceptions.error_handler(scope='general')
-    def app_search(self, checked=None):
-        curr_text = self.lineEdit_app_search.text()
-        self.apps_panel_grid_widget.find_app(curr_text)
 
     @exceptions.error_handler(scope='general')
     def installation_finished(self):
@@ -467,33 +538,78 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
         # Update apps panel
         self.update_apps_panel()
 
-    def play_session(self, session_plan):
-        self.fake_user = FakeUser(
-            self.medusa_interface, self.app_state, self.run_state,
-            session_plan, self.apps_manager)
-        self.fake_user.app_power.connect(self.on_play_session_app_power)
-        self.fake_user.app_play.connect(self.on_play_session_app_play)
-        self.fake_user.app_stop.connect(self.on_play_session_app_stop)
-        self.fake_user.session_finished.connect(self.on_play_session_finished)
-        self.fake_user.start()
+    @exceptions.error_handler(scope='general')
+    def load_session(self, checked=None):
+        # Get app file
+        filt = "Session plan (*.session)"
+        directory = "../data"
+        if not os.path.exists(directory):
+            os.makedirs(directory)
+        session_plan = QFileDialog.getOpenFileName(caption="Session plan",
+                                                   directory=directory,
+                                                   filter=filt)[0]
+        if len(session_plan) > 0:
+            with open(session_plan, 'r') as f:
+                self.session_plan = json.load(f)
+            # Enable session buttons
+            self.toolButton_session_play.setDisabled(False)
+            self.toolButton_session_config.setDisabled(False)
 
-    def on_play_session_app_power(self, app_id):
-        # todo: select app
+    @exceptions.error_handler(scope='general')
+    def play_session(self, checked=None):
+        if self.fake_user is None:
+            self.fake_user = FakeUser(
+                self.medusa_interface, self.app_state, self.run_state,
+                self.session_plan, self.apps_manager)
+            self.fake_user.app_power.connect(self.on_play_session_app_power)
+            self.fake_user.app_play.connect(self.app_play)
+            self.fake_user.app_stop.connect(self.app_stop)
+            self.fake_user.session_finished.connect(
+                self.on_play_session_finished)
+            self.fake_user.start()
+            self.toolButton_session_play.setIcon(
+                gu.get_icon("stop.svg",
+                            custom_color=self.theme_colors['THEME_RED']))
+        else:
+            if self.app_state.value != constants.APP_STATE_OFF:
+                self.app_stop()
+            self.fake_user.stop = True
+            self.fake_user.wait()
+            self.fake_user = None
+
+    @exceptions.error_handler(scope='general')
+    def on_play_session_app_power(self, app_id, checked=None):
         self.apps_panel_grid_widget.find_app(app_id)
-        print('apps_panel.on_play_session_app_power')
         self.app_power()
 
-    def on_play_session_app_play(self):
-        print('apps_panel.on_play_session_app_play')
-        self.app_play()
+    @exceptions.error_handler(scope='general')
+    def on_play_session_finished(self, checked=None):
+        self.toolButton_session_play.setIcon(
+            gu.get_icon("fast_forward.svg", self.theme_colors))
 
-    def on_play_session_app_stop(self):
-        print('apps_panel.on_play_session_app_stop')
-        self.app_stop()
+    @exceptions.error_handler(scope='general')
+    def config_session(self, checked=None):
+        pass
 
-    def on_play_session_finished(self):
-        print('Session finished 2')
-        self.session_finished_signal.emit()
+    @exceptions.error_handler(scope='general')
+    def create_session(self, checked=None):
+        pass
+
+    @exceptions.error_handler(scope='general')
+    def set_rec_info(self, rec_info):
+        self.rec_info = rec_info
+        self.session_plan = None
+        session_plans = glob.glob('%s/*.session' % rec_info['save_path'])
+        if len(session_plans) == 1:
+            with open(session_plans[0], 'r') as f:
+                self.session_plan = json.load(f)
+                # Enable session buttons
+                self.toolButton_session_play.setDisabled(False)
+                self.toolButton_session_config.setDisabled(False)
+        else:
+            self.session_plan = None
+            self.toolButton_session_play.setDisabled(True)
+            self.toolButton_session_config.setDisabled(True)
 
 
 class AppsPanelGridWidget(QWidget):
@@ -504,18 +620,41 @@ class AppsPanelGridWidget(QWidget):
         self.min_app_widget_width = min_app_widget_width
         self.apps_folder = apps_folder
         self.theme_colors = theme_colors
+        # Create main layout
+        main_layout = QVBoxLayout()
+        # Create search bar
+        search_bar_layout = QHBoxLayout()
+        self.lineEdit_app_search = QLineEdit()
+        self.lineEdit_app_search.setObjectName('lineEdit_app_search')
+        self.lineEdit_app_search.textChanged.connect(self.app_search)
+        self.lineEdit_app_search.addAction(
+            gu.get_icon("search.svg",
+                        self.theme_colors), QLineEdit.TrailingPosition)
+        # self.toolButton_app_search = QToolButton()
+        # self.toolButton_app_search.setObjectName('toolButton_app_search')
+        # # self.toolButton_app_search.setIconSize(QSize(20, 20))
+        # self.toolButton_app_search.setIcon(
+        #     gu.get_icon("search.svg", self.theme_colors))
+        # self.toolButton_app_search.setToolTip('Search apps')
+        search_bar_layout.addWidget(self.lineEdit_app_search)
+        # search_bar_layout.addWidget(self.toolButton_app_search)
+        main_layout.addLayout(search_bar_layout)
         # Create Grid
         self.grid = QGridLayout()
         self.grid.setSpacing(2)
+        main_layout.addLayout(self.grid)
+        # Create space
+        spacer = QSpacerItem(0, 0, QSizePolicy.Minimum, QSizePolicy.Expanding)
+        main_layout.addItem(spacer)
         # self.grid.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Minimum)
         # Create wrappers
-        self.v_layout = QVBoxLayout()
-        self.v_layout.addLayout(self.grid)
+        # self.v_layout = QVBoxLayout()
+        # self.v_layout.addLayout(self.grid)
         # self.v_layout.addItem(
         #     QSpacerItem(0, 0, QSizePolicy.Ignored, QSizePolicy.Expanding))
 
-        self.h_layout = QHBoxLayout()
-        self.h_layout.addLayout(self.v_layout)
+        # self.h_layout = QHBoxLayout()
+        # self.h_layout.addLayout(self.v_layout)
         # self.h_layout.addItem(
         #     QSpacerItem(0, 0, QSizePolicy.Expanding, QSizePolicy.Ignored))
         # Size policy
@@ -527,9 +666,14 @@ class AppsPanelGridWidget(QWidget):
         self.selected_app_key = None
         # Add layout
         self.setObjectName("apps-panel-widget")
-        self.setLayout(self.h_layout)
+        self.setLayout(main_layout)
         # Size policy
         # self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Minimum)
+
+    @exceptions.error_handler(scope='general')
+    def app_search(self, checked=None):
+        curr_text = self.lineEdit_app_search.text()
+        self.find_app(curr_text)
 
     def get_selected_app(self):
         return self.selected_app_key
@@ -586,7 +730,6 @@ class AppsPanelGridWidget(QWidget):
         text = text.lower()
         found_items = list()
         for item in self.items:
-            print(item.app_params)
             if text in item.app_params['name'].lower() or \
                     text in item.app_params['id'].lower():
                 found_items.append(item)
@@ -612,6 +755,7 @@ class AppsPanelGridWidget(QWidget):
 
 
 class AppWidget(QFrame):
+
     app_selected = pyqtSignal(str)
     app_about = pyqtSignal(str)
     app_doc = pyqtSignal(str)
@@ -793,7 +937,10 @@ class FakeUser(QThread):
                 print('App state: %i' % self.app_state.value)
                 print('Run state: %i' % self.app_state.value)
                 while self.app_state.value != constants.APP_STATE_OFF:
-                    pass
+                    # Check stop session
+                    if self.stop:
+                        self.session_finished.emit()
+                        return
                 print('\nStep 0 --------')
                 print('App state: %i' % self.app_state.value)
                 print('Run state: %i' % self.app_state.value)
@@ -803,7 +950,10 @@ class FakeUser(QThread):
                 print('Run state: %i' % self.app_state.value)
                 # Wait until the app is ON
                 while self.app_state.value != constants.APP_STATE_ON:
-                    pass
+                    # Check stop session
+                    if self.stop:
+                        self.session_finished.emit()
+                        return
                 print('\nStep 2 --------')
                 print('App state: %i' % self.app_state.value)
                 print('Run state: %i' % self.app_state.value)
@@ -815,9 +965,12 @@ class FakeUser(QThread):
                 while self.run_state.value != constants.RUN_STATE_FINISHED:
                     # Check manual interactions
                     if self.run_state.value == constants.RUN_STATE_STOP:
-                        print('Manual stop!')
                         continue_to_next_run = True
                         break
+                    # Check stop session
+                    if self.stop:
+                        self.session_finished.emit()
+                        return
                 if continue_to_next_run:
                     continue
                 print('\nStep 4 --------')

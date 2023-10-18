@@ -35,7 +35,7 @@ class AppSkeleton(mp.Process):
 
     def __init__(self, app_info, app_settings, medusa_interface,
                  app_state, run_state, working_lsl_streams_info,
-                 study_selection_info):
+                 save_rec_info):
         """Class constructor
 
         Parameters
@@ -52,8 +52,9 @@ class AppSkeleton(mp.Process):
             Run state
         working_lsl_streams_info: dict
             Dictionary with the working LSL streams as serializable objects
-        study_selection_info: None or dict
-            Dictionary with the information of the selection of the study panel
+        save_rec_info: None or dict
+            Dictionary with information that can be used to save files
+            automatically
         """
         # Calling superclass constructor
         app_process_name = '%s-process' % app_info['id']
@@ -63,7 +64,7 @@ class AppSkeleton(mp.Process):
         self.check_settings_config(app_settings)
         self.app_info = app_info
         self.app_settings = app_settings
-        self.study_selection_info = study_selection_info
+        self.save_rec_info = save_rec_info
         # --------------------- COMMUNICATION GUI-MANAGER -------------------- #
         # Interface
         self.medusa_interface = medusa_interface

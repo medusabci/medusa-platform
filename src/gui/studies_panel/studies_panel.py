@@ -78,10 +78,10 @@ class StudiesPanelWidget(QWidget, ui_plots_panel_widget):
             # Set icons in buttons
             self.toolButton_studies_refresh.setIcon(
                 gu.get_icon("refresh.svg", self.theme_colors))
-            self.toolButton_studies_config.setToolTip('Refresh')
-            self.toolButton_studies_config.setIcon(
-                gu.get_icon("settings.svg", self.theme_colors))
-            self.toolButton_studies_config.setToolTip('Studies settings')
+            # self.toolButton_studies_config.setToolTip('Refresh')
+            # self.toolButton_studies_config.setIcon(
+            #     gu.get_icon("settings.svg", self.theme_colors))
+            # self.toolButton_studies_config.setToolTip('Studies settings')
             self.lineEdit_studies_path.setDisabled(True)
             self.toolButton_studies_set_path.setIcon(
                 gu.get_icon("folder.svg", self.theme_colors))
@@ -108,8 +108,8 @@ class StudiesPanelWidget(QWidget, ui_plots_panel_widget):
             # Connect signals to functions
             self.toolButton_studies_refresh.clicked.connect(
                 self.update_studies_panel)
-            self.toolButton_studies_config.clicked.connect(
-                self.open_studies_config_dialog)
+            # self.toolButton_studies_config.clicked.connect(
+            #     self.open_studies_config_dialog)
             self.toolButton_studies_set_path.clicked.connect(
                 self.set_root_path)
         except Exception as e:
@@ -261,12 +261,10 @@ class StudiesPanelWidget(QWidget, ui_plots_panel_widget):
             # Append to item tree
             item_name = selected_item_index.data()
             item_data = None
-            item_plan = None
             self.selected_item_tree.append(
                 {
                     'item_name': item_name,
                     'item_data': item_data,
-                    'item_plan': item_plan,
                  }
             )
             # Update parent
@@ -290,32 +288,18 @@ class StudiesPanelWidget(QWidget, ui_plots_panel_widget):
         for item in self.selected_item_tree:
             # Get data
             item_name = item['item_name']
-            # Set data and plan info
+            # Set data info
             item_path += '/%s' % item_name
             if os.path.isfile('%s/data' % item_path):
                 with open('%s/data' % item_path, 'r') as f:
                     item['item_data'] = f.read()
-            if os.path.isfile('%s/plan' % item_path):
-                with open('%s/plan' % item_path, 'r') as f:
-                    item['item_plan'] = f.read()
             item_data = item['item_data']
-            item_plan = item['item_plan']
             # Add tab widget
             tab_layout = QHBoxLayout()
             data_widget = QTextBrowser()
             tab_layout.addWidget(data_widget)
             if item_data is not None:
                 data_widget.setText(item_data)
-            if item_plan is not None:
-                plan_layout = QVBoxLayout()
-                plan_widget = QTextBrowser()
-                plan_widget.setText(item_plan)
-                session_button = QPushButton('Start session')
-                session_button.clicked.connect(
-                    lambda: self.on_start_stop_session(session_button))
-                plan_layout.addWidget(plan_widget)
-                plan_layout.addWidget(session_button)
-                tab_layout.addLayout(plan_layout)
             tab_widget = QWidget()
             tab_widget.setProperty("class", "studies-tab-widget")
             tab_widget.setLayout(tab_layout)
@@ -338,15 +322,6 @@ class StudiesPanelWidget(QWidget, ui_plots_panel_widget):
         for item in selected_item_tree:
             root_path += '/%s' % item['item_name']
         return root_path
-
-    @exceptions.error_handler(scope='studies')
-    def on_start_stop_session(self, button, checked=None):
-        session = json.loads(self.selected_item_tree[-1]['item_plan'])
-        self.start_session_signal.emit(session)
-
-    @exceptions.error_handler(scope='studies')
-    def on_session_finished(self, checked=None):
-        print('Hola')
 
 
 class RootItem(QStandardItem):
@@ -402,7 +377,6 @@ class CreateElementDialog(dialogs.MedusaDialog):
         self.edit = edit
         self.lineEdit_name = None
         self.textEdit_data = None
-        self.textEdit_session_plan = None
         action = 'Create' if not edit else 'Edit'
         super().__init__('%s %s' % (action, selected_item_type))
 
@@ -422,13 +396,6 @@ class CreateElementDialog(dialogs.MedusaDialog):
         self.textEdit_data = QTextEdit()
         form_layout.addRow(QLabel('Data'), self.textEdit_data)
         main_layout.addLayout(form_layout)
-        # Session plan textEdit
-        if self.selected_item_type == 'session':
-            self.textEdit_session_plan = QTextEdit()
-            form_layout.addRow(QLabel('Plan'),
-                               self.textEdit_session_plan)
-            main_layout.addLayout(form_layout)
-            self.resize(800, 600)
         # If edit set data in widgets
         if self.edit:
             # Name
@@ -438,10 +405,6 @@ class CreateElementDialog(dialogs.MedusaDialog):
             if self.selected_item_tree[-1]['item_data'] is not None:
                 self.textEdit_data.setText(
                     self.selected_item_tree[-1]['item_data'])
-            # Plan
-            if self.selected_item_tree[-1]['item_plan'] is not None:
-                self.textEdit_session_plan.setText(
-                    self.selected_item_tree[-1]['item_plan'])
         # Buttons
         buttons_layout = QHBoxLayout()
         accept_button = QPushButton('Accept')
@@ -473,13 +436,6 @@ class CreateElementDialog(dialogs.MedusaDialog):
                 except json.decoder.JSONDecodeError as e:
                     with open('%s/data' % element_path, 'w') as f:
                         f.write(data_str)
-            if self.selected_item_type == 'session':
-                session_plan_str = \
-                    self.textEdit_session_plan.toPlainText()
-                if len(session_plan_str) > 0:
-                        plan = json.loads(session_plan_str)
-                        with open('%s/plan' % element_path, 'w') as f:
-                            json.dump(plan, f, indent=4)
             # Call accept to close the dialog
             self.accept()
         except json.decoder.JSONDecodeError as e:

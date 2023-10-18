@@ -336,8 +336,6 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
                 self.theme_colors)
             self.studies_panel_widget.selection_signal.connect(
                 self.on_studies_panel_selection)
-            self.studies_panel_widget.start_session_signal.connect(
-                self.on_session_start)
             # Clear layout
             while self.box_studies_panel.layout().count():
                 child = self.box_studies_panel.layout().takeAt(0)
@@ -356,28 +354,26 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
 
     @exceptions.error_handler(scope='general')
     def on_studies_panel_selection(self):
+        """Updates the study info. This function is called when there is a
+        selection on the studies panel."""
         # Get selection information
         selected_item_type = self.studies_panel_widget.selected_item_type
         selected_item_tree = self.studies_panel_widget.selected_item_tree
-        selected_item_path = self.studies_panel_widget.get_element_dir(
+        # Pass this information to the apps panel
+        study = selected_item_tree[0] if len(selected_item_tree) > 0 else None
+        subject = selected_item_tree[1] if len(selected_item_tree) > 1 else None
+        session = selected_item_tree[2] if len(selected_item_tree) > 2 else None
+        save_path = self.studies_panel_widget.get_element_dir(
             self.studies_panel_widget.studies_panel_config['root_path'],
             self.studies_panel_widget.selected_item_tree)
-        # Pass this information to the apps panel
-        self.apps_panel_widget.study_selection_info = {
+        rec_info = {
             'selected_item_type': selected_item_type,
-            'selected_item_tree': selected_item_tree,
-            'selected_item_path': selected_item_path
+            'study_id': study,
+            'subject_id': subject,
+            'session_id': session,
+            'save_path': save_path
         }
-
-    @exceptions.error_handler(scope='general')
-    def on_session_start(self, session_plan):
-        print('main_window.on_studies_panel_start_session')
-        print(session_plan)
-        self.apps_panel_widget.play_session(session_plan)
-
-    @exceptions.error_handler(scope='general')
-    def on_session_finished(self):
-        self.studies_panel_widget.on_session_finished()
+        self.apps_panel_widget.set_rec_info(rec_info)
 
     @exceptions.error_handler(scope='general')
     def set_up_log_panel(self):
@@ -472,8 +468,6 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         # Connect signals
         self.apps_panel_widget.error_signal.connect(
             self.handle_exception)
-        self.apps_panel_widget.session_finished_signal.connect(
-            self.on_session_finished)
         # Clear layout
         while self.box_apps_panel.layout().count():
             child = self.box_apps_panel.layout().takeAt(0)
@@ -604,7 +598,7 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         # Insert studies box and update apps panel
         self.set_up_studies_panel()
         self.apps_panel_widget.study_mode = self.gui_config['study_mode']
-        self.apps_panel_widget.study_selection_info = None
+        self.apps_panel_widget.rec_info = None
 
     @exceptions.error_handler(scope='general')
     def update_menu_action_study_mode(self):
