@@ -83,10 +83,10 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
 
         # ============================ GUI CONFIG ============================ #
         # Load gui config, set layout and theme
-        self.gui_config = None
         self.screen_size = None
         self.display_size = None
         self.theme_colors = None
+        self.gui_config = None
         self.setupUi(self)
         self.load_gui_config()
         self.build_layout()
@@ -189,11 +189,12 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
             self.gui_config['width'] = int(self.screen_size[0] * 0.75)
             self.gui_config['height'] = int(self.screen_size[1] * 0.75)
             self.gui_config['position'] = \
-                [int(self.screen_size[0]*0.125),
-                 int(self.screen_size[1]*0.125)]
+                [int(self.screen_size[0] * 0.125),
+                 int(self.screen_size[1] * 0.125)]
             self.gui_config['splitter_ratio'] = [0.36, 0.64]
             self.gui_config['splitter_2_ratio'] = [0.28, 0.72]
             self.gui_config['maximized'] = False
+            self.gui_config['screen_idx'] = 0
             # Study mode
             self.gui_config['study_mode'] = False
             # Default theme
@@ -210,6 +211,8 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
             s/sum(self.splitter_2.sizes()) for s in self.splitter_2.sizes()]
         self.gui_config['position'] = [self.pos().x(), self.pos().y()]
         self.gui_config['maximized'] = self.isMaximized()
+        self.gui_config['screen_idx'] = \
+            QApplication.desktop().screenNumber(self)
         # Save config
         gui_config_file_path = self.accounts_manager.wrap_path(
             constants.GUI_CONFIG_FILE)
@@ -959,6 +962,8 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         """Called by MedusaInterfaceListener when it receives an
         app_state_changed message
         """
+        print('on_app_state_changed')
+        print(app_state_value)
         if app_state_value == constants.APP_STATE_OFF:
             # Check impossible transitions
             if app_state_value == constants.APP_STATE_POWERING_OFF:
@@ -1219,7 +1224,7 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
 
             Parameters
             ----------
-            medusa_interface_queue : multiprocessing.queue
+            medusa_interface_queue : MedusaInterfaceQueue
                     Queue where the manager process puts the messages
             """
             QThread.__init__(self)
@@ -1332,8 +1337,6 @@ class SplashScreen:
         self.release_info = release_info
         img_path = glob.glob('gui/images/medusa_splash_v2023.png')[0]
         splash_image = QPixmap(img_path)
-        # self.splash_screen = QSplashScreen(splash_image,
-        #                                    Qt.WindowStaysOnTopHint)
         self.splash_screen = QSplashScreen(splash_image)
         self.splash_screen.setStyleSheet("QSplashScreen { margin-right: 0px; "
                                          "padding-right: 0px;}")
@@ -1355,6 +1358,7 @@ class SplashScreen:
             "margin-top: 330px;"
             "}" +
             "QProgressBar::chunk{ background: #04211a; }")
+
         # Creating the progress text
         self.splash_text = QLabel('Making a PhD thesis...')
         self.splash_text.setStyleSheet("color: #04211a; "
@@ -1372,6 +1376,19 @@ class SplashScreen:
         splash_layout.addWidget(self.splash_progbar, 0, 0)
         splash_layout.addWidget(self.splash_text, 0, 0)
         self.splash_screen.setLayout(splash_layout)
+
+        # Show in the corresponding screen if available
+        # if 'screen_idx' in gui_config:
+        #     screen_geometry = QApplication.desktop().screenGeometry(
+        #         gui_config['screen_idx'])
+        #     splash_width = splash_image.width()
+        #     splash_height = splash_image.height()
+        #     splash_x = int(screen_geometry.x() + screen_geometry.width() / 2 -
+        #                    splash_width / 2)
+        #     splash_y = int(screen_geometry.y() + screen_geometry.height() / 2 -
+        #                    splash_height / 2)
+        #     self.splash_screen.setGeometry(
+        #         splash_x, splash_y, splash_width, splash_height)
 
         # Displaying the splash screen
         self.splash_screen.show()

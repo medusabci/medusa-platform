@@ -167,13 +167,18 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
         # Set button states
         if self.apps_panel_grid_widget.get_selected_app() is None:
             self.toolButton_app_power.setDisabled(True)
+            self.toolButton_app_config.setDisabled(True)
         else:
             self.toolButton_app_power.setDisabled(False)
+            self.toolButton_app_config.setDisabled(False)
         self.toolButton_app_play.setDisabled(True)
         self.toolButton_app_stop.setDisabled(True)
-        self.toolButton_app_config.setDisabled(True)
-        self.toolButton_session_play.setDisabled(True)
-        self.toolButton_session_config.setDisabled(True)
+        if self.session_plan is None:
+            self.toolButton_session_play.setDisabled(True)
+            self.toolButton_session_config.setDisabled(True)
+        else:
+            self.toolButton_session_play.setDisabled(False)
+            self.toolButton_session_config.setDisabled(False)
 
     def set_up_apps_area(self):
         self.apps_panel_grid_widget = AppsPanelGridWidget(
@@ -328,7 +333,7 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
                 app_state=self.app_state,
                 run_state=self.run_state,
                 working_lsl_streams_info=ser_lsl_streams,
-                study_selection_info=self.rec_info
+                save_rec_info=self.rec_info
             )
             self.app_process.start()
             # Enabling, disabling and changing the buttons in the toolbar
@@ -558,6 +563,9 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
     @exceptions.error_handler(scope='general')
     def play_session(self, checked=None):
         if self.fake_user is None:
+            print('play_session_play')
+            print(self.app_state.value)
+            print(self.run_state.value)
             self.fake_user = FakeUser(
                 self.medusa_interface, self.app_state, self.run_state,
                 self.session_plan, self.apps_manager)
@@ -571,11 +579,12 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
                 gu.get_icon("stop.svg",
                             custom_color=self.theme_colors['THEME_RED']))
         else:
-            if self.app_state.value != constants.APP_STATE_OFF:
-                self.app_stop()
+            self.app_stop()
             self.fake_user.stop = True
-            self.fake_user.wait()
             self.fake_user = None
+            # Wait cannot be used because it blocks the main thread. Is it
+            # safe to assume that the thread will close? Not sure
+            # self.fake_user.wait()
 
     @exceptions.error_handler(scope='general')
     def on_play_session_app_power(self, app_id, checked=None):
@@ -589,7 +598,8 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
 
     @exceptions.error_handler(scope='general')
     def config_session(self, checked=None):
-        pass
+        config_session_dialog = ConfigSessionDialog(self.theme_colors)
+        config_session_dialog.exec_()
 
     @exceptions.error_handler(scope='general')
     def create_session(self, checked=None):
@@ -898,6 +908,141 @@ class AppsPanelWindow(QMainWindow):
         return self.centralWidget()
 
 
+class ConfigSessionDialog(dialogs.MedusaDialog):
+
+    def __init__(self, theme_colors):
+        super().__init__('Configure session', theme_colors=theme_colors)
+        screen = QDesktopWidget().screenGeometry()
+        width = screen.width() // 4
+        height = screen.height() // 3
+        self.resize(width, height)
+
+    def create_layout(self):
+        # Main layout
+        main_layout = QVBoxLayout()
+        # Session info
+        group_box = QGroupBox('Session info')
+        info_layout = QFormLayout()
+        info_layout.addRow(QLabel('Study'), QLineEdit())
+        info_layout.addRow(QLabel('Subject'), QLineEdit())
+        info_layout.addRow(QLabel('Session'), QLineEdit())
+        info_layout.addRow(QLabel('Save path'), QLineEdit())
+        group_box.setLayout(info_layout)
+        main_layout.addWidget(group_box)
+        # Table
+        group_box = QGroupBox('Session plan')
+        table_layout = QVBoxLayout()
+        table_layout.addWidget(self.TableWidget(self.theme_colors))
+        group_box.setLayout(table_layout)
+        main_layout.addWidget(group_box)
+        # Bottom buttons
+        bottom_bar_layout = QHBoxLayout()
+        save_button = QPushButton('Save', self)
+        save_button.clicked.connect(self.on_accept)
+        bottom_bar_layout.addWidget(save_button)
+        spacer = QSpacerItem(
+            0, 0, QSizePolicy.Expanding, QSizePolicy.Minimum)
+        bottom_bar_layout.addItem(spacer)
+        accept_button = QPushButton('Accept', self)
+        accept_button.clicked.connect(self.on_accept)
+        bottom_bar_layout.addWidget(accept_button)
+        cancel_button = QPushButton('Cancel', self)
+        cancel_button.clicked.connect(self.on_accept)
+        bottom_bar_layout.addWidget(cancel_button)
+        main_layout.addLayout(bottom_bar_layout)
+        return main_layout
+
+    def on_save(self):
+        pass
+
+    def on_accept(self):
+        pass
+
+    def on_cancel(self):
+        pass
+
+    class TableWidget(QWidget):
+
+        def __init__(self, theme_colors):
+
+            super().__init__()
+            self.theme_colors = theme_colors
+            main_layout = QHBoxLayout()
+            # Create table
+            self.tableWidget = QTableWidget(self)
+            self.tableWidget.setColumnCount(2)
+            self.tableWidget.setHorizontalHeaderLabels(
+                ['App', 'Settings file'])
+            self.tableWidget.setSizePolicy(
+                QSizePolicy.Expanding, QSizePolicy.Minimum)
+            self.tableWidget.horizontalHeader().setSectionResizeMode(
+                QHeaderView.Stretch)
+            self.tableWidget.setSelectionBehavior(
+                QAbstractItemView.SelectRows)
+            main_layout.addWidget(self.tableWidget)
+
+            # Table buttons
+            buttons_layout = QVBoxLayout()
+            add_row_button = QToolButton()
+            add_row_button.setIconSize(QSize(20, 20))
+            add_row_button.setIcon(gu.get_icon("add.svg", self.theme_colors))
+            add_row_button.clicked.connect(self.add_row)
+            buttons_layout.addWidget(add_row_button)
+            remove_row_button = QToolButton()
+            remove_row_button.setIconSize(QSize(20, 20))
+            remove_row_button.setIcon(gu.get_icon(
+                "remove.svg", custom_color=self.theme_colors['THEME_RED']))
+            remove_row_button.clicked.connect(self.remove_row)
+            buttons_layout.addWidget(remove_row_button)
+            spacer = QSpacerItem(0, 0, QSizePolicy.Minimum,
+                                 QSizePolicy.Expanding)
+            buttons_layout.addItem(spacer)
+            main_layout.addLayout(buttons_layout)
+
+            # Set layout
+            self.setLayout(main_layout)
+
+        def add_row(self):
+            row_position = self.tableWidget.rowCount()
+            self.tableWidget.insertRow(row_position)
+
+            # Define combo box in col 0
+            cond_combo_box = QComboBox()
+            cond_combo_box.addItems(['Opt1', 'Opt2'])
+            self.tableWidget.setCellWidget(row_position, 0, cond_combo_box)
+
+            # Get File info widget in col 1
+            search_file_widget = QWidget()
+            layout = QHBoxLayout()
+            line_edit = QLineEdit()
+            layout.addWidget(line_edit)
+            search_button = QToolButton()
+            search_button.setIconSize(QSize(20, 20))
+            search_button.setIcon(
+                gu.get_icon("search.svg", self.theme_colors))
+            search_button.clicked.connect(
+                lambda: self.on_search_settings_file(row_position))
+            layout.addWidget(search_button)
+            search_file_widget.setLayout(layout)
+            self.tableWidget.setCellWidget(row_position, 1, search_file_widget)
+
+        def remove_row(self):
+            row_position = self.tableWidget.currentRow()
+            if row_position >= 0:
+                self.tableWidget.removeRow(row_position)
+
+        def on_search_settings_file(self, row_position):
+            filt = "App settings (*.json)"
+            directory = "../data"
+            app_file = QFileDialog.getOpenFileName(caption="App settings",
+                                                   directory=directory,
+                                                   filter=filt)[0]
+            if app_file != '':
+                line_edit = self.tableWidget.cellWidget(
+                    row_position, 1).layout().itemAt(0).widget()
+                line_edit.setText(app_file)
+
+
 class FakeUser(QThread):
 
     app_power = pyqtSignal(str)
@@ -933,64 +1078,64 @@ class FakeUser(QThread):
                 settings_path = run['settings_path']
                 if app_id not in self.app_manager.apps_dict:
                     raise Exception('Unknown app')
-                print('\nStep -1 --------')
-                print('App state: %i' % self.app_state.value)
-                print('Run state: %i' % self.app_state.value)
                 while self.app_state.value != constants.APP_STATE_OFF:
                     # Check stop session
                     if self.stop:
-                        self.session_finished.emit()
-                        return
-                print('\nStep 0 --------')
-                print('App state: %i' % self.app_state.value)
-                print('Run state: %i' % self.app_state.value)
+                        break
+                    time.sleep(0.1)
+                # Check stop session
+                if self.stop:
+                    break
                 self.app_power.emit(app_id)
-                print('\nStep 1 --------')
-                print('App state: %i' % self.app_state.value)
-                print('Run state: %i' % self.app_state.value)
                 # Wait until the app is ON
                 while self.app_state.value != constants.APP_STATE_ON:
                     # Check stop session
                     if self.stop:
-                        self.session_finished.emit()
-                        return
-                print('\nStep 2 --------')
-                print('App state: %i' % self.app_state.value)
-                print('Run state: %i' % self.app_state.value)
+                        break
+                    time.sleep(0.1)
+                # Check stop session
+                if self.stop:
+                    break
                 self.app_play.emit()
-                print('\nStep 3 --------')
-                print('App state: %i' % self.app_state.value)
-                print('Run state: %i' % self.app_state.value)
                 # Wait until the run has finished
                 while self.run_state.value != constants.RUN_STATE_FINISHED:
+                    # Check stop session
+                    if self.stop:
+                        break
                     # Check manual interactions
                     if self.run_state.value == constants.RUN_STATE_STOP:
                         continue_to_next_run = True
                         break
-                    # Check stop session
-                    if self.stop:
-                        self.session_finished.emit()
-                        return
+                    time.sleep(0.1)
+                # Check stop session
+                if self.stop:
+                    break
                 if continue_to_next_run:
                     continue
-                print('\nStep 4 --------')
-                print('App state: %i' % self.app_state.value)
-                print('Run state: %i' % self.app_state.value)
                 self.app_stop.emit()
-                print('\nStep 5 --------')
-                print('App state: %i' % self.app_state.value)
-                print('Run state: %i' % self.app_state.value)
                 # Wait until the app is OFF
                 while self.app_state.value != constants.APP_STATE_OFF:
-                    pass
-                print('\nStep 6 --------')
-                print('App state: %i' % self.app_state.value)
-                print('Run state: %i' % self.app_state.value)
+                    # Check stop session
+                    if self.stop:
+                        break
+                    time.sleep(0.1)
+                # Check stop session
+                if self.stop:
+                    break
 
-            print('Session finished')
+            # Wait until the app is OFF
+            while self.app_state.value != constants.APP_STATE_OFF:
+                time.sleep(0.1)
+
             self.session_finished.emit()
 
         except Exception as e:
             self.handle_exception(e)
             self.session_finished.emit()
+
+    def debug_app_state(self):
+        print('\nStep 0 --------')
+        print('App state: %i' % self.app_state.value)
+        print('Run state: %i' % self.app_state.value)
+
 
