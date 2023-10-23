@@ -13,6 +13,7 @@ This css sheet contains the style of Medusa Qt elements. Index:
          1.10 QToolButton
          1.11 QToolAction
          1.12 QProgressBar
+         1.13 QAction
     2.  APPLICATIONS WIDGET
     3.  LOG WIDGET
     4.  PLOTS WIDGET
@@ -436,6 +437,8 @@ QProgressBar::chunk{
     background: @THEME_TEXT_ACCENT;
 }
 
+/*1.13 QAction -------------------------------------------------------------- */
+
 /* =============================================================================
 2. APPLICATIONS WIDGET
 
@@ -631,13 +634,11 @@ Style of the apps panel
 
 }
 
-.app-widget:hover
-{
+.app-widget:hover{
     background-color: @THEME_BG_MID;
 }
 
-.app-widget:focus
-{
+.app-widget:focus{
     background-color: @THEME_MENU_SELECTED;
 }
 
