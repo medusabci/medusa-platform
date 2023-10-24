@@ -366,15 +366,21 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         study = selected_item_tree[0] if len(selected_item_tree) > 0 else None
         subject = selected_item_tree[1] if len(selected_item_tree) > 1 else None
         session = selected_item_tree[2] if len(selected_item_tree) > 2 else None
-        save_path = self.studies_panel_widget.get_element_dir(
+        path = self.studies_panel_widget.get_element_dir(
             self.studies_panel_widget.studies_panel_config['root_path'],
             self.studies_panel_widget.selected_item_tree)
-        rec_info = {
+        # Set rec_info
+        rec_info = self.apps_panel_widget.get_default_rec_info()
+        rec_info['path'] = path
+        rec_info['study_id'] = study['item_name']
+        rec_info['subject_id'] = subject['item_name']
+        rec_info['session_id'] = session['item_name']
+        # Specific info, available only in study mode
+        rec_info['study_info'] = {
             'selected_item_type': selected_item_type,
-            'study_id': study,
-            'subject_id': subject,
-            'session_id': session,
-            'save_path': save_path
+            'study_data': study['item_data'],
+            'subject_data': subject['item_data'],
+            'session_data': session['item_data'],
         }
         self.apps_panel_widget.set_rec_info(rec_info)
 

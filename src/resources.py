@@ -34,8 +34,7 @@ class AppSkeleton(mp.Process):
     """
 
     def __init__(self, app_info, app_settings, medusa_interface,
-                 app_state, run_state, working_lsl_streams_info,
-                 save_rec_info):
+                 app_state, run_state, working_lsl_streams_info, rec_info):
         """Class constructor
 
         Parameters
@@ -52,7 +51,7 @@ class AppSkeleton(mp.Process):
             Run state
         working_lsl_streams_info: dict
             Dictionary with the working LSL streams as serializable objects
-        save_rec_info: None or dict
+        rec_info: None or dict
             Dictionary with information that can be used to save files
             automatically
         """
@@ -64,7 +63,7 @@ class AppSkeleton(mp.Process):
         self.check_settings_config(app_settings)
         self.app_info = app_info
         self.app_settings = app_settings
-        self.save_rec_info = save_rec_info
+        self.rec_info = rec_info
         # --------------------- COMMUNICATION GUI-MANAGER -------------------- #
         # Interface
         self.medusa_interface = medusa_interface
