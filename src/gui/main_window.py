@@ -363,9 +363,12 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         selected_item_type = self.studies_panel_widget.selected_item_type
         selected_item_tree = self.studies_panel_widget.selected_item_tree
         # Pass this information to the apps panel
-        study = selected_item_tree[0] if len(selected_item_tree) > 0 else None
-        subject = selected_item_tree[1] if len(selected_item_tree) > 1 else None
-        session = selected_item_tree[2] if len(selected_item_tree) > 2 else None
+        study = selected_item_tree[0] if len(selected_item_tree) > 0 else \
+            {'item_name': None, 'item_data': None}
+        subject = selected_item_tree[1] if len(selected_item_tree) > 1 else \
+            {'item_name': None, 'item_data': None}
+        session = selected_item_tree[2] if len(selected_item_tree) > 2 else \
+            {'item_name': None, 'item_data': None}
         path = self.studies_panel_widget.get_element_dir(
             self.studies_panel_widget.studies_panel_config['root_path'],
             self.studies_panel_widget.selected_item_tree)

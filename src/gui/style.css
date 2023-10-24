@@ -452,11 +452,8 @@ QToolButton#toolButton_app_search{
 
 QLineEdit#lineEdit_app_search{
     background-color: @THEME_BG_SELECTED;
-    border: 0;
-    border-radius: 5px;
-    border-bottom-right-radius: 0;
-    border-top-right-radius: 0;
     color: @THEME_TEXT_LIGHT;
+    border: 0;
     margin: 0;
     padding: 2px;
 }
@@ -544,21 +541,14 @@ Style of the save recording dialog.
 ============================================================================= */
 
 QLineEdit[class='file_dialog'] {
-    color: @THEME_TEXT_LIGHT;
+    color: @THEME_TEXT_DARK;
     background-color: @THEME_BG_DARK;
     font-size: 12px;
 }
 
 QTextEdit[class='file_dialog'] {
-    color: @THEME_TEXT_LIGHT;
-    background-color: @THEME_BG_DARK;
-    border: 0;
-    font-size: 12px;
-}
-
-QToolButton[class='file_dialog']{
-    color: @THEME_TEXT_LIGHT;
-    background-color: @THEME_BG_DARK;
+    color: black;
+    background-color: @THEME_BG_FORM_FIELDS;
     border: 0;
     font-size: 12px;
 }

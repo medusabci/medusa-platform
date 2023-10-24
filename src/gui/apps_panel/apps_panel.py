@@ -578,12 +578,10 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
             # self.fake_user.wait()
 
     @exceptions.error_handler(scope='general')
-    def on_play_session_app_power(self, run, checked=None):
-        # Set run id
-        if self.rec_info is None:
-            self.rec_info = dict()
-        run_id = run['run_id']
-        self.rec_info['run_id'] = run_id if len(run_id) > 0 else None
+    def on_play_session_app_power(self, run):
+        # Update rec info
+        self.rec_info['rec_id'] = run['rec_id']
+        self.rec_info['file_ext'] = run['file_ext']
         # Select app
         self.apps_panel_grid_widget.find_app(run['app_id'])
         # Load settings
@@ -628,8 +626,9 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
     @exceptions.error_handler(scope='general')
     def on_session_config_dialog_accepted(self, checked=None):
         self.session_plan = self.config_session_dialog.session_plan
-        self.toolButton_session_play.setDisabled(False)
-        self.toolButton_session_config.setDisabled(False)
+        if len(self.session_plan) > 0:
+            self.toolButton_session_play.setDisabled(False)
+            self.toolButton_session_config.setDisabled(False)
         self.config_session_dialog = None
 
     @exceptions.error_handler(scope='general')
@@ -679,7 +678,8 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
     @staticmethod
     def get_default_rec_info():
         rec_info = {
-            'run_id': None,
+            'rec_id': None,
+            'file_ext': 'bson',
             'path': os.path.abspath('../data'),
             'study_id': None,
             'subject_id': None,
@@ -981,8 +981,9 @@ class ConfigureRecInfoDialog(dialogs.MedusaDialog):
         self.study_mode = study_mode
         self.rec_info = rec_info
         # Key layout elements
+        self.rec_line_edit = None
+        self.file_ext_combo_box = None
         self.path_line_edit = None
-        self.run_line_edit = None
         self.study_line_edit = None
         self.subject_line_edit = None
         self.session_line_edit = None
@@ -1001,12 +1002,20 @@ class ConfigureRecInfoDialog(dialogs.MedusaDialog):
         main_layout = QVBoxLayout()
 
         # Main params group box
-        self.run_line_edit = QLineEdit()
+        self.rec_line_edit = QLineEdit()
+        self.file_ext_combo_box = QComboBox()
+        self.file_ext_combo_box.addItems(['bson', 'mat', 'json'])
         self.path_line_edit = QLineEdit()
+        search_action = QAction(
+            gu.get_icon("search.svg", self.theme_colors), 'Search', self)
+        search_action.triggered.connect(self.on_search_path)
+        self.path_line_edit.addAction(search_action,
+                                      QLineEdit.TrailingPosition)
 
-        rec_params_box = QGroupBox('Study params')
+        rec_params_box = QGroupBox('Recording params')
         rec_params_layout = QFormLayout()
-        rec_params_layout.addRow(QLabel('Rec id'), self.run_line_edit)
+        rec_params_layout.addRow(QLabel('Rec id'), self.rec_line_edit)
+        rec_params_layout.addRow(QLabel('File ext'), self.file_ext_combo_box)
         rec_params_layout.addRow(QLabel('Path'), self.path_line_edit)
         rec_params_box.setLayout(rec_params_layout)
         main_layout.addWidget(rec_params_box)
@@ -1026,27 +1035,28 @@ class ConfigureRecInfoDialog(dialogs.MedusaDialog):
         study_params_box.setLayout(study_params_layout)
         main_layout.addWidget(study_params_box)
 
-        # Bottom buttons
-        bottom_bar_layout = QHBoxLayout()
-        spacer = QSpacerItem(
-            0, 0, QSizePolicy.Expanding, QSizePolicy.Minimum)
-        bottom_bar_layout.addItem(spacer)
-        accept_button = QPushButton('Accept', self)
-        accept_button.clicked.connect(self.on_accept)
-        bottom_bar_layout.addWidget(accept_button)
-        cancel_button = QPushButton('Cancel', self)
-        cancel_button.clicked.connect(self.on_cancel)
-        bottom_bar_layout.addWidget(cancel_button)
-        main_layout.addLayout(bottom_bar_layout)
+        # Buttons
+        QBtn = QDialogButtonBox.Ok | QDialogButtonBox.Cancel
+        buttonBox = QDialogButtonBox(QBtn)
+        buttonBox.accepted.connect(self.on_accept)
+        buttonBox.rejected.connect(self.on_cancel)
+        main_layout.addWidget(buttonBox)
 
         return main_layout
 
     def init_layout_elements(self):
         # Set rec info
         if self.rec_info is not None:
-            if self.rec_info['path'] is not None:
+            if self.rec_info['rec_id'] is not None:
+                self.rec_line_edit.setText(self.rec_info['path'])
+            if self.rec_info['file_ext'] is not None:
+                for i in range(self.file_ext_combo_box.count()):
+                    if self.file_ext_combo_box.itemText(i) == \
+                            self.rec_info['file_ext']:
+                        self.file_ext_combo_box.setCurrentIndex(i)
+                        break
                 self.path_line_edit.setText(self.rec_info['path'])
-            if self.rec_info['run_id'] is not None:
+            if self.rec_info['path'] is not None:
                 self.path_line_edit.setText(self.rec_info['path'])
             if self.rec_info['study_id'] is not None:
                 self.study_line_edit.setText(self.rec_info['study_id'])
@@ -1065,12 +1075,27 @@ class ConfigureRecInfoDialog(dialogs.MedusaDialog):
             self.session_line_edit.setReadOnly(True)
             self.study_info_text_edit.setReadOnly(True)
 
+    def on_search_path(self):
+        directory = self.path_line_edit.text()
+        path = QFileDialog.getExistingDirectory(caption="Recording path",
+                                                directory=directory)
+        if path != '':
+            self.path_line_edit.setText(path)
+
     def get_rec_info(self):
         rec_info = dict()
+        rec_info['rec_id'] = self.rec_line_edit.text()
+        rec_info['file_ext'] = self.file_ext_combo_box.currentText()
+        rec_info['path'] = self.path_line_edit.text()
         rec_info['study_id'] = self.study_line_edit.text()
         rec_info['subject_id'] = self.subject_line_edit.text()
         rec_info['session_id'] = self.session_line_edit.text()
-        rec_info['path'] = self.path_line_edit.text()
+        try:
+            study_info = json.loads(self.study_info_text_edit.toPlainText())
+        except json.JSONDecodeError as e:
+            study_info = self.study_info_text_edit.toPlainText()
+        rec_info['study_info'] = study_info
+        print(rec_info)
         return rec_info
 
     def on_accept(self):
@@ -1136,17 +1161,12 @@ class ConfigSessionDialog(dialogs.MedusaDialog):
         main_layout.addLayout(table_layout)
 
         # Bottom buttons
-        bottom_bar_layout = QHBoxLayout()
-        spacer = QSpacerItem(
-            0, 0, QSizePolicy.Expanding, QSizePolicy.Minimum)
-        bottom_bar_layout.addItem(spacer)
-        accept_button = QPushButton('Accept', self)
-        accept_button.clicked.connect(self.on_accept)
-        bottom_bar_layout.addWidget(accept_button)
-        cancel_button = QPushButton('Cancel', self)
-        cancel_button.clicked.connect(self.on_cancel)
-        bottom_bar_layout.addWidget(cancel_button)
-        main_layout.addLayout(bottom_bar_layout)
+        QBtn = QDialogButtonBox.Ok | QDialogButtonBox.Cancel
+        buttonBox = QDialogButtonBox(QBtn)
+        buttonBox.accepted.connect(self.on_accept)
+        buttonBox.rejected.connect(self.on_cancel)
+        main_layout.addWidget(buttonBox)
+
         return main_layout
 
     def add_run(self):
@@ -1157,8 +1177,9 @@ class ConfigSessionDialog(dialogs.MedusaDialog):
 
     def save_session_plan(self):
         session_plan = self.session_plan_table.get_session_plan()
-        if self.check_session_plan(session_plan):
-            self.session_plan = session_plan
+        if not self.check_session_plan(session_plan):
+            return
+        self.session_plan = session_plan
         # Save file
         filt = "Session plan (*.session)"
         directory = "../config"
@@ -1170,6 +1191,9 @@ class ConfigSessionDialog(dialogs.MedusaDialog):
                 json.dump(self.session_plan, f, indent=4)
 
     def check_session_plan(self, session_plan):
+        # todo: check rec file paths to avoid unwanted loss of information if
+        #  the file already exists
+        # Check app ids
         for i, run in enumerate(session_plan):
             if run['app_id'] is None:
                 dialogs.error_dialog(
@@ -1181,8 +1205,9 @@ class ConfigSessionDialog(dialogs.MedusaDialog):
     def on_accept(self):
         # Get session plan and check
         session_plan = self.session_plan_table.get_session_plan()
-        if self.check_session_plan(session_plan):
-            self.session_plan = session_plan
+        if not self.check_session_plan(session_plan):
+            return
+        self.session_plan = session_plan
         # Trigger accept event
         self.accept()
 
@@ -1200,9 +1225,10 @@ class ConfigSessionDialog(dialogs.MedusaDialog):
             main_layout = QVBoxLayout()
             # Create table
             self.tableWidget = QTableWidget(self)
-            self.tableWidget.setColumnCount(4)
+            self.tableWidget.setColumnCount(5)
             self.tableWidget.setHorizontalHeaderLabels(
-                ['RUN ID', 'APP ID', 'SETTINGS FILE', 'MAX TIME (s)'])
+                ['RUN ID', 'APP ID', 'SETTINGS FILE', 'MAX TIME (s)',
+                 'FILE EXT'])
             self.tableWidget.setSizePolicy(
                 QSizePolicy.Expanding, QSizePolicy.Minimum)
             self.tableWidget.horizontalHeader().setSectionResizeMode(
@@ -1217,16 +1243,16 @@ class ConfigSessionDialog(dialogs.MedusaDialog):
             # Set layout
             self.setLayout(main_layout)
 
-        def add_row(self, checked=None, run_id=None, app_id=None,
-                    settings_path=None, max_time=None):
+        def add_row(self, checked=None, rec_id=None, app_id=None,
+                    settings_path=None, max_time=None, file_ext=None):
             row_position = self.tableWidget.rowCount()
             self.tableWidget.insertRow(row_position)
             # Add run line edit widget to col 0
-            run_line_edit = QLineEdit()
-            self.tableWidget.setCellWidget(row_position, 0, run_line_edit)
-            if run_id is None:
-                run_id = 'R%i' % row_position
-            run_line_edit.setText(run_id)
+            rec_line_edit = QLineEdit()
+            if rec_id is None:
+                rec_id = 'R%i' % row_position
+            rec_line_edit.setText(rec_id)
+            self.tableWidget.setCellWidget(row_position, 0, rec_line_edit)
             # Add combo box to col 1
             cond_combo_box = QComboBox()
             cond_combo_box.addItem('Selection')
@@ -1241,7 +1267,7 @@ class ConfigSessionDialog(dialogs.MedusaDialog):
                     if cond_combo_box.itemData(i) == app_id:
                         cond_combo_box.setCurrentIndex(i)
                         break
-            # Add settings line edit widget to col 1
+            # Add settings line edit widget to col 2
             settings_line_edit = QLineEdit()
             settings_line_edit.setProperty("class", "line-edit-table")
             settings_line_edit.setSizePolicy(QSizePolicy.Expanding,
@@ -1255,7 +1281,7 @@ class ConfigSessionDialog(dialogs.MedusaDialog):
             self.tableWidget.setCellWidget(row_position, 2, settings_line_edit)
             if settings_path is not None:
                 settings_line_edit.setText(settings_path)
-            # Add lineEdit widget to col 2
+            # Add lineEdit widget to col 3
             only_int_val = QIntValidator()
             only_int_val.setRange(0, 99999)
             max_time_line_edit = QLineEdit()
@@ -1263,6 +1289,15 @@ class ConfigSessionDialog(dialogs.MedusaDialog):
             self.tableWidget.setCellWidget(row_position, 3, max_time_line_edit)
             if max_time is not None:
                 max_time_line_edit.setText(str(max_time))
+            # Add extension widget to col 4
+            file_ext_combo_box = QComboBox()
+            file_ext_combo_box.addItems(['bson', 'mat', 'json'])
+            if file_ext is not None:
+                for i in range(file_ext_combo_box.count()):
+                    if file_ext_combo_box.itemText(i) == file_ext:
+                        file_ext_combo_box.setCurrentIndex(i)
+                        break
+            self.tableWidget.setCellWidget(row_position, 4, file_ext_combo_box)
 
         def remove_row(self):
             row_position = self.tableWidget.currentRow()
@@ -1281,8 +1316,8 @@ class ConfigSessionDialog(dialogs.MedusaDialog):
             session_plan = list()
             for i in range(self.tableWidget.rowCount()):
                 # Get run id
-                run_id_line_edit = self.tableWidget.cellWidget(i, 0)
-                run_id = run_id_line_edit.text()
+                rec_id_line_edit = self.tableWidget.cellWidget(i, 0)
+                rec_id = rec_id_line_edit.text()
                 # Get app
                 app_combo_box = self.tableWidget.cellWidget(i, 1)
                 app_id = app_combo_box.currentData(Qt.UserRole)
@@ -1293,21 +1328,26 @@ class ConfigSessionDialog(dialogs.MedusaDialog):
                 max_time_line_edit = self.tableWidget.cellWidget(i, 3)
                 max_time = max_time_line_edit.text()
                 max_time = int(max_time) if len(max_time) > 0 else None
+                # File extension
+                file_ext_combo_box = self.tableWidget.cellWidget(i, 4)
+                file_ext = file_ext_combo_box.currentText()
                 # Append to session plan
                 run = dict()
-                run['run_id'] = run_id
+                run['rec_id'] = rec_id
                 run['app_id'] = app_id
                 run['settings_path'] = settings_path
                 run['max_time'] = max_time
+                run['file_ext'] = file_ext
                 session_plan.append(run)
             return session_plan
 
         def load_session_plan(self, session_plan):
             for run in session_plan:
-                self.add_row(run_id=run['run_id'],
+                self.add_row(rec_id=run['rec_id'],
                              app_id=run['app_id'],
                              settings_path=run['settings_path'],
-                             max_time=run['max_time'])
+                             max_time=run['max_time'],
+                             file_ext=run['file_ext'])
 
 
 class FakeUser(QThread):
