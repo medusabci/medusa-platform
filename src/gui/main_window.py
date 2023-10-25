@@ -207,6 +207,7 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         self.gui_config['splitter_ratio'] = [0.36, 0.64]
         self.gui_config['splitter_2_ratio'] = [0.28, 0.72]
         self.gui_config['maximized'] = False
+        self.gui_config['screen_idx'] = 0
         # Study mode
         self.gui_config['study_mode'] = False
         # Default theme
