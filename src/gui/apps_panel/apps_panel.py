@@ -439,7 +439,7 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
         if not os.path.exists(directory):
             os.makedirs(directory)
         app_file = QFileDialog.getOpenFileName(caption="MEDUSA app",
-                                               directory=directory,
+                                               dir=directory,
                                                filter=filt)[0]
         if app_file != '':
 

@@ -104,8 +104,9 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         splash_screen.set_state(75, '')
 
         # Main window parameters
-        self.setWindowIcon(QIcon('%s/medusa_task_icon.png' %
-                                 constants.IMG_FOLDER))
+        icon = QIcon()
+        icon.addPixmap('%s/medusa_task_icon.png' % constants.IMG_FOLDER)
+        self.setWindowIcon(icon)
         self.setWindowTitle('MEDUSA© Platform %s [%s]' %
                             (self.platform_release_info['version'],
                              self.platform_release_info['name']))
