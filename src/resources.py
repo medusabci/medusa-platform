@@ -4,9 +4,9 @@ import multiprocessing as mp
 import threading as th
 import os, time, json
 # External modules
-from PyQt5.QtCore import *
-from PyQt5.QtGui import *
-from PyQt5.QtWidgets import *
+from PySide6.QtCore import *
+from PySide6.QtGui import *
+from PySide6.QtWidgets import *
 import numpy as np
 # Medusa modules
 import constants, exceptions
@@ -669,7 +669,7 @@ class BasicConfigWindow(QDialog):
     """ This class provides a basic graphical configuration for an app
     """
 
-    close_signal = pyqtSignal(object)
+    close_signal = Signal(object)
 
     def __init__(self, sett, medusa_interface, working_lsl_streams_info,
                  theme_colors=None):

@@ -13,10 +13,10 @@ import urllib
 import webbrowser
 from logging.handlers import QueueHandler
 # EXTERNAL MODULES
-from PyQt5 import uic
-from PyQt5.QtWidgets import *
-from PyQt5.QtCore import *
-from PyQt5.QtGui import *
+from PySide6.QtUiTools import loadUiType
+from PySide6.QtWidgets import *
+from PySide6.QtCore import *
+from PySide6.QtGui import *
 # MEDUSA MODULES
 import resources
 from gui import gui_utils as gu
@@ -24,20 +24,19 @@ from gui.qt_widgets import dialogs
 import constants, exceptions
 from gui.qt_widgets.dialogs import ThreadProgressDialog
 
-ui_plots_panel_widget = \
-    uic.loadUiType('gui/ui_files/apps_panel_widget.ui')[0]
+ui_plots_panel_widget = loadUiType('gui/ui_files/apps_panel_widget.ui')[0]
 
 
 class AppsPanelWidget(QWidget, ui_plots_panel_widget):
 
-    error_signal = pyqtSignal(Exception)
+    error_signal = Signal(Exception)
 
     def __init__(self, apps_manager, working_lsl_streams, app_state, run_state,
                  medusa_interface, apps_folder, study_mode, theme_colors):
         super().__init__()
         self.setupUi(self)
         # Attributes
-        self.screen_size = QDesktopWidget().availableGeometry(self).size()
+        self.screen_size = self.screen().geometry().size()
         self.apps_manager = apps_manager
         self.working_lsl_streams = working_lsl_streams
         self.app_state = app_state
@@ -834,12 +833,12 @@ class AppsPanelGridWidget(QWidget):
 
 class AppWidget(QFrame):
 
-    app_selected = pyqtSignal(str)
-    app_about = pyqtSignal(str)
-    app_doc = pyqtSignal(str)
-    app_update = pyqtSignal(str)
-    app_package = pyqtSignal(str)
-    app_uninstall = pyqtSignal(str)
+    app_selected = Signal(str)
+    app_about = Signal(str)
+    app_doc = Signal(str)
+    app_update = Signal(str)
+    app_package = Signal(str)
+    app_uninstall = Signal(str)
 
     def __init__(self, min_widget_width, app_key, app_params, apps_folder,
                  theme_colors):
@@ -952,7 +951,7 @@ class AppsPanelWindow(QMainWindow):
 
     """This window holds the plots panel widget in undocked mode"""
 
-    close_signal = pyqtSignal()
+    close_signal = Signal()
 
     def __init__(self, apps_panel_widget, theme_colors,
                  width=1200, height=900):
@@ -1353,10 +1352,10 @@ class ConfigSessionDialog(dialogs.MedusaDialog):
 
 class FakeUser(QThread):
 
-    app_power = pyqtSignal(dict)
-    app_play = pyqtSignal()
-    app_stop = pyqtSignal()
-    session_finished = pyqtSignal()
+    app_power = Signal(dict)
+    app_play = Signal()
+    app_stop = Signal()
+    session_finished = Signal()
 
     def __init__(self, medusa_interface, app_state, run_state, session_plan):
         super().__init__()

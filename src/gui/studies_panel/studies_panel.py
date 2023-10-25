@@ -5,24 +5,23 @@ import glob
 import shutil
 
 # EXTERNAL MODULES
-from PyQt5 import uic
-from PyQt5.QtWidgets import *
-from PyQt5.QtCore import *
-from PyQt5.QtGui import *
+from PySide6.QtUiTools import loadUiType
+from PySide6.QtWidgets import *
+from PySide6.QtCore import *
+from PySide6.QtGui import *
 # MEDUSA MODULES
 from gui import gui_utils as gu
 from gui.qt_widgets import dialogs
 import constants, exceptions
 
 
-ui_plots_panel_widget = \
-    uic.loadUiType('gui/ui_files/studies_panel_widget.ui')[0]
+ui_plots_panel_widget = loadUiType('gui/ui_files/studies_panel_widget.ui')[0]
 
 
 class StudiesPanelWidget(QWidget, ui_plots_panel_widget):
 
-    selection_signal = pyqtSignal()
-    start_session_signal = pyqtSignal(list)
+    selection_signal = Signal()
+    start_session_signal = Signal(list)
 
     def __init__(self, medusa_interface, studies_config_file_path,
                  theme_colors):
@@ -452,7 +451,7 @@ class CreateElementDialog(dialogs.MedusaDialog):
 
 class StudiesPanelWindow(QMainWindow):
 
-    close_signal = pyqtSignal()
+    close_signal = Signal()
 
     def __init__(self, studies_panel_widget, theme_colors,
                  width=400, height=650):

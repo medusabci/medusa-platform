@@ -10,10 +10,10 @@ import datetime
 import pkg_resources
 
 # EXTERNAL MODULES
-from PyQt5 import uic
-from PyQt5.QtWidgets import *
-from PyQt5.QtCore import *
-from PyQt5.QtGui import *
+from PySide6.QtUiTools import loadUiType
+from PySide6.QtWidgets import *
+from PySide6.QtCore import *
+from PySide6.QtGui import *
 
 # MEDUSA general
 import constants, resources, exceptions, accounts_manager, app_manager
@@ -33,8 +33,8 @@ from gui.qt_widgets.dialogs import info_dialog, error_dialog
 from gui.qt_widgets.dialogs import ThreadProgressDialog
 
 # Load the .ui file
-gui_main_user_interface = uic.loadUiType("gui/ui_files/main_window.ui")[0]
-gui_about = uic.loadUiType(os.getcwd() + "/gui/ui_files/about.ui")[0]
+gui_main_user_interface = loadUiType("gui/ui_files/main_window.ui")[0]
+gui_about = loadUiType(os.getcwd() + "/gui/ui_files/about.ui")[0]
 
 
 class GuiMainClass(QMainWindow, gui_main_user_interface):
@@ -165,12 +165,12 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
     @exceptions.error_handler(scope='general')
     def load_gui_config(self):
         # Get display environment
-        desktop_widget = QDesktopWidget()
-        screen_size = desktop_widget.availableGeometry(self).size()
+        current_screen = self.screen()
+        screen_size = current_screen.availableGeometry().size()
         self.screen_size = [screen_size.width(), screen_size.height()]
         self.display_size = [0, 0]
-        for i in range(desktop_widget.screenCount()):
-            screen_size = desktop_widget.screenGeometry(i).size()
+        for screen in QApplication.instance().screens():
+            screen_size = screen.geometry().size()
             self.display_size[0] += screen_size.width()
             self.display_size[1] += screen_size.height()
 
@@ -224,8 +224,7 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
             s/sum(self.splitter_2.sizes()) for s in self.splitter_2.sizes()]
         self.gui_config['position'] = [self.pos().x(), self.pos().y()]
         self.gui_config['maximized'] = self.isMaximized()
-        self.gui_config['screen_idx'] = \
-            QApplication.desktop().screenNumber(self)
+        self.gui_config['screen_idx'] = len(QApplication.instance().screens())
         # Save config
         gui_config_file_path = self.accounts_manager.wrap_path(
             constants.GUI_CONFIG_FILE)
@@ -1230,14 +1229,14 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         """
 
         # Basic info types
-        msg_signal = pyqtSignal(str, object, str)
-        exception_signal = pyqtSignal(exceptions.MedusaException)
+        msg_signal = Signal(str, object, str)
+        exception_signal = Signal(exceptions.MedusaException)
         # Plot info types
-        plot_state_changed_signal = pyqtSignal(int)
-        undocked_plots_closed = pyqtSignal()
+        plot_state_changed_signal = Signal(int)
+        undocked_plots_closed = Signal()
         # Apps info types
-        app_state_changed_signal = pyqtSignal(int)
-        run_state_changed_signal = pyqtSignal(int)
+        app_state_changed_signal = Signal(int)
+        run_state_changed_signal = Signal(int)
 
         def __init__(self, medusa_interface_queue):
             """Class constructor

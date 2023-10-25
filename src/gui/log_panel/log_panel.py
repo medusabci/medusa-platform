@@ -1,20 +1,14 @@
-# PYTHON MODULES
-import sys
-import json
-import importlib
-import multiprocessing as mp
 # EXTERNAL MODULES
-from PyQt5 import uic
-from PyQt5.QtWidgets import *
-from PyQt5.QtCore import *
-from PyQt5.QtGui import *
+from PySide6.QtUiTools import loadUiType
+from PySide6.QtWidgets import *
+from PySide6.QtCore import *
+from PySide6.QtGui import *
 # MEDUSA MODULES
 from gui import gui_utils as gu
 import constants, exceptions
 
 
-ui_plots_panel_widget = \
-    uic.loadUiType('gui/ui_files/log_panel_widget.ui')[0]
+ui_plots_panel_widget = loadUiType('gui/ui_files/log_panel_widget.ui')[0]
 
 
 class LogPanelWidget(QWidget, ui_plots_panel_widget):
@@ -188,7 +182,7 @@ class LogPanelWidget(QWidget, ui_plots_panel_widget):
 
 class LogPanelWindow(QMainWindow):
 
-    close_signal = pyqtSignal()
+    close_signal = Signal()
 
     def __init__(self, log_panel_widget, theme_colors,
                  width=400, height=650):

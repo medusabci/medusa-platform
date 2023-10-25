@@ -8,9 +8,9 @@ import time
 # EXTERNAL MODULES
 import numpy as np
 import pyqtgraph as pg
-from PyQt5.QtWidgets import *
-from PyQt5.QtCore import *
-from PyQt5.QtGui import QFont
+from PySide6.QtWidgets import *
+from PySide6.QtCore import *
+from PySide6.QtGui import QFont, QAction
 from scipy import signal as scp_signal
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
@@ -1685,8 +1685,8 @@ class RealTimePlotWorker(QThread):
     """Thread that receives samples in real time and sends them to the gui
     for plotting
     """
-    update = pyqtSignal(np.ndarray, np.ndarray)
-    error = pyqtSignal(Exception)
+    update = Signal(np.ndarray, np.ndarray)
+    error = Signal(Exception)
 
     def __init__(self, plot_state, lsl_stream_info, signal_settings):
         super().__init__()

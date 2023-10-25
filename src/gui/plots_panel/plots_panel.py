@@ -4,10 +4,10 @@ import multiprocessing as mp
 import time
 
 # EXTERNAL MODULES
-from PyQt5 import uic
-from PyQt5.QtWidgets import *
-from PyQt5.QtCore import *
-from PyQt5.QtGui import *
+from PySide6.QtUiTools import loadUiType
+from PySide6.QtWidgets import *
+from PySide6.QtCore import *
+from PySide6.QtGui import *
 # MEDUSA MODULES
 import utils
 from gui.plots_panel import plots_panel_config, real_time_plots
@@ -17,8 +17,7 @@ from acquisition import lsl_utils
 from gui import gui_utils as gu
 
 
-ui_plots_panel_widget = \
-    uic.loadUiType('gui/ui_files/plots_panel_widget.ui')[0]
+ui_plots_panel_widget = loadUiType('gui/ui_files/plots_panel_widget.ui')[0]
 
 
 class PlotsPanelWidget(QWidget, ui_plots_panel_widget):
@@ -315,7 +314,7 @@ class PlotsPanelWindow(QMainWindow):
 
     """This window holds the plots panel widget in undocked mode"""
 
-    close_signal = pyqtSignal()
+    close_signal = Signal()
 
     def __init__(self, plots_panel_widget, theme_colors,
                  width=1200, height=900):

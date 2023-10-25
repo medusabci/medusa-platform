@@ -1,19 +1,15 @@
 # Built-in imports
-import sys, os, json, traceback, shutil
+import os, traceback
 # External imports
-from PyQt5 import QtCore, QtGui, QtWidgets, uic
+from PySide6.QtUiTools import loadUiType
+from PySide6 import QtGui, QtWidgets
 # Medusa imports
 from gui import gui_utils
 from gui.qt_widgets import dialogs
-from gui.qt_widgets.notifications import NotificationStack
-from acquisition import lsl_utils
-import exceptions
 import constants
-from medusa.plots import optimal_subplots
 
 # Load the .ui files
-create_app_dialog = \
-    uic.loadUiType('gui/ui_files/create_app_dialog.ui')[0]
+create_app_dialog = loadUiType('gui/ui_files/create_app_dialog.ui')[0]
 
 
 class CreateAppDialog(QtWidgets.QDialog, create_app_dialog):

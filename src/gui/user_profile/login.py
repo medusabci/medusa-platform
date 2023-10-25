@@ -1,29 +1,25 @@
 # Built-in imports
 import sys, os, json, traceback, webbrowser, pickle
 # External imports
-from PyQt5 import QtCore, QtGui, QtWidgets, uic
-from PyQt5.QtCore import Qt
+from PySide6.QtUiTools import loadUiType
+from PySide6 import QtCore, QtGui, QtWidgets
+from PySide6.QtCore import Qt
 import requests
 # Medusa imports
 from gui import gui_utils
 from gui.qt_widgets import dialogs
-from gui.qt_widgets.notifications import NotificationStack
-from acquisition import lsl_utils
 import exceptions
 import constants
-from medusa.plots import optimal_subplots
-import user_session
 
 # Load the .ui files
-ui_main_dialog = \
-    uic.loadUiType('gui/ui_files/login_dialog.ui')[0]
+ui_main_dialog = loadUiType('gui/ui_files/login_dialog.ui')[0]
 
 
 class LoginDialog(QtWidgets.QDialog, ui_main_dialog):
     """ Dialog for Login to MEDUSA
     """
 
-    error_signal = QtCore.pyqtSignal(Exception)
+    error_signal = QtCore.Signal(Exception)
 
     def __init__(self, user_session, theme_colors=None):
         """ Class constructor
