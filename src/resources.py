@@ -550,7 +550,8 @@ class SaveFileDialog(dialogs.MedusaDialog):
                 len(self.rec_info['rec_id']) == 0:
             self.rec_info['rec_id'] = self.get_default_date_format()
         # File name
-        self.file_name = '%s.%s.bson' % (self.rec_info['rec_id'], app_ext)
+        self.file_name = '%s.%s.%s' % (self.rec_info['rec_id'], app_ext,
+                                       self.rec_info['file_ext'])
         self.path = os.path.join(self.rec_info['path'], self.file_name)
 
         # Default file name
