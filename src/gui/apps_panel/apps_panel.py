@@ -151,22 +151,23 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
             gu.get_icon("add.svg", self.theme_colors))
         self.toolButton_app_install.setToolTip('Install new app')
         # Session icons
-        self.toolButton_session_load.setIcon(
-            gu.get_icon("route.svg", self.theme_colors))
-        self.toolButton_session_load.setToolTip('Load session')
-        self.toolButton_session_play.setIcon(
-            gu.get_icon("fast_forward.svg", self.theme_colors))
-        self.toolButton_session_play.setToolTip('Play session')
-        self.toolButton_session_config.setIcon(
-            gu.get_icon("settings.svg", self.theme_colors))
-        self.toolButton_session_config.setToolTip('Configure session')
-        self.toolButton_session_create.setIcon(
-            gu.get_icon("add.svg", self.theme_colors))
-        self.toolButton_session_create.setToolTip('Create session')
-        # Recording info icons
-        self.toolButton_edit_rec_info.setIcon(
-            gu.get_icon("save_as.svg", self.theme_colors))
-        self.toolButton_edit_rec_info.setToolTip('Edit recording info')
+        if self.fake_user is None:
+            self.toolButton_session_load.setIcon(
+                gu.get_icon("route.svg", self.theme_colors))
+            self.toolButton_session_load.setToolTip('Load session')
+            self.toolButton_session_play.setIcon(
+                gu.get_icon("fast_forward.svg", self.theme_colors))
+            self.toolButton_session_play.setToolTip('Play session')
+            self.toolButton_session_config.setIcon(
+                gu.get_icon("settings.svg", self.theme_colors))
+            self.toolButton_session_config.setToolTip('Configure session')
+            self.toolButton_session_create.setIcon(
+                gu.get_icon("add.svg", self.theme_colors))
+            self.toolButton_session_create.setToolTip('Create session')
+            # Recording info icons
+            self.toolButton_edit_rec_info.setIcon(
+                gu.get_icon("save_as.svg", self.theme_colors))
+            self.toolButton_edit_rec_info.setToolTip('Edit recording info')
         # Set panel icons
         if self.undocked:
             self.toolButton_app_undock.setIcon(
