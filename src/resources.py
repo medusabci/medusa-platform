@@ -1,14 +1,12 @@
 # Python modules
-from abc import ABC, abstractmethod
+from abc import abstractmethod
 import multiprocessing as mp
 import threading as th
 import os, time, json
-import zipfile
 # External modules
 from PyQt5.QtCore import *
 from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
-from PyQt5 import uic
 import numpy as np
 # Medusa modules
 import constants, exceptions
@@ -34,7 +32,7 @@ class AppSkeleton(mp.Process):
     """
 
     def __init__(self, app_info, app_settings, medusa_interface,
-                 app_state, run_state, working_lsl_streams_info):
+                 app_state, run_state, working_lsl_streams_info, rec_info):
         """Class constructor
 
         Parameters
@@ -51,6 +49,9 @@ class AppSkeleton(mp.Process):
             Run state
         working_lsl_streams_info: dict
             Dictionary with the working LSL streams as serializable objects
+        rec_info: None or dict
+            Dictionary with information that can be used to save files
+            automatically
         """
         # Calling superclass constructor
         app_process_name = '%s-process' % app_info['id']
@@ -60,6 +61,7 @@ class AppSkeleton(mp.Process):
         self.check_settings_config(app_settings)
         self.app_info = app_info
         self.app_settings = app_settings
+        self.rec_info = rec_info
         # --------------------- COMMUNICATION GUI-MANAGER -------------------- #
         # Interface
         self.medusa_interface = medusa_interface
@@ -147,6 +149,30 @@ class AppSkeleton(mp.Process):
         """
         self.stop = True
         self.lsl_workers_stop()
+
+    def get_file_path_from_rec_info(self):
+        """This function builds a path to save the recording using the rec_info
+        dict. It can be overwritten to implement custom behaviour.
+        """
+        # Check
+        if self.rec_info['path'] is None or \
+                not os.path.isdir(self.rec_info['path']):
+            return None
+        if self.rec_info['file_ext'] is None or \
+                not self.rec_info['file_ext'] in ['bson', 'mat', 'json']:
+            return None
+        if self.rec_info['rec_id'] is None or \
+                len(self.rec_info['rec_id']) == 0:
+            return None
+        # Get rec path
+        file_path = '%s/%s.%s.%s' % (os.path.abspath(self.rec_info['path']),
+                                     self.rec_info['rec_id'],
+                                     self.app_info['extension'],
+                                     self.rec_info['file_ext'])
+        # Check if already exists
+        if os.path.exists(file_path):
+            return None
+        return file_path
 
     @abstractmethod
     def handle_exception(self, ex):
@@ -502,7 +528,7 @@ class SaveFileDialog(dialogs.MedusaDialog):
     a custom dialog.
     """
 
-    def __init__(self, app_ext, theme_colors=None):
+    def __init__(self, rec_info, app_ext, theme_colors=None):
         """Class constructor
 
         Parameters
@@ -514,25 +540,21 @@ class SaveFileDialog(dialogs.MedusaDialog):
         """
         super().__init__(window_title='Save recording file',
                          theme_colors=theme_colors)
-        # Paths
-        folder = os.path.abspath(os.getcwd() + '/../data/')
-        if not os.path.exists(folder):
-            # Create a new directory because it does not exist
-            os.makedirs(folder)
-            print('Created directory %s!' % folder)
-
-        name = '%s.%s.bson' % \
-               (time.strftime("%d-%m-%Y_%H%M%S", time.localtime()), app_ext)
-        default_path = os.path.join(folder, name)
-
-        # Default path
-        self.folder = folder
-        self.name = name
+        self.rec_info = rec_info
         self.app_ext = app_ext
-        self.path = default_path
+        # Check path
+        if not os.path.exists(self.rec_info['path']):
+            self.rec_info['path'] = os.path.abspath('../data')
+        # Check recording id
+        if self.rec_info['rec_id'] is None or \
+                len(self.rec_info['rec_id']) == 0:
+            self.rec_info['rec_id'] = self.get_default_date_format()
+        # File name
+        self.file_name = '%s.%s.bson' % (self.rec_info['rec_id'], app_ext)
+        self.path = os.path.join(self.rec_info['path'], self.file_name)
 
         # Default file name
-        self.file_path_lineEdit.setText(name)
+        self.file_path_lineEdit.setText(self.path)
 
         # Show
         self.setWindowFlags(self.windowFlags() | Qt.WindowStaysOnTopHint)
@@ -540,26 +562,26 @@ class SaveFileDialog(dialogs.MedusaDialog):
 
     def create_layout(self):
         # Fields
+        self.study_id_lineEdit = QLineEdit()
+        self.study_id_lineEdit.setPlaceholderText('Study id')
         self.subj_id_lineEdit = QLineEdit()
-        self.subj_id_lineEdit.setProperty('class', 'file_dialog')
-        self.subj_id_lineEdit.setPlaceholderText('Subject identifier')
-        self.file_id_lineEdit = QLineEdit()
-        self.file_id_lineEdit.setProperty('class', 'file_dialog')
-        self.file_id_lineEdit.setPlaceholderText('Recording identifier')
-        self.file_description_textEdit = QTextEdit()
-        self.file_description_textEdit.setProperty(
-            'class', 'file_dialog')
-        self.file_description_textEdit.setPlaceholderText(
-            'Recording description')
+        self.subj_id_lineEdit.setPlaceholderText('Subject id')
+        self.session_id_lineEdit = QLineEdit()
+        self.session_id_lineEdit.setPlaceholderText('Session id')
+        self.description_textEdit = QTextEdit()
+        self.description_textEdit.setProperty('class', 'file_dialog')
+        self.description_textEdit.setPlaceholderText(
+            'Description of the recording')
 
         # File path
         self.file_path_lineEdit = QLineEdit()
-        self.file_path_lineEdit.setProperty('class', 'file_dialog')
-        self.file_path_lineEdit.setEnabled(False)
+        # self.file_path_lineEdit.setProperty('class', 'file_dialog')
+        self.file_path_lineEdit.setReadOnly(True)
         self.browse_button = QToolButton()
-        self.browse_button.setText('...')
-        self.browse_button.setProperty('class', 'file_dialog')
-        self.browse_button.setCursor(QCursor(Qt.PointingHandCursor))
+        self.browse_button.setIcon(gui_utils.get_icon(
+            'search.svg', theme_colors=self.theme_colors))
+        # self.browse_button.setProperty('class', 'file_dialog')
+        # self.browse_button.setCursor(QCursor(Qt.PointingHandCursor))
         self.browse_button.clicked.connect(self.on_browse_button_clicked)
 
         # Buttons
@@ -573,49 +595,73 @@ class SaveFileDialog(dialogs.MedusaDialog):
         path_layout.addWidget(self.file_path_lineEdit)
         path_layout.addWidget(self.browse_button)
 
-        layout = QVBoxLayout()
-        layout.addWidget(self.subj_id_lineEdit)
-        layout.addWidget(self.file_id_lineEdit)
-        layout.addWidget(self.file_description_textEdit)
-        layout.addLayout(path_layout)
+        layout = QFormLayout()
+        layout.addRow(QLabel('Study id'), self.study_id_lineEdit)
+        layout.addRow(QLabel('Subject id'), self.subj_id_lineEdit)
+        layout.addRow(QLabel('Session id'), self.session_id_lineEdit)
+        layout.addRow(QLabel('Description'), self.description_textEdit)
+        layout.addRow(QLabel('Save path'), path_layout)
         layout.addItem(QSpacerItem(40, 20, QSizePolicy.Minimum,
                                    QSizePolicy.Expanding))
         layout.addWidget(self.buttonBox)
         return layout
 
-    def get_file_info(self):
+    @staticmethod
+    def get_default_date_format() -> str:
+        return time.strftime("%d-%m-%Y_%H%M%S", time.localtime())
+
+    def get_rec_info(self):
+        study_id = self.study_id_lineEdit.text()
         subj_id = self.subj_id_lineEdit.text()
-        recording_id = self.file_id_lineEdit.text()
-        file_description = self.file_description_textEdit.toPlainText()
-        file_ext = self.name.split('.')[-1]
-        return {'subject_id': subj_id,
-                'recording_id': recording_id,
-                'description': file_description,
-                'path': self.path, 'extension': file_ext}
+        session_id = self.session_id_lineEdit.text()
+        file_description = self.description_textEdit.toPlainText()
+        path = os.path.dirname(self.path)
+        split_path = os.path.basename(self.path).split('.')
+        rec_id = ''.join(split_path[:-2])
+        app_ext = split_path[-2]
+        file_ext = split_path[-1]
+        # Update rec info dict
+        self.rec_info['rec_id'] = rec_id
+        self.rec_info['file_ext'] = file_ext
+        self.rec_info['path'] = path
+        self.rec_info['study_id'] = study_id
+        self.rec_info['subject_id'] = subj_id
+        self.rec_info['session_id'] = session_id
+        self.rec_info['description'] = file_description
+        return self.path, self.rec_info
 
     def on_browse_button_clicked(self):
         # Delete the extension
-        fdialog = QFileDialog()
         filter = 'Binary (*.bson);; Binary (*.mat);; Text (*.json)'
-        path = fdialog.getSaveFileName(fdialog, 'Save recording file',
-                                       self.path, filter=filter)[0]
+        path = QFileDialog.getSaveFileName(caption='Save recording file',
+                                           directory=self.path,
+                                           filter=filter)[0]
+        # Check that the user selected a file name
+        if len(path) == 0:
+            return
+        # Check format errors
         split_name = os.path.basename(path).split('.')
-        if len(split_name) == 1:
-            dialogs.error_dialog('Incorrect file name: %s. '
-                                'The extension must be *.%s.%s' %
-                                (os.path.basename(path),
-                                 self.app_ext, split_name[-1]),
-                                'Error')
-        elif split_name[-2] != self.app_ext:
+        if len(split_name) < 3:
             dialogs.error_dialog('Incorrect file name: %s. '
                                  'The extension must be *.%s.%s' %
                                  (os.path.basename(path),
                                   self.app_ext, split_name[-1]),
                                  'Error')
-        else:
-            self.path = path
-            self.name = os.path.basename(path)
-            self.file_path_lineEdit.setText(os.path.basename(path))
+            return
+        if split_name[-2] != self.app_ext:
+            dialogs.error_dialog('Incorrect file name: %s. '
+                                 'The extension must be *.%s.%s' %
+                                 (os.path.basename(path),
+                                  self.app_ext, split_name[-1]),
+                                 'Error')
+            return
+        if split_name[-1] not in ['bson', 'mat', 'json']:
+            dialogs.error_dialog('Current supported formats are bson, mat and '
+                                 'json', 'Error')
+            return
+        # Save info
+        self.path = path
+        self.file_path_lineEdit.setText(path)
 
 
 class BasicConfigWindow(QDialog):

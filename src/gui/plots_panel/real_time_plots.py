@@ -18,15 +18,13 @@ from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 # MEDUSA-PLATFORM MODULES
 from acquisition import lsl_utils
 import constants
-# ToDo: remove this dependency and change it to medusa.plots.head_plots for
-#  MEDUSA v2024
-from gui.plots_panel import head_plots
 
 # MEDUSA-CORE MODULES
 import medusa
 from medusa import meeg
 from medusa.local_activation import spectral_parameteres
 from medusa.connectivity import amplitude_connectivity, phase_connectivity
+from medusa.plots import head_plots
 
 
 class RealTimePlot(ABC):

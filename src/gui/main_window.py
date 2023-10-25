@@ -44,13 +44,66 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
     """
     def __init__(self):
         QMainWindow.__init__(self)
-        self.setupUi(self)
 
-        # Load version
+        # Load versions info
         self.platform_release_info = self.get_platform_release_info()
         self.kernel_release_info = self.get_kernel_release_info()
 
-        # Qt parameters
+        # Set application name so it can have its own icon
+        medusaid = u'gib.medusa.' + self.platform_release_info['version']
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(medusaid)
+
+        # Splash screen
+        splash_screen = SplashScreen(self.platform_release_info)
+        splash_screen.set_state(0, '')
+
+        # ========================= PARAMS & TOOLS =========================== #
+        # State constants shared across medusa. See constants.py for more info
+        self.plot_state = mp.Value('i', constants.PLOT_STATE_OFF)
+        self.app_state = mp.Value('i', constants.APP_STATE_OFF)
+        self.run_state = mp.Value('i', constants.RUN_STATE_READY)
+
+        # # Medusa interface
+        self.interface_queue = self.MedusaInterfaceQueue()
+        self.medusa_interface_listener = None
+        self.set_up_medusa_interface_listener(self.interface_queue)
+        self.medusa_interface = resources.MedusaInterface(self.interface_queue)
+
+        splash_screen.set_state(25, '')
+
+        # Load version and instantiate updates manager
+        self.updates_manager = updates_manager.UpdatesManager(
+            self.medusa_interface, self.platform_release_info,
+            self.kernel_release_info)
+
+        # Instantiate accounts manager
+        self.accounts_manager = accounts_manager.AccountsManager()
+
+        splash_screen.set_state(50, '')
+
+        # ============================ GUI CONFIG ============================ #
+        # Load gui config, set layout and theme
+        self.screen_size = None
+        self.display_size = None
+        self.theme_colors = None
+        self.gui_config = None
+        self.setupUi(self)
+        self.load_gui_config()
+        self.build_layout()
+        self.set_theme()
+
+        # Reset panels
+        self.lsl_config = None
+        self.apps_manager = None
+        self.reset_panels()
+
+        # Menu and toolbar action initializing
+        self.set_up_menu_bar_main()
+        self.set_up_tool_bar_main()
+
+        splash_screen.set_state(75, '')
+
+        # Main window parameters
         self.setWindowIcon(QIcon('%s/medusa_task_icon.png' %
                                  constants.IMG_FOLDER))
         self.setWindowTitle('MEDUSA© Platform %s [%s]' %
@@ -58,67 +111,16 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
                              self.platform_release_info['name']))
         self.setFocusPolicy(Qt.StrongFocus)
         self.setAttribute(Qt.WA_DeleteOnClose)
-        # self.setWindowFlags(Qt.FramelessWindowHint)
-
-        # Tell windows that this application is not pythonw.exe so it can
-        # have its own icon
-        medusaid = u'gib.medusa.' + self.platform_release_info['version']
-        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(medusaid)
-
-        # Splash screen
-        splash_screen = SplashScreen(self.platform_release_info)
-        splash_screen.set_state(0, "Initializing...")
-
-        # Instantiate accounts manager
-        self.accounts_manager = accounts_manager.AccountsManager()
-
-        # Set GUI settings
-        self.gui_config = None
-        self.screen_size = None
-        self.display_size = None
-        self.theme_colors = None
-        self.load_gui_config()
-        self.set_theme()
-
-        # Build layout
-        self.build_layout()
-        self.set_up_menu_bar_main()
-        self.set_up_tool_bar_main()
-        splash_screen.set_state(25, "Setting everything up...")
-
-        # State constants shared across medusa. See constants.py for more info
-        self.plot_state = mp.Value('i', constants.PLOT_STATE_OFF)
-        self.app_state = mp.Value('i', constants.APP_STATE_OFF)
-        self.run_state = mp.Value('i', constants.RUN_STATE_READY)
-
-        # Medusa interface
-        self.interface_queue = self.MedusaInterfaceQueue()
-        self.medusa_interface_listener = None
-        self.set_up_medusa_interface_listener(self.interface_queue)
-        self.medusa_interface = resources.MedusaInterface(self.interface_queue)
-        splash_screen.set_state(50, "Loading resources...")
-
-        # Update managers
-        self.updates_manager = updates_manager.UpdatesManager(
-            self.medusa_interface, self.platform_release_info,
-            self.kernel_release_info)
-        splash_screen.set_state(75, "Checking for updates...")
-
-        # Reset panels
-        self.lsl_config = None
-        self.apps_manager = None
-        self.reset_panels()
-        splash_screen.set_state(100, "Tidying up the panels...")
-
-        # Set up
-        splash_screen.hide()
-
-        # Show
-        self.set_window_config()
         self.set_status('Ready')
-        self.show()
+        self.set_window_config()
 
-        # User account
+        splash_screen.set_state(100, '')
+
+        # ============================== SHOW ================================ #
+        # Hide splash screen and show window
+        splash_screen.hide()
+        self.show()
+        # Set user account and check for updates
         self.set_up_user_account()
 
     @exceptions.error_handler(scope='general')
@@ -133,7 +135,8 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
     # ================================ SET UP ================================ #
     @exceptions.error_handler(scope='general')
     def build_layout(self):
-        # todo: configurable layout
+        """This function builds the default layout"""
+        # todo: configurable layout loaded from self.gui_config
         # Left widget
         self.widget_left_side = QWidget()
         self.widget_left_side.setLayout(QVBoxLayout())
@@ -220,6 +223,8 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
             s/sum(self.splitter_2.sizes()) for s in self.splitter_2.sizes()]
         self.gui_config['position'] = [self.pos().x(), self.pos().y()]
         self.gui_config['maximized'] = self.isMaximized()
+        self.gui_config['screen_idx'] = \
+            QApplication.desktop().screenNumber(self)
         # Save config
         gui_config_file_path = self.accounts_manager.wrap_path(
             constants.GUI_CONFIG_FILE)
@@ -329,10 +334,6 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
 
     @exceptions.error_handler(scope='general')
     def set_up_studies_panel(self):
-        # Todo: eliminate these lines when study mode is ready
-        self.menuAction_study_mode.setDisabled(True)
-        self.menuAction_study_mode.setVisible(False)
-        # Set study mode
         if self.gui_config['study_mode']:
             # Group box
             self.box_studies_panel = QGroupBox('STUDIES')
@@ -342,12 +343,14 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
                 self.gui_config['splitter_2_ratio'] = [0.25, 0.25, 0.5]
                 self.splitter_2.setSizes(
                     [int(r * self.gui_config['height'])
-                     for r in self.gui_config['splitter_2_ratio']]
-                )
+                     for r in self.gui_config['splitter_2_ratio']])
             # Panel widget
             self.studies_panel_widget = studies_panel.StudiesPanelWidget(
                 self.medusa_interface,
+                self.accounts_manager.wrap_path(constants.STUDIES_CONFIG_FILE),
                 self.theme_colors)
+            self.studies_panel_widget.selection_signal.connect(
+                self.on_studies_panel_selection)
             # Clear layout
             while self.box_studies_panel.layout().count():
                 child = self.box_studies_panel.layout().takeAt(0)
@@ -365,7 +368,40 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         self.update_menu_action_study_mode()
 
     @exceptions.error_handler(scope='general')
+    def on_studies_panel_selection(self):
+        """Updates the study info. This function is called when there is a
+        selection on the studies panel."""
+        # Get selection information
+        selected_item_type = self.studies_panel_widget.selected_item_type
+        selected_item_tree = self.studies_panel_widget.selected_item_tree
+        # Pass this information to the apps panel
+        study = selected_item_tree[0] if len(selected_item_tree) > 0 else \
+            {'item_name': None, 'item_data': None}
+        subject = selected_item_tree[1] if len(selected_item_tree) > 1 else \
+            {'item_name': None, 'item_data': None}
+        session = selected_item_tree[2] if len(selected_item_tree) > 2 else \
+            {'item_name': None, 'item_data': None}
+        path = self.studies_panel_widget.get_element_dir(
+            self.studies_panel_widget.studies_panel_config['root_path'],
+            self.studies_panel_widget.selected_item_tree)
+        # Set rec_info
+        rec_info = self.apps_panel_widget.get_default_rec_info()
+        rec_info['path'] = path
+        rec_info['study_id'] = study['item_name']
+        rec_info['subject_id'] = subject['item_name']
+        rec_info['session_id'] = session['item_name']
+        # Specific info, available only in study mode
+        rec_info['study_info'] = {
+            'selected_item_type': selected_item_type,
+            'study_data': study['item_data'],
+            'subject_data': subject['item_data'],
+            'session_data': session['item_data'],
+        }
+        self.apps_panel_widget.set_rec_info(rec_info)
+
+    @exceptions.error_handler(scope='general')
     def set_up_log_panel(self):
+        # Instantiate Log layout
         self.log_panel_widget = log_panel.LogPanelWidget(
             self.medusa_interface,
             self.theme_colors)
@@ -451,9 +487,11 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
             self.run_state,
             self.medusa_interface,
             self.accounts_manager.wrap_path('apps'),
+            self.gui_config['study_mode'],
             self.theme_colors)
         # Connect signals
-        self.apps_panel_widget.error_signal.connect(self.handle_exception)
+        self.apps_panel_widget.error_signal.connect(
+            self.handle_exception)
         # Clear layout
         while self.box_apps_panel.layout().count():
             child = self.box_apps_panel.layout().takeAt(0)
@@ -462,6 +500,9 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         # Add widget
         self.box_apps_panel.layout().addWidget(self.apps_panel_widget)
         self.box_apps_panel.layout().setContentsMargins(0, 0, 0, 0)
+        # Connect external actions
+        self.apps_panel_widget.toolButton_app_undock.clicked.connect(
+            self.undock_apps_panel)
 
     @exceptions.error_handler(scope='general')
     def set_up_plots_panel(self):
@@ -578,8 +619,10 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
     @exceptions.error_handler(scope='general')
     def change_study_mode(self, checked=None):
         self.gui_config['study_mode'] = not self.gui_config['study_mode']
-        # Insert studies box
+        # Insert studies box and update apps panel
         self.set_up_studies_panel()
+        self.apps_panel_widget.study_mode = self.gui_config['study_mode']
+        self.apps_panel_widget.rec_info = None
 
     @exceptions.error_handler(scope='general')
     def update_menu_action_study_mode(self):
@@ -790,6 +833,42 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         )
         dialog.exec_()
 
+    # ====================== APPS PANEL FUNCTIONS ======================== #
+
+    @exceptions.error_handler(scope='general')
+    def undock_apps_panel(self, checked=None):
+        if not self.apps_panel_widget.undocked:
+            # Get current dimensions
+            window_height = self.height()
+            apps_panel_width = self.apps_panel_widget.width()
+            # Create main window
+            self.apps_panel_window = apps_panel.AppsPanelWindow(
+                self.apps_panel_widget, self.theme_colors,
+                width=apps_panel_width, height=window_height)
+            self.apps_panel_widget.set_undocked(True)
+            self.apps_panel_window.close_signal.connect(
+                self.dock_apps_panel)
+            # Delete group box
+            self.box_apps_panel.deleteLater()
+        else:
+            self.apps_panel_window.close()
+
+    @exceptions.error_handler(scope='general')
+    def dock_apps_panel(self, checked=None):
+        # Update state
+        self.apps_panel_widget.set_undocked(False)
+        # Add widget
+        self.box_apps_panel = QGroupBox('APPS')
+        self.box_apps_panel.setLayout(QVBoxLayout())
+        self.box_apps_panel.layout().addWidget(self.apps_panel_widget)
+        self.box_apps_panel.layout().setContentsMargins(0, 0, 0, 0)
+        self.splitter_2.insertWidget(self.splitter_2.count()-1,
+                                     self.box_apps_panel)
+        self.splitter_2.setSizes(
+            [int(r * self.gui_config['height'])
+             for r in self.gui_config['splitter_2_ratio']]
+        )
+
     # ======================= PLOTS PANEL FUNCTIONS ========================== #
     @exceptions.error_handler(scope='general')
     def undock_plots_panel(self, checked=None):
@@ -797,8 +876,7 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
             # Get current dimensions
             window_height = self.height()
             plots_panel_width = self.plots_panel_widget.width()
-            apps_panel_width = self.apps_panel_widget.width()
-            # Create main window
+            # Create new window
             self.plots_panel_window = plots_panel.PlotsPanelWindow(
                 self.plots_panel_widget, self.theme_colors,
                 plots_panel_width, window_height
@@ -1012,6 +1090,8 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
                     self.reset_plots_panel()
                 elif ex.scope == 'log':
                     self.reset_log_panel()
+                elif ex.scope == 'studies':
+                    self.reset_studies_panel()
                 elif ex.scope == 'general' or ex.scope is None:
                     self.apps_panel_widget.terminate_app_process(kill=True)
                     self.reset()
@@ -1163,7 +1243,7 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
 
             Parameters
             ----------
-            medusa_interface_queue : multiprocessing.queue
+            medusa_interface_queue : MedusaInterfaceQueue
                     Queue where the manager process puts the messages
             """
             QThread.__init__(self)
@@ -1276,8 +1356,6 @@ class SplashScreen:
         self.release_info = release_info
         img_path = glob.glob('gui/images/medusa_splash_v2023.png')[0]
         splash_image = QPixmap(img_path)
-        # self.splash_screen = QSplashScreen(splash_image,
-        #                                    Qt.WindowStaysOnTopHint)
         self.splash_screen = QSplashScreen(splash_image)
         self.splash_screen.setStyleSheet("QSplashScreen { margin-right: 0px; "
                                          "padding-right: 0px;}")
@@ -1299,6 +1377,7 @@ class SplashScreen:
             "margin-top: 330px;"
             "}" +
             "QProgressBar::chunk{ background: #04211a; }")
+
         # Creating the progress text
         self.splash_text = QLabel('Making a PhD thesis...')
         self.splash_text.setStyleSheet("color: #04211a; "
@@ -1316,6 +1395,19 @@ class SplashScreen:
         splash_layout.addWidget(self.splash_progbar, 0, 0)
         splash_layout.addWidget(self.splash_text, 0, 0)
         self.splash_screen.setLayout(splash_layout)
+
+        # Show in the corresponding screen if available
+        # if 'screen_idx' in gui_config:
+        #     screen_geometry = QApplication.desktop().screenGeometry(
+        #         gui_config['screen_idx'])
+        #     splash_width = splash_image.width()
+        #     splash_height = splash_image.height()
+        #     splash_x = int(screen_geometry.x() + screen_geometry.width() / 2 -
+        #                    splash_width / 2)
+        #     splash_y = int(screen_geometry.y() + screen_geometry.height() / 2 -
+        #                    splash_height / 2)
+        #     self.splash_screen.setGeometry(
+        #         splash_x, splash_y, splash_width, splash_height)
 
         # Displaying the splash screen
         self.splash_screen.show()

@@ -7,6 +7,7 @@ from PyQt5.Qt import Qt
 import numpy as np
 # Medusa imports
 import constants
+import exceptions
 from gui.themes import themes
 
 # ------------------------------- QT UTILS ----------------------------------- #
@@ -367,8 +368,7 @@ def get_icon(icon_name, theme_colors=None, enabled=True, custom_color=None):
     # Does it exist?
     rel_path = "%s/icons/svg/%s" % (constants.IMG_FOLDER, icon_name)
     if not os.path.isfile(rel_path):
-        print('[get_icon()] Icon %s not found!' % rel_path)
-        return None
+        raise FileNotFoundError('Icon %s not found!' % rel_path)
 
     # Get the icon colors (gradient)
     if enabled:
