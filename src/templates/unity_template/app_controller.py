@@ -9,6 +9,7 @@ from .app_constants import *
 
 
 class AppController(TCPServer):
+
     """ Class that handles the communication between MEDUSA and Unity.
 
     The AppController must execute the Unity app and control the communication
@@ -27,21 +28,12 @@ class AppController(TCPServer):
         Settings of this application (defined in `settings.py`).
     run_state : multiprocessing.Value
         State that controls the flow of MEDUSA.
-    queue_to_controller : queue.Queue
-        Queue used to receive messages in `AppControllerWorker`.
-    queue_from_controller : queue.Queue
-        Queue used to send messages from `AppControllerWorker`.
-    tcp_server : TCPServer
-        Asynchronous TCP server to receive and send parameters between MEDUSA
-        and Unity.
     server_state : multiprocessing.Value
         State that controls the status of the TCP server app according to
         `constants.py`.
     unity_state : multiprocessing.Value
         State that controls the status of the Unity app according to
         `constants.py`.
-    working_thread : AppControllerWorker
-        Thread that controls the communication flow between MEDUSA and Unity.
     """
 
     def __init__(self, callback, app_settings, run_state):

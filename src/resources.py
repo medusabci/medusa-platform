@@ -267,8 +267,9 @@ class AppSkeleton(mp.Process):
             # 5 - Change app state to powering off
             self.medusa_interface.app_state_changed(
                 constants.APP_STATE_POWERING_OFF)
-            # 6 - Save recording
-            # 7 - Change app state to power off
+            # 6 - Stop working threads
+            # 7 - Save recording
+            # 8 - Change app state to power off
             self.medusa_interface.app_state_changed(
                 constants.APP_STATE_OFF)
         """
@@ -294,25 +295,6 @@ class AppSkeleton(mp.Process):
             Event information. Recommended: dict with keys {event_type|data}
         """
         print("Override this method!! Event: " + str(event))
-
-    @abstractmethod
-    def close_app(self, force=False):
-        """This function has to terminate the app and working threads,
-        returning control to the main process. Take into account that,
-        once the working threads are stopped, the app will not be able to
-        receive events signal. Thus, make sure the app gui is correctly
-        closed before calling self.stop_working_threads().
-
-        Basic scheme:
-
-        try:
-            # Close app gui, returning control to main process
-            # Close working threads
-            self.stop_working_threads()
-        except Exception as e:
-            self.handle_exception(e)
-        """
-        raise NotImplementedError
 
 
 class LSLStreamAppWorker(th.Thread):

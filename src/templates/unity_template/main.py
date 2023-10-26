@@ -1,9 +1,8 @@
 # BUILT-IN MODULES
-import multiprocessing as mp
 import time
 import os.path
 # EXTERNAL MODULES
-from PyQt5.QtWidgets import QApplication
+from PySide6.QtWidgets import QApplication
 # MEDUSA-KERNEL MODULES
 from medusa import components
 from medusa import meeg
@@ -51,10 +50,10 @@ class App(resources.AppSkeleton):
     """
 
     def __init__(self, app_info, app_settings, medusa_interface,
-                 app_state, run_state, working_lsl_streams_info):
+                 app_state, run_state, working_lsl_streams_info, rec_info):
         # Call superclass constructor
-        super().__init__(app_info, app_settings, medusa_interface,
-                         app_state, run_state, working_lsl_streams_info)
+        super().__init__(app_info, app_settings, medusa_interface, app_state,
+                         run_state, working_lsl_streams_info, rec_info)
         # Set attributes
         self.app_controller = None
         # Colors
@@ -71,7 +70,7 @@ class App(resources.AppSkeleton):
                         app_constants.UNITY_DOWN:
                     self.app_controller.send_command(
                         {"event_type": "exception"})
-                self.close_app(force=True)
+                self.app_controller.close()
                 ex.set_handled(True)
 
     def check_lsl_config(self, working_lsl_streams_info):
@@ -200,32 +199,41 @@ class App(resources.AppSkeleton):
         # Start application (blocking method)
         self.app_controller.start_application()
         # 4 - Close (only if close app has not been called yet)
-        if self.app_controller.server_state.value != \
-                app_controller.SERVER_DOWN:
-            self.close_app()
+        if self.app_controller.server_state.value != app_constants.SERVER_DOWN:
+            self.app_controller.close()
         # Check server
         while self.app_controller.server_state.value == app_constants.SERVER_UP:
             time.sleep(0.1)
         # 5 - Change app state to powering off
         self.medusa_interface.app_state_changed(
             mds_constants.APP_STATE_POWERING_OFF)
-        # 6 - Save recording
-        qt_app = QApplication([])
-        self.save_file_dialog = resources.SaveFileDialog(
-            self.app_info['extension'])
-        self.save_file_dialog.accepted.connect(self.on_save_rec_accepted)
-        self.save_file_dialog.rejected.connect(self.on_save_rec_rejected)
-        qt_app.exec()
-        # 7 - Change app state to power off
+        # 6 - Stop working threads
+        self.stop_working_threads()
+        # 7 - Save recording
+        qt_app = QApplication()
+        file_path = self.get_file_path_from_rec_info()
+        if file_path is None:
+            # Display save dialog to retrieve file_info
+            self.save_file_dialog = resources.SaveFileDialog(
+                self.rec_info,
+                self.app_info['extension'])
+            self.save_file_dialog.accepted.connect(self.on_save_rec_accepted)
+            self.save_file_dialog.rejected.connect(self.on_save_rec_rejected)
+            qt_app.exec()
+        else:
+            # Save file automatically
+            self.save_recording(file_path)
+        # 8 - Change app state to power off
         self.medusa_interface.app_state_changed(
             mds_constants.APP_STATE_OFF)
 
+    @exceptions.error_handler(scope='app')
     def process_event(self, event):
         """Process any interesting event.
 
         These events may be called by the `manager_thread_worker` whenever
         Unity requests any kind-of processing. As we do not have any MEDUSA
-        GUI, this function call be also directly called by the instance of
+        GUI, this function can be also directly called by the instance of
         ``AppController`` if necessary.
 
         In this case, the possible events, encoded in 'event_type' are:
@@ -242,21 +250,18 @@ class App(resources.AppSkeleton):
             no_samples = lsl_worker.data.shape[0]
             self.app_controller.send_command({"event_type": "samplesUpdate",
                                               "no_samples": no_samples})
-        elif event["event_type"] == 'close':
-            self.close_app()
-
-    def close_app(self, force=False):
-        """ Closes the app controller and working threads. The force parameter
-        is not required in Unity apps
-        """
-        # Trigger the close event in the AppController
-        if self.app_controller.server_state.value != app_constants.SERVER_DOWN:
-            self.app_controller.close()
-        self.stop_working_threads()
 
     @exceptions.error_handler(scope='app')
     def on_save_rec_accepted(self):
-        file_info = self.save_file_dialog.get_file_info()
+        file_path, self.rec_info = self.save_file_dialog.get_rec_info()
+        self.save_recording(file_path)
+
+    @exceptions.error_handler(scope='app')
+    def on_save_rec_rejected(self):
+        pass
+
+    @exceptions.error_handler(scope='app')
+    def save_recording(self, file_path):
         # Experiment data
         exp_data = components.CustomExperimentData(
             **self.app_settings.to_serializable_obj()
@@ -270,17 +275,12 @@ class App(resources.AppSkeleton):
             equipement=lsl_worker.receiver.name)
         # Recording
         rec = components.Recording(
-            subject_id=file_info['subject_id'],
-            recording_id=file_info['recording_id'],
-            description=file_info['description'],
-            date=time.strftime("%d-%m-%Y %H:%M", time.localtime())
-        )
+            subject_id=self.rec_info.pop('subject_id'),
+            recording_id=self.rec_info.pop('rec_id'),
+            date=time.strftime("%d-%m-%Y %H:%M", time.localtime()),
+            **self.rec_info)
         rec.add_biosignal(signal)
         rec.add_experiment_data(exp_data)
-        rec.save(file_info['path'])
+        rec.save(file_path)
         # Print a message
         self.medusa_interface.log('Recording saved successfully')
-
-    @exceptions.error_handler(scope='app')
-    def on_save_rec_rejected(self):
-        pass
