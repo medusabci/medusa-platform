@@ -470,7 +470,7 @@ class LSLStreamReceiver:
      """
 
     def __init__(self, lsl_stream_mds, min_chunk_size=8, max_chunk_size=1024,
-                 timeout=1):
+                 timeout=5):
         """Class constructor
 
         Parameters

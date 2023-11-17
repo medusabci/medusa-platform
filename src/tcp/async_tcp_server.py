@@ -318,7 +318,7 @@ class TCPServer(ABC):
         self.selector.unregister(self.clients[client_address]['socket'])
         self.clients[client_address]['socket'].close()
         self.clients.pop(client_address, None)
-        self.on_client_disconnected(client_address)
+        self.on_client_disconnected((ip, port))
 
     def _send_to_all(self, msg):
         """ Send a message to all clients at once.
@@ -395,7 +395,19 @@ class TCPServer(ABC):
         """
         pass
 
+    @abstractmethod
     def on_client_disconnected(self, client_address):
+        """ Method that is called whenever a client is disconnected from the
+        TCPServer.
+
+        This abstract method must be implemented from any class that inherit
+        from TCPServer.
+
+        Returns
+        -------------
+        client_address: tuple(basestring, int)
+            Client address (ip, port).
+        """
         return client_address
 
 

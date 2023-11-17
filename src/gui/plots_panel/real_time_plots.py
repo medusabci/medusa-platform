@@ -734,11 +734,9 @@ class TimePlotMultichannel(RealTimePlotPyQtGraph):
             max_t = self.time_in_graph.max(initial=0)
             n_win = max_t // self.win_t
             max_win_t = (n_win+1) * self.win_t
-            if n_win == 2:
-                print()
             # Check overflow
             if chunk_times[-1] > max_win_t:
-                idx_overflow = chunk_times > max_win_t
+                idx_overflow = chunk_times >= max_win_t
                 # Append part of the chunk at the end
                 time_in_graph = np.insert(
                     self.time_in_graph, self.pointer,
