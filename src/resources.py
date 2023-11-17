@@ -2,7 +2,7 @@
 from abc import abstractmethod
 import multiprocessing as mp
 import threading as th
-import os, time, json
+import os, time, json, math
 # External modules
 from PyQt5.QtCore import *
 from PyQt5.QtGui import *
@@ -111,7 +111,23 @@ class AppSkeleton(mp.Process):
             if info.lsl_uid in self.lsl_workers:
                 raise ValueError('Duplicated lsl stream uid %s' %
                                  info.lsl_uid)
-            receiver = lsl_utils.LSLStreamReceiver(info)
+            # nearest lower power of two for a minimum update rate of 50ms
+            # and a maximum update rate of 500 ms
+            # I.e., powers of 2: [1, 8, 16, 32, 64, ...]
+            min_chunk_size = 0.05 * info.fs
+            min_chunk_size = max(int(min_chunk_size), 1)
+            min_chunk_size = 2 ** math.floor(math.log2(min_chunk_size))
+            max_chunk_size = 10 * 0.05 * info.fs
+            max_chunk_size = max(int(max_chunk_size), 1)
+            max_chunk_size = 2 ** (math.floor(math.log2(max_chunk_size)) + 1)
+            timeout = max(int(max_chunk_size / info.fs), 1)
+            # Set receiver
+            receiver = lsl_utils.LSLStreamReceiver(
+                info,
+                min_chunk_size=min_chunk_size,
+                max_chunk_size=max_chunk_size,
+                timeout=timeout)
+            # receiver = lsl_utils.LSLStreamReceiver(info)
             self.lsl_workers[info.medusa_uid] = \
                 LSLStreamAppWorker(receiver, self.app_state,
                                    self.run_state,
