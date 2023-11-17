@@ -349,7 +349,6 @@ class TCPServer(ABC):
             print(self.TAG, '> Unknown client %s' % client_address)
 
     # ---------------------------- ABSTRACT METHODS ----------------------------
-    @abstractmethod
     def send_command(self, client_addresses, msg):
         """ Method to send a message to one or more clients.
 
@@ -372,7 +371,6 @@ class TCPServer(ABC):
             add_ = client_address[0] + ':' + str(client_address[1])
             self._send_to(add_, msg)
 
-    @abstractmethod
     def on_data_received(self, client_address, received_msg):
         """ Method that is called whenever the TCPServer receives any message
 
@@ -386,7 +384,6 @@ class TCPServer(ABC):
         """
         return client_address, received_msg
 
-    @abstractmethod
     def on_server_up(self):
         """ Method that is called whenever the TCPServer has been started.
 
@@ -395,7 +392,6 @@ class TCPServer(ABC):
         """
         pass
 
-    @abstractmethod
     def on_client_disconnected(self, client_address):
         """ Method that is called whenever a client is disconnected from the
         TCPServer.

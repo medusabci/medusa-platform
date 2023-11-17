@@ -259,7 +259,6 @@ class TCPClient(ABC):
         return hosts_list
 
     # ---------------------------- ABSTRACT METHODS ----------------------------
-    @abstractmethod
     def on_client_up(self):
         """ Method that is called whenever the TCPClient has been connected.
 
@@ -268,7 +267,6 @@ class TCPClient(ABC):
         """
         pass
 
-    @abstractmethod
     def send_command(self, msg):
         """ Method to send a message to the server.
 
@@ -283,7 +281,6 @@ class TCPClient(ABC):
         """
         self.message.send(msg)
 
-    @abstractmethod
     def on_data_received(self, server_address, received_msg):
         """ Method that is called whenever the TCPClient receives any message
 
