@@ -319,7 +319,6 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
             ser_lsl_streams = [lsl_str.to_serializable_obj() for
                                lsl_str in self.working_lsl_streams]
             # Get app manager
-            print(self.rec_info)
             self.app_process = app_process_mdl.App(
                 app_info=self.apps_manager.apps_dict[current_app_key],
                 app_settings=self.app_settings,
@@ -397,7 +396,9 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
         # Check app selected
         current_app_key = self.apps_panel_grid_widget.get_selected_app()
         if current_app_key is None:
-            raise ValueError('Select an app to start!')
+            dialogs.error_dialog(message='Please, select an app to config.',
+                                 title='Error!',
+                                 theme_colors=self.theme_colors)
         app_settings_mdl = importlib.import_module(
             self.get_app_module(current_app_key, 'settings'))
         try:

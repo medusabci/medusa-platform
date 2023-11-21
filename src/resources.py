@@ -617,7 +617,7 @@ class SaveFileDialog(dialogs.MedusaDialog):
         # Delete the extension
         filter = 'Binary (*.bson);; Binary (*.mat);; Text (*.json)'
         path = QFileDialog.getSaveFileName(caption='Save recording file',
-                                           directory=self.path,
+                                           dir=self.path,
                                            filter=filter)[0]
         # Check that the user selected a file name
         if len(path) == 0:
