@@ -469,25 +469,29 @@ class LSLStreamReceiver:
      which will use the latter
      """
 
-    def __init__(self, lsl_stream_mds, min_chunk_size=8, max_chunk_size=1024,
-                 timeout=5):
+    def __init__(self, lsl_stream_mds, min_chunk_size=None, max_chunk_size=None,
+                 timeout=None, auto_mode=True):
         """Class constructor
 
         Parameters
         ----------
         lsl_stream_mds: LSLStreamWrapper
             Medusa representation of an LSL stream
-        max_chunk_size: int
-            Max chunk size to receive
-        timeout: int
-            Timeout in seconds.
+        min_chunk_size: int or None
+            Min chunk size to receive. It can be used to reduce computing
+            load. If None, it will be set automatically.
+        max_chunk_size: int or None
+            Max chunk size to receive. If None, it will be set automatically.
+        timeout: int or None
+            Timeout in seconds.If None, it will be set automatically.
+        auto_mode: bool
+            If True, the max_chunk_size and timeout variables are
+            automatically adjusted to avoid problems with strange
+            configurations on the transmitter side.
         """
         # LSL info
         self.TAG = '[LSLStreamReceiver] '
         self.lsl_stream = lsl_stream_mds
-        self.min_chunk_size = min_chunk_size
-        self.max_chunk_size = max_chunk_size
-        self.timeout = timeout
         # Copy some attributes from lsl stream info for direct access
         self.name = self.lsl_stream.medusa_uid
         self.fs = self.lsl_stream.fs
@@ -495,10 +499,29 @@ class LSLStreamReceiver:
         self.l_cha = self.lsl_stream.l_cha
         self.info_cha = self.lsl_stream.cha_info
         self.idx_cha = self.lsl_stream.selected_channels_idx
+        self.auto_mode = auto_mode
+        # Min chunk size cannot be None. By default, set the minimum update rate
+        # to 10 ms to avoid excessive computing load
+        self.min_chunk_size = max(int(0.01 * self.fs), 1) \
+            if min_chunk_size is None else min_chunk_size
+        # Max chunk size cannot be None. Default max chunk size of LSL is 1024
+        self.max_chunk_size = max(int(2*min_chunk_size), int(self.fs)) \
+            if max_chunk_size is None else max_chunk_size
+        # Timeout cannot be None in order to avoid blocking processes
+        self.timeout = 1.5 * self.max_chunk_size / self.fs \
+            if timeout is None else timeout
+        # print('LSL stream: %s\nmin_chunk_size: %i\nmax_chunk_size: '
+        #       '%i\ntimeout: %.2f' % (self.lsl_stream.lsl_name,
+        #                              self.min_chunk_size,
+        #                              self.max_chunk_size, self.timeout))
+        # Calculate LSL time offset
         self.lsl_clock_offset = \
             np.mean([time.time() - pylsl.local_clock() for _ in range(10)]) + \
             self.lsl_stream.lsl_stream_inlet.time_correction()
-        self.chunk_counter = 0
+        # Initialize auxiliary variables
+        self.mds_chunk_counter = 0
+        # self.lsl_chunk_counter = 0
+        # self.lsl_mean_chunk_size = 0
         self.last_t = -1
         self.aliasing_correction = True
 
@@ -510,14 +533,32 @@ class LSLStreamReceiver:
         samples = list()
         times = list()
         while True:
-            chunk, timestamps = \
-                self.lsl_stream.lsl_stream_inlet.pull_chunk(
-                    max_samples=self.max_chunk_size)
+            # Check if we need to update the max_chunk_size and timout
+            if self.auto_mode:
+                s_avlbl = self.lsl_stream.lsl_stream_inlet.samples_available()
+                if s_avlbl > self.max_chunk_size:
+                    self.max_chunk_size = s_avlbl
+                    self.timeout = 1.5 * self.max_chunk_size / self.fs
+                    # print('LSL stream parameters updated: '
+                    #       '%s\nmin_chunk_size: '
+                    #       '%i\nmax_chunk_size: '
+                    #       '%i\ntimeout: %.2f' %
+                    #       (self.lsl_stream.lsl_name, self.min_chunk_size,
+                    #        self.max_chunk_size, self.timeout))
+            # Get chunk
+            chunk, timestamps = self.lsl_stream.lsl_stream_inlet.pull_chunk(
+                max_samples=self.max_chunk_size)
             samples += chunk
             times += timestamps
+            # if len(times) > 0:
+            #     self.lsl_chunk_counter += 1
+            #     self.lsl_mean_chunk_size += \
+            #         (len(times) - self.lsl_mean_chunk_size) / \
+            #         self.lsl_chunk_counter
+            #     print(self.lsl_mean_chunk_size)
             if len(times) >= self.min_chunk_size:
                 # Increment chunk counter
-                self.chunk_counter += 1
+                self.mds_chunk_counter += 1
                 # LSL time to local time
                 times = np.array(times) + self.lsl_clock_offset
                 samples = np.array(samples)
@@ -558,6 +599,8 @@ class LSLStreamReceiver:
                 return samples[:, self.idx_cha], times
 
             if timer.get_s() > self.timeout:
+                # Update timeout because it can be inadequate for the LSL
+                # stream configuration of the outlet (transmitter)
                 raise exceptions.LSLStreamTimeout()
 
     def flush_stream(self):

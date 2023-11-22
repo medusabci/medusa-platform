@@ -4,6 +4,7 @@ from abc import ABC, abstractmethod
 import weakref
 import traceback
 import time
+import math
 
 # EXTERNAL MODULES
 import numpy as np
@@ -17,7 +18,7 @@ from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 
 # MEDUSA-PLATFORM MODULES
 from acquisition import lsl_utils
-import constants
+import constants, exceptions
 
 # MEDUSA-CORE MODULES
 import medusa
@@ -81,7 +82,8 @@ class RealTimePlot(ABC):
             self.worker = RealTimePlotWorker(
                 self.plot_state,
                 self.lsl_stream_info,
-                self.signal_settings)
+                self.signal_settings,
+                self.medusa_interface)
             self.worker.update.connect(self.update_plot)
             self.worker.error.connect(self.handle_exception)
             self.fs = self.worker.get_effective_fs()
@@ -1686,25 +1688,22 @@ class RealTimePlotWorker(QThread):
     update = pyqtSignal(np.ndarray, np.ndarray)
     error = pyqtSignal(Exception)
 
-    def __init__(self, plot_state, lsl_stream_info, signal_settings):
+    def __init__(self, plot_state, lsl_stream_info, signal_settings,
+                 medusa_interface):
         super().__init__()
         self.plot_state = plot_state
         self.lsl_stream_info = lsl_stream_info
         self.signal_settings = signal_settings
+        self.medusa_interface = medusa_interface
         self.fs = self.lsl_stream_info.fs
         self.sleep_time = self.signal_settings['update-rate'] * 0.9
-        # Get minimum and maximum chunk sizes
-        min_chunk_size = self.signal_settings['update-rate'] * self.fs
-        min_chunk_size = max(int(min_chunk_size), 1)
-        max_chunk_size = 10 * min_chunk_size
-        timeout = max(int(max_chunk_size / lsl_stream_info.fs), 1)
+        # Get minimum chunk size to comply with the update rate
+        min_chunk_size = int(self.signal_settings['update-rate'] * self.fs)
+        min_chunk_size = max(min_chunk_size, 1)
         # Set receiver
         self.receiver = lsl_utils.LSLStreamReceiver(
             self.lsl_stream_info,
-            min_chunk_size=min_chunk_size,
-            max_chunk_size=max_chunk_size,
-            timeout=timeout
-        )
+            min_chunk_size=min_chunk_size)
         # Set real time preprocessor
         self.preprocessor = PlotsRealTimePreprocessor(self.signal_settings)
         self.preprocessor.fit(self.receiver.fs,
@@ -1713,6 +1712,9 @@ class RealTimePlotWorker(QThread):
                               self.receiver.min_chunk_size)
         self.wait = False
 
+    def handle_exception(self, ex):
+        self.medusa_interface.error(ex)
+
     def get_effective_fs(self):
         if self.signal_settings['downsampling']['apply']:
             fs = self.fs // self.signal_settings['downsampling']['factor']
@@ -1720,23 +1722,37 @@ class RealTimePlotWorker(QThread):
             fs = self.fs
         return fs
 
+    @exceptions.error_handler(def_importance='important', scope='plots')
     def run(self):
-        try:
-            self.receiver.flush_stream()
-            while self.plot_state.value == constants.PLOT_STATE_ON:
-                # Get chunks
+        error_counter = 0
+        self.receiver.flush_stream()
+        while self.plot_state.value == constants.PLOT_STATE_ON:
+            # Get chunks
+            try:
                 chunk_data, chunk_times = self.receiver.get_chunk()
-                chunk_times, chunk_data = self.preprocessor.transform(
-                    chunk_times, chunk_data)
-                # print('Chunk received at: %.6f' % time.time())
-                # Check if the plot is ready to receive data (sometimes get
-                # chunk takes a while and the user presses the button in
-                # between)
-                if self.plot_state.value == constants.PLOT_STATE_ON:
-                    self.update.emit(chunk_times, chunk_data)
-                time.sleep(self.sleep_time)
-        except Exception as e:
-            self.error.emit(e)
+            except exceptions.LSLStreamTimeout as e:
+                error_counter += 1
+                if error_counter > 5:
+                    raise exceptions.MedusaException(
+                        e, importance='important',
+                        msg='LSLStreamAppWorker is not receiving signal from '
+                            '%s. Is the device connected?' % self.receiver.name,
+                        scope='app', origin='LSLStreamAppWorker.run')
+                else:
+                    self.medusa_interface.log(
+                        msg='LSLStreamAppWorker is not receiving signal from '
+                            '%s. Trying to reconnect.' % self.receiver.name,
+                        style='warning')
+                    continue
+            chunk_times, chunk_data = self.preprocessor.transform(
+                chunk_times, chunk_data)
+            # print('Chunk received at: %.6f' % time.time())
+            # Check if the plot is ready to receive data (sometimes get
+            # chunk takes a while and the user presses the button in
+            # between)
+            if self.plot_state.value == constants.PLOT_STATE_ON:
+                self.update.emit(chunk_times, chunk_data)
+            time.sleep(self.sleep_time)
 
 
 class PlotsRealTimePreprocessor:

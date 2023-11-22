@@ -111,22 +111,8 @@ class AppSkeleton(mp.Process):
             if info.lsl_uid in self.lsl_workers:
                 raise ValueError('Duplicated lsl stream uid %s' %
                                  info.lsl_uid)
-            # nearest lower power of two for a minimum update rate of 50ms
-            # and a maximum update rate of 500 ms
-            # I.e., powers of 2: [1, 8, 16, 32, 64, ...]
-            min_chunk_size = 0.05 * info.fs
-            min_chunk_size = max(int(min_chunk_size), 1)
-            min_chunk_size = 2 ** math.floor(math.log2(min_chunk_size))
-            max_chunk_size = 10 * 0.05 * info.fs
-            max_chunk_size = max(int(max_chunk_size), 1)
-            max_chunk_size = 2 ** (math.floor(math.log2(max_chunk_size)) + 1)
-            timeout = max(int(max_chunk_size / info.fs), 1)
             # Set receiver
-            receiver = lsl_utils.LSLStreamReceiver(
-                info,
-                min_chunk_size=min_chunk_size,
-                max_chunk_size=max_chunk_size,
-                timeout=timeout)
+            receiver = lsl_utils.LSLStreamReceiver(info)
             # receiver = lsl_utils.LSLStreamReceiver(info)
             self.lsl_workers[info.medusa_uid] = \
                 LSLStreamAppWorker(receiver, self.app_state,
@@ -377,7 +363,7 @@ class LSLStreamAppWorker(th.Thread):
         self.timestamps = np.zeros((0,))
 
     def handle_exception(self, ex):
-        pass
+        self.medusa_interface.error(ex)
 
     @exceptions.error_handler(def_importance='important', scope='app')
     def run(self):
@@ -400,6 +386,10 @@ class LSLStreamAppWorker(th.Thread):
                             '%s. Is the device connected?' % self.receiver.name,
                         scope='app', origin='LSLStreamAppWorker.run')
                 else:
+                    self.medusa_interface.log(
+                        msg='LSLStreamAppWorker is not receiving signal from '
+                            '%s. Trying to reconnect.' % self.receiver.name,
+                        style='warning')
                     continue
             # If the app is ON and the run is running, stack data
             if self.app_state.value == constants.APP_STATE_ON:
