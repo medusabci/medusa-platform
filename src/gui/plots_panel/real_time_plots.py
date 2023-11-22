@@ -734,8 +734,6 @@ class TimePlotMultichannel(RealTimePlotPyQtGraph):
             max_t = self.time_in_graph.max(initial=0)
             n_win = max_t // self.win_t
             max_win_t = (n_win+1) * self.win_t
-            if n_win == 2:
-                print()
             # Check overflow
             if chunk_times[-1] > max_win_t:
                 idx_overflow = chunk_times > max_win_t
@@ -1747,8 +1745,9 @@ class PlotsRealTimePreprocessor:
     keeping it simple: band-pass filter and notch filter. For more advanced
     pre-processing, implement another class"""
 
-    def __init__(self, preprocessing_settings):
+    def __init__(self, preprocessing_settings, **kwargs):
         # Settings
+        super().__init__(**kwargs)
         self.freq_filt_settings = preprocessing_settings['frequency-filter']
         self.notch_filt_settings = preprocessing_settings['notch-filter']
         self.re_referencing_settings = preprocessing_settings['re-referencing']

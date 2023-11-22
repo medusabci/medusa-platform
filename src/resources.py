@@ -1,5 +1,5 @@
 # Python modules
-from abc import abstractmethod
+from abc import abstractmethod, ABC
 import multiprocessing as mp
 import threading as th
 import os, time, json
@@ -298,7 +298,7 @@ class AppSkeleton(mp.Process):
 
 
 class LSLStreamAppWorker(th.Thread):
-    """Thread that receives samples from a LSL stream and saves them.
+    """Thread that receives samples from an LSL stream and saves them.
 
     To read and process the data in a thread-safe way, use function get_data.
     """
@@ -320,11 +320,8 @@ class LSLStreamAppWorker(th.Thread):
         preprocessor: Preprocessor
             Preprocessor class that implements a preprocessing algorithm
             applied in real time to the signal. For most applications set to
-            None.
-        preprocessor: str {}
-            Preprocessor class that implements a preprocessing algorithm
-            applied in real time to the signal. For most applications set to
-            None.
+            None in order to save raw data. The preprocessing can be done
+            when processing app events.
         """
         super().__init__()
         # Check errors
@@ -388,6 +385,27 @@ class LSLStreamAppWorker(th.Thread):
         with self.lock:
             self.data = np.zeros((0, self.receiver.n_cha))
             self.timestamps = np.zeros((0,))
+
+
+class Preprocessor(ABC):
+
+    """Class to implement a real time preprocessing algorithm. It can be
+    used to preprocess chunks of data that are received in the LSLStreamWorker.
+    However, for most use cases, it's better to implement this functionality
+    when processing app events and leave the raw data in the LSLStreamWorker.
+    Use only in apps where processing time must be optimized.
+    """
+
+    @abstractmethod
+    def fit(self):
+        """Fits the preprocessor"""
+        pass
+
+    @abstractmethod
+    def transform(self, chunk_data):
+        """Applies the preprocessing pipeline"""
+        transformed_chunk_data = chunk_data
+        return transformed_chunk_data
 
 
 class MedusaInterface:
