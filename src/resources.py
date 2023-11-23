@@ -81,7 +81,7 @@ class AppSkeleton(mp.Process):
 
     @exceptions.error_handler(def_importance='critical', scope='app')
     def run(self):
-        """Setup the working threads and the app. Any unhandled exception will
+        """Sets up the working threads and the app. Any unhandled exception will
         kill the process.
         """
         # Working threads
@@ -317,11 +317,11 @@ class LSLStreamAppWorker(th.Thread):
             Medusa run state
         medusa_interface: resources.Medusa_interface
             Interface to the main gui of medusa
-        preprocessor: Preprocessor
-            Preprocessor class that implements a preprocessing algorithm
-            applied in real time to the signal. For most applications set to
-            None in order to save raw data. The preprocessing can be done
-            when processing app events.
+        preprocessor: Preprocessor or None
+            Instance of class Preprocessor that implements a preprocessing
+            algorithm applied in real time to the signal. For most
+            applications set to None in order to save raw data. The
+            preprocessing can be done when processing app events.
         """
         super().__init__()
         # Check errors
