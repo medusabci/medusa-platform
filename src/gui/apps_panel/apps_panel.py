@@ -1121,9 +1121,9 @@ class ConfigSessionDialog(dialogs.MedusaDialog):
         self.path_line_edit = None
         self.session_plan_table = None
         super().__init__('Configure session', theme_colors=theme_colors)
-        screen = QDesktopWidget().screenGeometry()
-        width = max(screen.width() // 3, 640)
-        height = max(screen.height() // 3, 360)
+        screen_geometry = self.screen().availableGeometry()
+        width = max(screen_geometry.width() // 3, 640)
+        height = max(screen_geometry.height() // 3, 360)
         self.resize(width, height)
         if self.session_plan is not None:
             self.session_plan_table.load_session_plan(session_plan)

@@ -196,20 +196,19 @@ class App(resources.AppSkeleton):
         while self.app_controller.server_state.value == \
                 app_constants.SERVER_DOWN:
             time.sleep(0.1)
-        # Start application (blocking method)
+        # 4 - Start application (blocking method)
         self.app_controller.start_application()
-        # 4 - Close (only if close app has not been called yet)
+        # 5 - Close
         if self.app_controller.server_state.value != app_constants.SERVER_DOWN:
             self.app_controller.close()
-        # Check server
         while self.app_controller.server_state.value == app_constants.SERVER_UP:
             time.sleep(0.1)
-        # 5 - Change app state to powering off
+        # 6 - Change app state to powering off
         self.medusa_interface.app_state_changed(
             mds_constants.APP_STATE_POWERING_OFF)
-        # 6 - Stop working threads
+        # 7 - Stop working threads
         self.stop_working_threads()
-        # 7 - Save recording
+        # 8 - Save recording
         qt_app = QApplication()
         file_path = self.get_file_path_from_rec_info()
         if file_path is None:
@@ -223,7 +222,7 @@ class App(resources.AppSkeleton):
         else:
             # Save file automatically
             self.save_recording(file_path)
-        # 8 - Change app state to power off
+        # 9 - Change app state to power off
         self.medusa_interface.app_state_changed(
             mds_constants.APP_STATE_OFF)
 
