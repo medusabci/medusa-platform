@@ -406,6 +406,7 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
                 self.get_app_module(current_app_key, 'config'))
             conf_window = app_config_mdl.Config
         except ModuleNotFoundError as e:
+            self.error_signal.emit(exceptions.MedusaException(e))
             conf_window = resources.BasicConfigWindow
         if self.app_settings is None or not isinstance(
                 self.app_settings, app_settings_mdl.Settings):
