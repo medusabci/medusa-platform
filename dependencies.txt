@@ -1,6 +1,6 @@
 Pillow
 pylsl
-PyQt5
+PySide6
 pyqtgraph
 jinja2
 requests

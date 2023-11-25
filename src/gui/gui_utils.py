@@ -2,8 +2,8 @@
 import os, pathlib, re
 # External imports
 from PIL import Image, ImageQt
-from PyQt5.QtGui import *
-from PyQt5.Qt import Qt
+from PySide6.QtGui import *
+from PySide6.QtCore import Qt
 import numpy as np
 # Medusa imports
 import constants

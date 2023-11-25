@@ -2,11 +2,12 @@
 import sys, os, json
 
 # External modules
-from PyQt5 import QtGui, QtWidgets, QtCore
+from PySide6 import QtGui, QtWidgets, QtCore
 
 # Medusa modules
 from gui import gui_utils
 from . import settings
+
 
 class Config(QtWidgets.QMainWindow):
 

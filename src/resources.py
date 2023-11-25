@@ -1,12 +1,12 @@
 # Python modules
-from abc import abstractmethod
+from abc import abstractmethod, ABC
 import multiprocessing as mp
 import threading as th
 import os, time, json, math
 # External modules
-from PyQt5.QtCore import *
-from PyQt5.QtGui import *
-from PyQt5.QtWidgets import *
+from PySide6.QtCore import *
+from PySide6.QtGui import *
+from PySide6.QtWidgets import *
 import numpy as np
 # Medusa modules
 import constants, exceptions
@@ -81,7 +81,7 @@ class AppSkeleton(mp.Process):
 
     @exceptions.error_handler(def_importance='critical', scope='app')
     def run(self):
-        """Setup the working threads and the app. Any unhandled exception will
+        """Sets up the working threads and the app. Any unhandled exception will
         kill the process.
         """
         # Working threads
@@ -156,7 +156,9 @@ class AppSkeleton(mp.Process):
         """This function builds a path to save the recording using the rec_info
         dict. It can be overwritten to implement custom behaviour.
         """
-        # Check
+        # Check recording info attributes
+        if self.rec_info is None:
+            return None
         if self.rec_info['path'] is None or \
                 not os.path.isdir(self.rec_info['path']):
             return None
@@ -269,8 +271,9 @@ class AppSkeleton(mp.Process):
             # 5 - Change app state to powering off
             self.medusa_interface.app_state_changed(
                 constants.APP_STATE_POWERING_OFF)
-            # 6 - Save recording
-            # 7 - Change app state to power off
+            # 6 - Stop working threads
+            # 7 - Save recording
+            # 8 - Change app state to power off
             self.medusa_interface.app_state_changed(
                 constants.APP_STATE_OFF)
         """
@@ -297,28 +300,9 @@ class AppSkeleton(mp.Process):
         """
         print("Override this method!! Event: " + str(event))
 
-    @abstractmethod
-    def close_app(self, force=False):
-        """This function has to terminate the app and working threads,
-        returning control to the main process. Take into account that,
-        once the working threads are stopped, the app will not be able to
-        receive events signal. Thus, make sure the app gui is correctly
-        closed before calling self.stop_working_threads().
-
-        Basic scheme:
-
-        try:
-            # Close app gui, returning control to main process
-            # Close working threads
-            self.stop_working_threads()
-        except Exception as e:
-            self.handle_exception(e)
-        """
-        raise NotImplementedError
-
 
 class LSLStreamAppWorker(th.Thread):
-    """Thread that receives samples from a LSL stream and saves them.
+    """Thread that receives samples from an LSL stream and saves them.
 
     To read and process the data in a thread-safe way, use function get_data.
     """
@@ -337,14 +321,11 @@ class LSLStreamAppWorker(th.Thread):
             Medusa run state
         medusa_interface: resources.Medusa_interface
             Interface to the main gui of medusa
-        preprocessor: Preprocessor
-            Preprocessor class that implements a preprocessing algorithm
-            applied in real time to the signal. For most applications set to
-            None.
-        preprocessor: str {}
-            Preprocessor class that implements a preprocessing algorithm
-            applied in real time to the signal. For most applications set to
-            None.
+        preprocessor: Preprocessor or None
+            Instance of class Preprocessor that implements a preprocessing
+            algorithm applied in real time to the signal. For most
+            applications set to None in order to save raw data. The
+            preprocessing can be done when processing app events.
         """
         super().__init__()
         # Check errors
@@ -412,6 +393,27 @@ class LSLStreamAppWorker(th.Thread):
         with self.lock:
             self.data = np.zeros((0, self.receiver.n_cha))
             self.timestamps = np.zeros((0,))
+
+
+class Preprocessor(ABC):
+
+    """Class to implement a real time preprocessing algorithm. It can be
+    used to preprocess chunks of data that are received in the LSLStreamWorker.
+    However, for most use cases, it's better to implement this functionality
+    when processing app events and leave the raw data in the LSLStreamWorker.
+    Use only in apps where processing time must be optimized.
+    """
+
+    @abstractmethod
+    def fit(self):
+        """Fits the preprocessor"""
+        pass
+
+    @abstractmethod
+    def transform(self, chunk_data):
+        """Applies the preprocessing pipeline"""
+        transformed_chunk_data = chunk_data
+        return transformed_chunk_data
 
 
 class MedusaInterface:
@@ -558,9 +560,8 @@ class SaveFileDialog(dialogs.MedusaDialog):
         # File name
         self.file_name = '%s.%s.%s' % (self.rec_info['rec_id'], app_ext,
                                        self.rec_info['file_ext'])
+        # Set path
         self.path = os.path.join(self.rec_info['path'], self.file_name)
-
-        # Default file name
         self.file_path_lineEdit.setText(self.path)
 
         # Show
@@ -641,7 +642,7 @@ class SaveFileDialog(dialogs.MedusaDialog):
         # Delete the extension
         filter = 'Binary (*.bson);; Binary (*.mat);; Text (*.json)'
         path = QFileDialog.getSaveFileName(caption='Save recording file',
-                                           directory=self.path,
+                                           dir=self.path,
                                            filter=filter)[0]
         # Check that the user selected a file name
         if len(path) == 0:
@@ -675,7 +676,7 @@ class BasicConfigWindow(QDialog):
     """ This class provides a basic graphical configuration for an app
     """
 
-    close_signal = pyqtSignal(object)
+    close_signal = Signal(object)
 
     def __init__(self, sett, medusa_interface, working_lsl_streams_info,
                  theme_colors=None):

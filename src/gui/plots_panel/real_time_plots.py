@@ -9,9 +9,9 @@ import math
 # EXTERNAL MODULES
 import numpy as np
 import pyqtgraph as pg
-from PyQt5.QtWidgets import *
-from PyQt5.QtCore import *
-from PyQt5.QtGui import QFont
+from PySide6.QtWidgets import *
+from PySide6.QtCore import *
+from PySide6.QtGui import QFont, QAction
 from scipy import signal as scp_signal
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
@@ -1685,8 +1685,8 @@ class RealTimePlotWorker(QThread):
     """Thread that receives samples in real time and sends them to the gui
     for plotting
     """
-    update = pyqtSignal(np.ndarray, np.ndarray)
-    error = pyqtSignal(Exception)
+    update = Signal(np.ndarray, np.ndarray)
+    error = Signal(Exception)
 
     def __init__(self, plot_state, lsl_stream_info, signal_settings,
                  medusa_interface):
@@ -1761,8 +1761,9 @@ class PlotsRealTimePreprocessor:
     keeping it simple: band-pass filter and notch filter. For more advanced
     pre-processing, implement another class"""
 
-    def __init__(self, preprocessing_settings):
+    def __init__(self, preprocessing_settings, **kwargs):
         # Settings
+        super().__init__(**kwargs)
         self.freq_filt_settings = preprocessing_settings['frequency-filter']
         self.notch_filt_settings = preprocessing_settings['notch-filter']
         self.re_referencing_settings = preprocessing_settings['re-referencing']

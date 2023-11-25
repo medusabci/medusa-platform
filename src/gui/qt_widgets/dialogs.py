@@ -3,12 +3,12 @@ import multiprocessing
 import os, time
 from multiprocessing import Queue
 # External imports
-from PyQt5 import uic
-from PyQt5.QtCore import pyqtSignal, Qt, QThread
-from PyQt5.QtGui import QIcon, QTextCursor
-from PyQt5.QtWidgets import *
+from PySide6.QtUiTools import loadUiType
+from PySide6.QtCore import Signal, Qt, QThread
+from PySide6.QtGui import QIcon, QTextCursor
+from PySide6.QtWidgets import *
 # Medusa imports
-from PyQt5.QtWidgets import QDialog
+from PySide6.QtWidgets import QDialog
 
 import constants
 from gui import gui_utils
@@ -182,7 +182,7 @@ class ThreadProgressDialog(MedusaDialog):
     th.start()
     """
 
-    done = pyqtSignal()
+    done = Signal()
 
     def __init__(self, window_title, min_pbar_value, max_pbar_value,
                  theme_colors=None):
@@ -304,9 +304,9 @@ class ThreadProgressDialog(MedusaDialog):
 
     class Listener(QThread):
 
-        update_action_signal = pyqtSignal(str)
-        update_value_signal = pyqtSignal(int)
-        update_log_signal = pyqtSignal(str, object)
+        update_action_signal = Signal(str)
+        update_value_signal = Signal(int)
+        update_log_signal = Signal(str, object)
 
         def __init__(self, queue):
             super().__init__()

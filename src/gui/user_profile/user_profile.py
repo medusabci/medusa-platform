@@ -1,8 +1,9 @@
 # Built-in imports
 import sys, os, json, traceback, webbrowser
 # External imports
-from PyQt5 import QtCore, QtGui, QtWidgets, uic
-from PyQt5.QtCore import Qt
+from PySide6.QtUiTools import loadUiType
+from PySide6 import QtCore, QtGui, QtWidgets
+from PySide6.QtCore import Qt
 # Medusa imports
 from gui import gui_utils
 from gui.qt_widgets import dialogs
@@ -13,17 +14,16 @@ import constants
 from medusa.plots import optimal_subplots
 
 # Load the .ui files
-ui_main_dialog = \
-    uic.loadUiType('gui/ui_files/user_profile_dialog.ui')[0]
+ui_main_dialog = loadUiType('gui/ui_files/user_profile_dialog.ui')[0]
 
 
 class UserProfileDialog(QtWidgets.QDialog, ui_main_dialog):
     """ Main dialog class of the LSL config panel
     """
 
-    error_signal = QtCore.pyqtSignal(Exception)
-    logout_signal = QtCore.pyqtSignal()
-    delete_signal = QtCore.pyqtSignal()
+    error_signal = QtCore.Signal(Exception)
+    logout_signal = QtCore.Signal()
+    delete_signal = QtCore.Signal()
 
     def __init__(self, user_session, theme_colors=None):
         """ Class constructor
@@ -99,7 +99,7 @@ class UserProfileDialog(QtWidgets.QDialog, ui_main_dialog):
 
 class WebsiteProfileQLabel(QtWidgets.QLabel):
 
-    clicked = QtCore.pyqtSignal()
+    clicked = QtCore.Signal()
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

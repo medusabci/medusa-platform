@@ -13,10 +13,10 @@ import urllib
 import webbrowser
 from logging.handlers import QueueHandler
 # EXTERNAL MODULES
-from PyQt5 import uic
-from PyQt5.QtWidgets import *
-from PyQt5.QtCore import *
-from PyQt5.QtGui import *
+from PySide6.QtUiTools import loadUiType
+from PySide6.QtWidgets import *
+from PySide6.QtCore import *
+from PySide6.QtGui import *
 # MEDUSA MODULES
 import resources
 from gui import gui_utils as gu
@@ -24,20 +24,19 @@ from gui.qt_widgets import dialogs
 import constants, exceptions
 from gui.qt_widgets.dialogs import ThreadProgressDialog
 
-ui_plots_panel_widget = \
-    uic.loadUiType('gui/ui_files/apps_panel_widget.ui')[0]
+ui_plots_panel_widget = loadUiType('gui/ui_files/apps_panel_widget.ui')[0]
 
 
 class AppsPanelWidget(QWidget, ui_plots_panel_widget):
 
-    error_signal = pyqtSignal(Exception)
+    error_signal = Signal(Exception)
 
     def __init__(self, apps_manager, working_lsl_streams, app_state, run_state,
                  medusa_interface, apps_folder, study_mode, theme_colors):
         super().__init__()
         self.setupUi(self)
         # Attributes
-        self.screen_size = QDesktopWidget().availableGeometry(self).size()
+        self.screen_size = self.screen().geometry().size()
         self.apps_manager = apps_manager
         self.working_lsl_streams = working_lsl_streams
         self.app_state = app_state
@@ -320,7 +319,6 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
             ser_lsl_streams = [lsl_str.to_serializable_obj() for
                                lsl_str in self.working_lsl_streams]
             # Get app manager
-            print(self.rec_info)
             self.app_process = app_process_mdl.App(
                 app_info=self.apps_manager.apps_dict[current_app_key],
                 app_settings=self.app_settings,
@@ -398,7 +396,9 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
         # Check app selected
         current_app_key = self.apps_panel_grid_widget.get_selected_app()
         if current_app_key is None:
-            raise ValueError('Select an app to start!')
+            dialogs.error_dialog(message='Please, select an app to config.',
+                                 title='Error!',
+                                 theme_colors=self.theme_colors)
         app_settings_mdl = importlib.import_module(
             self.get_app_module(current_app_key, 'settings'))
         try:
@@ -406,6 +406,7 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
                 self.get_app_module(current_app_key, 'config'))
             conf_window = app_config_mdl.Config
         except ModuleNotFoundError as e:
+            self.error_signal.emit(exceptions.MedusaException(e))
             conf_window = resources.BasicConfigWindow
         if self.app_settings is None or not isinstance(
                 self.app_settings, app_settings_mdl.Settings):
@@ -440,7 +441,7 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
         if not os.path.exists(directory):
             os.makedirs(directory)
         app_file = QFileDialog.getOpenFileName(caption="MEDUSA app",
-                                               directory=directory,
+                                               dir=directory,
                                                filter=filt)[0]
         if app_file != '':
 
@@ -490,7 +491,7 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
         filt = "MEDUSA app (*.zip)"
         directory = "../%s.zip" % app_key
         app_file = QFileDialog.getSaveFileName(caption="Make app bundle",
-                                               directory=directory,
+                                               dir=directory,
                                                filter=filt)[0]
         if len(app_file) > 0:
             dir_name = os.path.dirname(app_file)
@@ -546,7 +547,7 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
         if not os.path.exists(directory):
             os.makedirs(directory)
         session_plan = QFileDialog.getOpenFileName(caption="Session plan",
-                                                   directory=directory,
+                                                   dir=directory,
                                                    filter=filt)[0]
         if len(session_plan) > 0:
             with open(session_plan, 'r') as f:
@@ -834,12 +835,12 @@ class AppsPanelGridWidget(QWidget):
 
 class AppWidget(QFrame):
 
-    app_selected = pyqtSignal(str)
-    app_about = pyqtSignal(str)
-    app_doc = pyqtSignal(str)
-    app_update = pyqtSignal(str)
-    app_package = pyqtSignal(str)
-    app_uninstall = pyqtSignal(str)
+    app_selected = Signal(str)
+    app_about = Signal(str)
+    app_doc = Signal(str)
+    app_update = Signal(str)
+    app_package = Signal(str)
+    app_uninstall = Signal(str)
 
     def __init__(self, min_widget_width, app_key, app_params, apps_folder,
                  theme_colors):
@@ -952,7 +953,7 @@ class AppsPanelWindow(QMainWindow):
 
     """This window holds the plots panel widget in undocked mode"""
 
-    close_signal = pyqtSignal()
+    close_signal = Signal()
 
     def __init__(self, apps_panel_widget, theme_colors,
                  width=1200, height=900):
@@ -991,9 +992,9 @@ class ConfigureRecInfoDialog(dialogs.MedusaDialog):
         self.study_info_text_edit = None
         super().__init__('Configure recording info',
                          theme_colors=theme_colors)
-        screen = QDesktopWidget().screenGeometry()
-        width = max(screen.width() // 4, 640)
-        height = max(screen.height() // 3, 360)
+        screen_geometry = self.screen().availableGeometry()
+        width = max(screen_geometry.width() // 4, 640)
+        height = max(screen_geometry.height() // 3, 360)
         self.resize(width, height)
         # Init
         self.init_layout_elements()
@@ -1014,6 +1015,8 @@ class ConfigureRecInfoDialog(dialogs.MedusaDialog):
                                       QLineEdit.TrailingPosition)
 
         rec_params_box = QGroupBox('Recording params')
+        rec_params_box.setToolTip('Set these parameters to save time when '
+                                  'saving recordings')
         rec_params_layout = QFormLayout()
         rec_params_layout.addRow(QLabel('Rec id'), self.rec_line_edit)
         rec_params_layout.addRow(QLabel('File ext'), self.file_ext_combo_box)
@@ -1028,6 +1031,8 @@ class ConfigureRecInfoDialog(dialogs.MedusaDialog):
         self.study_info_text_edit = QTextEdit()
 
         study_params_box = QGroupBox('Study params')
+        study_params_box.setToolTip('Set these parameters to include '
+                                    'additional info in recordings')
         study_params_layout = QFormLayout()
         study_params_layout.addRow(QLabel('Study id'), self.study_line_edit)
         study_params_layout.addRow(QLabel('Subject id'), self.subject_line_edit)
@@ -1079,7 +1084,7 @@ class ConfigureRecInfoDialog(dialogs.MedusaDialog):
     def on_search_path(self):
         directory = self.path_line_edit.text()
         path = QFileDialog.getExistingDirectory(caption="Recording path",
-                                                directory=directory)
+                                                dir=directory)
         if path != '':
             self.path_line_edit.setText(path)
 
@@ -1096,7 +1101,6 @@ class ConfigureRecInfoDialog(dialogs.MedusaDialog):
         except json.JSONDecodeError as e:
             study_info = self.study_info_text_edit.toPlainText()
         rec_info['study_info'] = study_info
-        print(rec_info)
         return rec_info
 
     def on_accept(self):
@@ -1121,9 +1125,9 @@ class ConfigSessionDialog(dialogs.MedusaDialog):
         self.path_line_edit = None
         self.session_plan_table = None
         super().__init__('Configure session', theme_colors=theme_colors)
-        screen = QDesktopWidget().screenGeometry()
-        width = max(screen.width() // 3, 640)
-        height = max(screen.height() // 3, 360)
+        screen_geometry = self.screen().availableGeometry()
+        width = max(screen_geometry.width() // 3, 640)
+        height = max(screen_geometry.height() // 3, 360)
         self.resize(width, height)
         if self.session_plan is not None:
             self.session_plan_table.load_session_plan(session_plan)
@@ -1185,7 +1189,7 @@ class ConfigSessionDialog(dialogs.MedusaDialog):
         filt = "Session plan (*.session)"
         directory = "../config"
         file_path = QFileDialog.getSaveFileName(caption="Session plan",
-                                                directory=directory,
+                                                dir=directory,
                                                 filter=filt)[0]
         if file_path != '':
             with open(file_path, 'w') as f:
@@ -1308,7 +1312,7 @@ class ConfigSessionDialog(dialogs.MedusaDialog):
         def on_search_settings_file(self, row_position):
             directory = "../config"
             file = QFileDialog.getOpenFileName(caption="App settings",
-                                               directory=directory)[0]
+                                               dir=directory)[0]
             if file != '':
                 line_edit = self.tableWidget.cellWidget(row_position, 2)
                 line_edit.setText(file)
@@ -1353,10 +1357,10 @@ class ConfigSessionDialog(dialogs.MedusaDialog):
 
 class FakeUser(QThread):
 
-    app_power = pyqtSignal(dict)
-    app_play = pyqtSignal()
-    app_stop = pyqtSignal()
-    session_finished = pyqtSignal()
+    app_power = Signal(dict)
+    app_play = Signal()
+    app_stop = Signal()
+    session_finished = Signal()
 
     def __init__(self, medusa_interface, app_state, run_state, session_plan):
         super().__init__()

@@ -2,7 +2,8 @@
 import copy
 import sys, os, json, traceback, math
 # External imports
-from PyQt5 import QtCore, QtGui, QtWidgets, uic
+from PySide6.QtUiTools import loadUiType
+from PySide6 import QtGui, QtWidgets
 # Medusa imports
 from gui import gui_utils as gu
 from gui.qt_widgets import dialogs
@@ -12,10 +13,10 @@ import exceptions
 import constants
 
 # Load the .ui files
-ui_main_dialog = \
-    uic.loadUiType('gui/ui_files/lsl_config_dialog.ui')[0]
-ui_stream_config_dialog = \
-    uic.loadUiType('gui/ui_files/lsl_config_medusa_params_dialog.ui')[0]
+ui_main_dialog = loadUiType(
+    'gui/ui_files/lsl_config_dialog.ui')[0]
+ui_stream_config_dialog = loadUiType(
+    'gui/ui_files/lsl_config_medusa_params_dialog.ui')[0]
 
 
 class LSLConfigDialog(QtWidgets.QDialog, ui_main_dialog):
