@@ -491,7 +491,7 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
         filt = "MEDUSA app (*.zip)"
         directory = "../%s.zip" % app_key
         app_file = QFileDialog.getSaveFileName(caption="Make app bundle",
-                                               directory=directory,
+                                               dir=directory,
                                                filter=filt)[0]
         if len(app_file) > 0:
             dir_name = os.path.dirname(app_file)
@@ -547,7 +547,7 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
         if not os.path.exists(directory):
             os.makedirs(directory)
         session_plan = QFileDialog.getOpenFileName(caption="Session plan",
-                                                   directory=directory,
+                                                   dir=directory,
                                                    filter=filt)[0]
         if len(session_plan) > 0:
             with open(session_plan, 'r') as f:
@@ -992,9 +992,9 @@ class ConfigureRecInfoDialog(dialogs.MedusaDialog):
         self.study_info_text_edit = None
         super().__init__('Configure recording info',
                          theme_colors=theme_colors)
-        screen = QDesktopWidget().screenGeometry()
-        width = max(screen.width() // 4, 640)
-        height = max(screen.height() // 3, 360)
+        screen_geometry = self.screen().availableGeometry()
+        width = max(screen_geometry.width() // 4, 640)
+        height = max(screen_geometry.height() // 3, 360)
         self.resize(width, height)
         # Init
         self.init_layout_elements()
@@ -1015,6 +1015,8 @@ class ConfigureRecInfoDialog(dialogs.MedusaDialog):
                                       QLineEdit.TrailingPosition)
 
         rec_params_box = QGroupBox('Recording params')
+        rec_params_box.setToolTip('Set these parameters to save time when '
+                                  'saving recordings')
         rec_params_layout = QFormLayout()
         rec_params_layout.addRow(QLabel('Rec id'), self.rec_line_edit)
         rec_params_layout.addRow(QLabel('File ext'), self.file_ext_combo_box)
@@ -1029,6 +1031,8 @@ class ConfigureRecInfoDialog(dialogs.MedusaDialog):
         self.study_info_text_edit = QTextEdit()
 
         study_params_box = QGroupBox('Study params')
+        study_params_box.setToolTip('Set these parameters to include '
+                                    'additional info in recordings')
         study_params_layout = QFormLayout()
         study_params_layout.addRow(QLabel('Study id'), self.study_line_edit)
         study_params_layout.addRow(QLabel('Subject id'), self.subject_line_edit)
@@ -1080,7 +1084,7 @@ class ConfigureRecInfoDialog(dialogs.MedusaDialog):
     def on_search_path(self):
         directory = self.path_line_edit.text()
         path = QFileDialog.getExistingDirectory(caption="Recording path",
-                                                directory=directory)
+                                                dir=directory)
         if path != '':
             self.path_line_edit.setText(path)
 
@@ -1097,7 +1101,6 @@ class ConfigureRecInfoDialog(dialogs.MedusaDialog):
         except json.JSONDecodeError as e:
             study_info = self.study_info_text_edit.toPlainText()
         rec_info['study_info'] = study_info
-        print(rec_info)
         return rec_info
 
     def on_accept(self):
@@ -1186,7 +1189,7 @@ class ConfigSessionDialog(dialogs.MedusaDialog):
         filt = "Session plan (*.session)"
         directory = "../config"
         file_path = QFileDialog.getSaveFileName(caption="Session plan",
-                                                directory=directory,
+                                                dir=directory,
                                                 filter=filt)[0]
         if file_path != '':
             with open(file_path, 'w') as f:
@@ -1309,7 +1312,7 @@ class ConfigSessionDialog(dialogs.MedusaDialog):
         def on_search_settings_file(self, row_position):
             directory = "../config"
             file = QFileDialog.getOpenFileName(caption="App settings",
-                                               directory=directory)[0]
+                                               dir=directory)[0]
             if file != '':
                 line_edit = self.tableWidget.cellWidget(row_position, 2)
                 line_edit.setText(file)

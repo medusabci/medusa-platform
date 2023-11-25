@@ -154,7 +154,9 @@ class AppSkeleton(mp.Process):
         """This function builds a path to save the recording using the rec_info
         dict. It can be overwritten to implement custom behaviour.
         """
-        # Check
+        # Check recording info attributes
+        if self.rec_info is None:
+            return None
         if self.rec_info['path'] is None or \
                 not os.path.isdir(self.rec_info['path']):
             return None
@@ -552,9 +554,8 @@ class SaveFileDialog(dialogs.MedusaDialog):
         # File name
         self.file_name = '%s.%s.%s' % (self.rec_info['rec_id'], app_ext,
                                        self.rec_info['file_ext'])
+        # Set path
         self.path = os.path.join(self.rec_info['path'], self.file_name)
-
-        # Default file name
         self.file_path_lineEdit.setText(self.path)
 
         # Show

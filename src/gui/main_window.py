@@ -673,11 +673,12 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         self.reset_tool_bar_main()
 
     @exceptions.error_handler(scope='general')
-    def open_analyzer_window(self, checked):
-        raise NotImplementedError('This functionality is still under development!')
+    def open_analyzer_window(self):
+        raise NotImplementedError('This functionality is still under '
+                                  'development!')
 
     @exceptions.error_handler(scope='general')
-    def open_account_window(self, event):
+    def open_account_window(self):
         if not self.accounts_manager.check_session():
             self.open_login_window()
         else:

@@ -93,11 +93,11 @@ class LoginDialog(QtWidgets.QDialog, ui_main_dialog):
         self.error_signal.emit(mds_ex)
 
     @exceptions.error_handler(scope='general')
-    def on_button_login_clicked(self, checked):
+    def on_button_login_clicked(self):
         """Query to www.medusabci.com to log in"""
         # Reset error message
         self.label_error_msg.setText('')
-        QtWidgets.qApp.processEvents()
+        QtWidgets.QApplication.instance().processEvents()
         # Get data
         email = self.lineEdit_email.text()
         password = self.lineEdit_password.text()
