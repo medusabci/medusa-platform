@@ -1356,7 +1356,7 @@ class SplashScreen:
         """ Sets the initial splash screen while it loads things."""
         # Attaching the splash image
         self.release_info = release_info
-        img_path = glob.glob('gui/images/medusa_splash_v2023.png')[0]
+        img_path = glob.glob('gui/images/medusa_splash.png')[0]
         splash_image = QPixmap(img_path)
         self.splash_screen = QSplashScreen(splash_image)
         self.splash_screen.setStyleSheet("QSplashScreen { margin-right: 0px; "

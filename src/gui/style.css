@@ -650,7 +650,7 @@ Style of the user login and profile
 ============================================================================= */
 
 #qdialog_login {
-    border-image: url("gui/images/medusa_v2023_login.png");
+    border-image: url("gui/images/medusa_login.png");
 }
 
 #login_container {
@@ -730,4 +730,25 @@ QTextBrowser#textBrowser_subject
 
 .studies-tab-widget{
     padding:0;
+}
+
+/* =============================================================================
+13. ABOUT DIALOG
+
+Style of studies management widget.
+============================================================================= */
+
+QDialog#qdialog_about{
+    border-image: url("gui/images/medusa_about.png");
+}
+
+QDialog#qdialog_about QLabel {
+    background-color: transparent;
+    color: white;
+}
+
+QDialog#qdialog_about QTextBrowser {
+    background-color: transparent;
+    border: none;
+    color: white;
 }
