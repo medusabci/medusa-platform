@@ -500,8 +500,8 @@ class LSLStreamReceiver:
         self.info_cha = self.lsl_stream.cha_info
         self.idx_cha = self.lsl_stream.selected_channels_idx
         self.auto_mode = auto_mode
-        # Min chunk size cannot be None. By default, set the minimum update rate
-        # to 10 ms to avoid excessive computing load
+        # Min chunk size cannot be None. By default, sets the minimum update
+        # rate to 10 ms to avoid excessive computing load
         self.min_chunk_size = max(int(0.01 * self.fs), 1) \
             if min_chunk_size is None else min_chunk_size
         # Max chunk size cannot be None. Default max chunk size of LSL is 1024
