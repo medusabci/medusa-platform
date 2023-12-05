@@ -504,8 +504,9 @@ class LSLStreamReceiver:
         # rate to 10 ms to avoid excessive computing load
         self.min_chunk_size = max(int(0.01 * self.fs), 1) \
             if min_chunk_size is None else min_chunk_size
-        # Max chunk size cannot be None. Default max chunk size of LSL is 1024
-        self.max_chunk_size = max(int(2*min_chunk_size), int(self.fs)) \
+        # Max chunk size cannot be None. Default max chunk size 2 *
+        # min_chunk_size. Set automode=True to update this value on demand
+        self.max_chunk_size = max(int(2*self.min_chunk_size), int(self.fs)) \
             if max_chunk_size is None else max_chunk_size
         # Timeout cannot be None in order to avoid blocking processes
         self.timeout = 1.5 * self.max_chunk_size / self.fs \

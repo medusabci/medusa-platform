@@ -78,7 +78,7 @@ class LoginDialog(QtWidgets.QDialog, ui_main_dialog):
         self.show()
 
     @exceptions.error_handler(scope='general')
-    def on_toggle_password_Action(self, show):
+    def on_toggle_password_Action(self):
         if not self.password_shown:
             self.lineEdit_password.setEchoMode(QtWidgets.QLineEdit.Normal)
             self.password_shown = True

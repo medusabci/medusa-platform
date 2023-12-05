@@ -279,11 +279,13 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         self.plots_panel_widget = None
         self.set_up_plots_panel()
 
-    def check_updates(self):
+    def check_updates(self, exclude_prereleases=True):
+
         # Check for available updates of MEDUSA Platform
-        update, latest_version_info = \
-            self.updates_manager.check_for_medusa_platform_updates()
-        if update:
+        platform_update, platform_rejected, latest_version_info = \
+            self.updates_manager.check_for_medusa_platform_updates(
+                exclude_prereleases=exclude_prereleases)
+        if platform_update:
             # Initialize progress dialog
             self.progress_dialog = ThreadProgressDialog(
                 window_title='Updating MEDUSA\u00A9 Platform...',
@@ -297,9 +299,10 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
                 args=(latest_version_info, self.progress_dialog))
             th.start()
         # Check for available updates of MEDUSA Kernel
-        update, latest_version_info = \
-            self.updates_manager.check_for_medusa_kernel_updates()
-        if update:
+        kernel_update, kernel_rejected, latest_version_info = \
+            self.updates_manager.check_for_medusa_kernel_updates(
+                exclude_prereleases=exclude_prereleases)
+        if kernel_update:
             # Initialize progress dialog
             self.progress_dialog = ThreadProgressDialog(
                 window_title='Updating MEDUSA\u00A9 Kernel...',
@@ -313,7 +316,7 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
                 args=('medusa-kernel==%s' % latest_version_info,
                       self.progress_dialog))
             th.start()
-        return update
+        return platform_update, platform_rejected, kernel_update, kernel_rejected
 
     @exceptions.error_handler(scope='general')
     def update_finished(self):
@@ -544,21 +547,16 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
     def get_platform_release_info():
         try:
             with open('../version', 'r') as f:
-                release_info = dict(zip(['tag_name', 'name', 'date'],
-                                        f.read().split('\n')))
-                release_tag_split = release_info['tag_name'].split('.')
-                release_info['version'] = release_tag_split[0]
-                release_info['major_patch'] = release_tag_split[1]
-                release_info['minor_patch'] = release_tag_split[2]
+                release_info = json.load(f)
         except Exception as e:
-            release_info = dict()
-            release_info['tag_name'] = 'Dev.0.0'
-            release_info['name'] = 'Development'
-            release_info['date'] = str(datetime.date.today())
-            release_tag_split = release_info['tag_name'].split('.')
-            release_info['version'] = release_tag_split[0]
-            release_info['major_patch'] = release_tag_split[1]
-            release_info['minor_patch'] = release_tag_split[2]
+            release_info = {
+                'date': str(datetime.date.today()),
+                'tag_name': 'Dev.0.0',
+                'version': 'Dev',
+                'major_patch': 0,
+                'minor_patch': 0,
+                'name': 'Development',
+            }
         return release_info
 
     @staticmethod
@@ -823,9 +821,17 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
 
     @exceptions.error_handler(scope='general')
     def open_help_updates(self, checked=None):
-        # TODO: check for updates automatically
-        return webbrowser.open(
-            'https://www.medusabci.com/solutions/medusa-platform/')
+        check, exclude_prereleases = \
+            self.updates_manager.show_check_for_updates_dialog()
+        if check:
+            res = self.check_updates(exclude_prereleases=exclude_prereleases)
+            if all(not item for item in res):
+                info_dialog('There are no available updates for MEDUSA\u00A9 '
+                            '%s. Check our website to find more recent '
+                            'versions' % self.platform_release_info['version'],
+                            'No updates', theme_colors=self.theme_colors)
+                return webbrowser.open(
+                    'https://www.medusabci.com/solutions/medusa-platform/')
 
     @exceptions.error_handler(scope='general')
     def open_help_about(self, checked=None):
