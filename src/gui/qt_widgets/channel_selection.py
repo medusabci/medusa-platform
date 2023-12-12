@@ -274,7 +274,10 @@ class EEGChannelSelectionPlot(SerializableComponent):
         dist_matrix = self.channel_set.compute_dist_matrix()
         dist_matrix.sort()
         percentage = self.set_tolerance_parameter()
-        self.tolerance_radius = 1.5 * percentage * dist_matrix[:, 1].min()
+        if len(self.l_cha) > 1:
+            self.tolerance_radius = 1.5 * percentage * dist_matrix[:, 1].min()
+        else:
+            self.tolerance_radius = percentage
 
     def set_tolerance_parameter(self):
         """ Computes the percentage of the minimum distance between channels
