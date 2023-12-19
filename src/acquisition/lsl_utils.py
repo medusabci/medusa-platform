@@ -516,14 +516,15 @@ class LSLStreamReceiver:
         #                              self.min_chunk_size,
         #                              self.max_chunk_size, self.timeout))
         # Calculate LSL time offset
-        self.lsl_clock_offset = \
-            np.mean([time.time() - pylsl.local_clock() for _ in range(10)]) + \
-            self.lsl_stream.lsl_stream_inlet.time_correction()
+        # self.lsl_clock_offset = \
+        #     np.mean([time.time() - pylsl.local_clock() for _ in range(10)])
         # Initialize auxiliary variables
         self.mds_chunk_counter = 0
         # self.lsl_chunk_counter = 0
         # self.lsl_mean_chunk_size = 0
-        self.last_t = -1
+        self.last_t_local = -1
+        self.last_t_lsl = -1
+        self.historic_offsets = list()
         self.aliasing_correction = True
 
     def get_chunk(self):
@@ -533,6 +534,12 @@ class LSLStreamReceiver:
         timer = self.Timer()
         samples = list()
         times = list()
+
+        # Estimate the current clock offset between LSL and UNIX local time
+        lsl_clock_offset = time.time() - pylsl.local_clock()
+        self.historic_offsets.append(lsl_clock_offset)
+
+        # Get data
         while True:
             # Check if we need to update the max_chunk_size and timout
             if self.auto_mode:
@@ -561,7 +568,8 @@ class LSLStreamReceiver:
                 # Increment chunk counter
                 self.mds_chunk_counter += 1
                 # LSL time to local time
-                times = np.array(times) + self.lsl_clock_offset
+                lsl_time = np.array(times)
+                local_time = np.array(times) + lsl_clock_offset
                 samples = np.array(samples)
                 # ============================================================ #
                 # UNCOMMENT FOR DEBUGGING
@@ -588,16 +596,23 @@ class LSLStreamReceiver:
                     # print('dt: %.4f \t time[0]: %.4f' %
                     #       (dt_aliasing, times[0] - self.last_t))
                     # ======================================================== #
-                    dt_aliasing = times[0] - self.last_t
-                    if dt_aliasing < 0 and self.last_t != -1:
+                    dt_aliasing = local_time[0] - self.last_t_local
+                    if dt_aliasing < 0 and self.last_t_local != -1:
                         print('%sCorrecting an aliasing of %.4f ms...' %
                               (self.TAG, dt_aliasing * 1000))
-                        corrected_times = np.linspace(self.last_t, times[-1],
-                                                      len(times) + 1)
-                        times = corrected_times[1:]
-                self.last_t = times[-1]
+                        corrected_times = np.linspace(
+                            self.last_t_local, local_time[-1], len(local_time) + 1)
+                        local_time = corrected_times[1:]
 
-                return samples[:, self.idx_cha], times
+                    dt_aliasing = lsl_time[0] - self.last_t_lsl
+                    if dt_aliasing < 0 and self.last_t_lsl != -1:
+                        corrected_times = np.linspace(
+                            self.last_t_lsl, lsl_time[-1], len(lsl_time) + 1)
+                        lsl_time = corrected_times[1:]
+                self.last_t_local = local_time[-1]
+                self.last_t_lsl = lsl_time[-1]
+
+                return samples[:, self.idx_cha], local_time, lsl_time
 
             if timer.get_s() > self.timeout:
                 # Update timeout because it can be inadequate for the LSL
@@ -639,6 +654,9 @@ class LSLStreamReceiver:
                 else:
                     if l_cha.lower() == cha_label.lower():
                         return idx
+
+    def get_historic_offsets(self):
+        return self.historic_offsets
 
     class Timer(object):
         """ Represents a watchdog timer. The watchdog timer is used to detect

@@ -342,6 +342,7 @@ class LSLStreamAppWorker(th.Thread):
         self.lock = th.Lock()
         self.data = np.zeros((0, self.receiver.n_cha))
         self.timestamps = np.zeros((0,))
+        self.lsl_timestamps = np.zeros((0,))
 
     def handle_exception(self, ex):
         self.medusa_interface.error(ex)
@@ -357,7 +358,8 @@ class LSLStreamAppWorker(th.Thread):
         while not self.stop:
             # Get data
             try:
-                chunk_data, chunk_times = self.receiver.get_chunk()
+                chunk_data, chunk_times, chunk_lsl_times = \
+                    self.receiver.get_chunk()
             except exceptions.LSLStreamTimeout as e:
                 error_counter += 1
                 if error_counter > 5:
@@ -382,12 +384,22 @@ class LSLStreamAppWorker(th.Thread):
                         self.data = np.vstack((self.data, chunk_data))
                         self.timestamps = np.append(self.timestamps,
                                                     chunk_times)
+                        self.lsl_timestamps = np.append(self.lsl_timestamps,
+                                                        chunk_lsl_times)
 
     def get_data(self):
         with self.lock:
             timestamps = self.timestamps.copy()
             data = self.data.copy()
         return timestamps, data
+
+    def get_lsl_timestamps(self):
+        with self.lock:
+            lsl_timestamps = self.lsl_timestamps.copy()
+        return lsl_timestamps
+
+    def get_historic_offsets(self):
+        return self.receiver.get_historic_offsets()
 
     def reset_data(self):
         with self.lock:
