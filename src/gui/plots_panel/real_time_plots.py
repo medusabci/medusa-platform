@@ -1729,7 +1729,7 @@ class RealTimePlotWorker(QThread):
         while self.plot_state.value == constants.PLOT_STATE_ON:
             # Get chunks
             try:
-                chunk_data, chunk_times = self.receiver.get_chunk()
+                chunk_data, chunk_times, _ = self.receiver.get_chunk()
             except exceptions.LSLStreamTimeout as e:
                 error_counter += 1
                 if error_counter > 5:
