@@ -61,7 +61,6 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
 
     def handle_exception(self, mds_ex):
         # Send exception to gui main
-        # self.medusa_interface.error(ex)
         self.error_signal.emit(mds_ex)
 
     def set_up_tool_bar_app(self):
@@ -245,6 +244,8 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
                 self.app_process.terminate()
                 self.app_process.join()
                 success = True
+        if self.fake_user is not None:
+            self.stop_session()
         return success
 
     def fill_apps_panel(self):
@@ -285,7 +286,7 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
         self.undocked = undocked
         self.reset_tool_bar_app_buttons()
 
-    @exceptions.error_handler(scope='general')
+    @exceptions.error_handler(scope='app')
     def app_power(self, checked=None):
         """ This function starts the paradigm. Once the paradigm is powered, it
         can only be stopped with stop button
@@ -298,6 +299,8 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
                 title='No LSL streams',
                 theme_colors=self.theme_colors)
             if not resp:
+                if self.fake_user is not None:
+                    self.fake_user.continue_to_next_run = True
                 return
         # Check app selected
         current_app_key = self.apps_panel_grid_widget.get_selected_app()
@@ -344,7 +347,7 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
             self.run_state.value = constants.RUN_STATE_READY
             self.current_app_key = current_app_key
 
-    @exceptions.error_handler(scope='general')
+    @exceptions.error_handler(scope='app')
     def app_play(self, checked=None):
         """ Starts a run with specified settings. The run will be recorded"""
         if self.app_state.value is constants.APP_STATE_ON and \
@@ -369,7 +372,7 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
                 # Feedback
                 self.medusa_interface.log("Run resumed")
 
-    @exceptions.error_handler(scope='general')
+    @exceptions.error_handler(scope='app')
     def app_stop(self, checked=None):
         """ Stops the run"""
         if self.app_state.value is constants.APP_STATE_ON:
@@ -557,7 +560,7 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
             self.toolButton_session_play.setDisabled(False)
             self.toolButton_session_config.setDisabled(False)
 
-    @exceptions.error_handler(scope='general')
+    @exceptions.error_handler(scope='app')
     def play_session(self, checked=None):
         if self.fake_user is None:
             self.fake_user = FakeUser(
@@ -574,13 +577,15 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
                             custom_color=self.theme_colors['THEME_RED']))
         else:
             self.app_stop()
-            self.fake_user.stop = True
-            self.fake_user = None
-            # Wait cannot be used because it blocks the main thread. Is it
-            # safe to assume that the thread will close? Not sure
-            # self.fake_user.wait()
+            self.stop_session()
 
-    @exceptions.error_handler(scope='general')
+    @exceptions.error_handler(scope='app')
+    def stop_session(self):
+        self.fake_user.stop = True
+        # todo: this blocks the main thread. Is there a better way?
+        self.fake_user.wait()
+
+    @exceptions.error_handler(scope='app')
     def on_play_session_app_power(self, run):
         # Update rec info
         self.rec_info['rec_id'] = run['rec_id']
@@ -589,6 +594,12 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
         self.apps_panel_grid_widget.find_app(run['app_id'])
         # Load settings
         current_app_key = self.apps_panel_grid_widget.get_selected_app()
+        # Check app
+        if current_app_key is None:
+            ex = ValueError('The app %s is not installed. Check the '
+                            'configuration of the session!' % run['app_id'])
+            raise exceptions.MedusaException(
+                ex, importance='critical', scope='app')
         app_settings_mdl = importlib.import_module(
             self.get_app_module(current_app_key, 'settings'))
         if os.path.isfile(run['settings_path']):
@@ -597,10 +608,11 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
         # App power
         self.app_power()
 
-    @exceptions.error_handler(scope='general')
+    @exceptions.error_handler(scope='app')
     def on_play_session_finished(self, checked=None):
         self.toolButton_session_play.setIcon(
             gu.get_icon("fast_forward.svg", self.theme_colors))
+        self.fake_user = None
 
     @exceptions.error_handler(scope='general')
     def config_session(self, checked=None):
@@ -1369,6 +1381,7 @@ class FakeUser(QThread):
         self.app_state = app_state
         self.run_state = run_state
         self.session_plan = session_plan
+        self.continue_to_next_run = False
         self.stop = False
 
     def handle_exception(self, ex):
@@ -1383,12 +1396,15 @@ class FakeUser(QThread):
     def run(self):
         try:
             for run in self.session_plan:
-                continue_to_next_run = False
+                self.continue_to_next_run = False
                 while self.app_state.value != constants.APP_STATE_OFF:
                     # Check stop session
-                    if self.stop:
+                    if self.stop or self.continue_to_next_run:
                         break
                     time.sleep(0.1)
+                # Check continue
+                if self.continue_to_next_run:
+                    continue
                 # Check stop session
                 if self.stop:
                     break
@@ -1396,9 +1412,12 @@ class FakeUser(QThread):
                 # Wait until the app is ON
                 while self.app_state.value != constants.APP_STATE_ON:
                     # Check stop session
-                    if self.stop:
+                    if self.stop or self.continue_to_next_run:
                         break
                     time.sleep(0.1)
+                # Check continue
+                if self.continue_to_next_run:
+                    continue
                 # Check stop session
                 if self.stop:
                     break
@@ -1406,8 +1425,9 @@ class FakeUser(QThread):
                 play_time = time.time()
                 # Wait until the run has finished
                 while self.run_state.value != constants.RUN_STATE_FINISHED:
+                    self.debug_session_state(0)
                     # Check stop session
-                    if self.stop:
+                    if self.stop or self.continue_to_next_run:
                         break
                     # Check max time
                     if run['max_time'] is not None:
@@ -1415,15 +1435,12 @@ class FakeUser(QThread):
                             break
                     # Check manual interactions
                     if self.run_state.value == constants.RUN_STATE_STOP:
-                        continue_to_next_run = True
+                        self.continue_to_next_run = True
                         break
                     time.sleep(0.1)
-                # Check stop session
-                if self.stop:
-                    break
-                if continue_to_next_run:
-                    continue
-                self.app_stop.emit()
+                # Check manual stop
+                if not self.continue_to_next_run:
+                    self.app_stop.emit()
                 # Wait until the app is OFF
                 while self.app_state.value != constants.APP_STATE_OFF:
                     # Check stop session
@@ -1436,6 +1453,9 @@ class FakeUser(QThread):
 
             # Wait until the app is OFF
             while self.app_state.value != constants.APP_STATE_OFF:
+                # Check stop session
+                if self.stop:
+                    break
                 time.sleep(0.1)
 
             self.session_finished.emit()
@@ -1444,9 +1464,9 @@ class FakeUser(QThread):
             self.handle_exception(e)
             self.session_finished.emit()
 
-    def debug_app_state(self):
-        print('\nStep 0 --------')
+    def debug_session_state(self, step):
+        print('\nStep %i --------' % step)
         print('App state: %i' % self.app_state.value)
-        print('Run state: %i' % self.app_state.value)
+        print('Run state: %i' % self.run_state.value)
 
 
