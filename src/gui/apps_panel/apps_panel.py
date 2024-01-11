@@ -1425,7 +1425,6 @@ class FakeUser(QThread):
                 play_time = time.time()
                 # Wait until the run has finished
                 while self.run_state.value != constants.RUN_STATE_FINISHED:
-                    self.debug_session_state(0)
                     # Check stop session
                     if self.stop or self.continue_to_next_run:
                         break
