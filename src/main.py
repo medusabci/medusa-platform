@@ -8,3 +8,4 @@ if __name__ == '__main__':
     application = QApplication(sys.argv)
     main_window = GuiMainClass()
     sys.exit(application.exec())
+
