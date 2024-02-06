@@ -52,7 +52,7 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
         self.app_settings = None
         self.current_app_key = None
         self.progress_dialog = None
-        self.session_plan = None
+        self.session_config = None
         self.fake_user = None
         # Create apps panel grid scroll area
         self.set_up_apps_area()
@@ -185,7 +185,7 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
             self.toolButton_app_config.setDisabled(False)
         self.toolButton_app_play.setDisabled(True)
         self.toolButton_app_stop.setDisabled(True)
-        if self.session_plan is None:
+        if self.session_config is None:
             self.toolButton_session_play.setDisabled(True)
             self.toolButton_session_config.setDisabled(True)
         else:
@@ -550,12 +550,12 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
         directory = "../config"
         if not os.path.exists(directory):
             os.makedirs(directory)
-        session_plan = QFileDialog.getOpenFileName(caption="Session plan",
-                                                   dir=directory,
-                                                   filter=filt)[0]
-        if len(session_plan) > 0:
-            with open(session_plan, 'r') as f:
-                self.session_plan = json.load(f)
+        session_path = QFileDialog.getOpenFileName(caption="Session config",
+                                                     dir=directory,
+                                                     filter=filt)[0]
+        if len(session_path) > 0:
+            with open(session_path, 'r') as f:
+                self.session_config = json.load(f)
             # Enable session buttons
             self.toolButton_session_play.setDisabled(False)
             self.toolButton_session_config.setDisabled(False)
@@ -565,7 +565,7 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
         if self.fake_user is None:
             self.fake_user = FakeUser(
                 self.medusa_interface, self.app_state, self.run_state,
-                self.session_plan)
+                self.session_config)
             self.fake_user.app_power.connect(self.on_play_session_app_power)
             self.fake_user.app_play.connect(self.app_play)
             self.fake_user.app_stop.connect(self.app_stop)
@@ -618,7 +618,7 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
     def config_session(self, checked=None):
         self.config_session_dialog = ConfigSessionDialog(
             apps_manager=self.apps_manager,
-            session_plan=self.session_plan,
+            session_config=self.session_config,
             theme_colors=self.theme_colors)
         self.config_session_dialog.accepted.connect(
             self.on_session_config_dialog_accepted)
@@ -640,15 +640,15 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
 
     @exceptions.error_handler(scope='general')
     def on_session_config_dialog_accepted(self, checked=None):
-        self.session_plan = self.config_session_dialog.session_plan
-        if len(self.session_plan) > 0:
+        self.session_config = self.config_session_dialog.session_config
+        if len(self.session_config) > 0:
             self.toolButton_session_play.setDisabled(False)
             self.toolButton_session_config.setDisabled(False)
         self.config_session_dialog = None
 
     @exceptions.error_handler(scope='general')
     def on_session_config_dialog_rejected(self, checked=None):
-        self.session_plan = None
+        self.session_config = None
         self.toolButton_session_play.setDisabled(True)
         self.toolButton_session_config.setDisabled(True)
         self.config_session_dialog = None
@@ -677,15 +677,16 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
     @exceptions.error_handler(scope='general')
     def set_rec_info(self, rec_info):
         self.rec_info = rec_info
-        session_plans = glob.glob('%s/*.session' % rec_info['path'])
-        if len(session_plans) == 1:
+        session_config_available = True if len(glob.glob(
+            '%s/*.session' % rec_info['path'])) == 1 else False
+        if session_config_available:
             if dialogs.confirmation_dialog(
                     'There is a session plan available for '
                     'this subject, do you want to load it?',
                     title='Session plan available'):
 
-                with open(session_plans[0], 'r') as f:
-                    self.session_plan = json.load(f)
+                with open(session_config_available[0], 'r') as f:
+                    self.session_config = json.load(f)
                     # Enable session buttons
                     self.toolButton_session_play.setDisabled(False)
                     self.toolButton_session_config.setDisabled(False)
@@ -1127,63 +1128,89 @@ class ConfigureRecInfoDialog(dialogs.MedusaDialog):
 
 class ConfigSessionDialog(dialogs.MedusaDialog):
 
-    def __init__(self, apps_manager, session_plan=None,
+    def __init__(self, apps_manager, session_config=None,
                  theme_colors=None):
         self.apps_manager = apps_manager
-        self.session_plan = session_plan
+        self.session_config = session_config if session_config is not None \
+            else dict()
         # Key layout elements
         self.study_line_edit = None
         self.subject_line_edit = None
         self.session_line_edit = None
         self.path_line_edit = None
         self.session_plan_table = None
+        self.session_autoplay_checkbox = None
         super().__init__('Configure session', theme_colors=theme_colors)
+        # Qt window params
         screen_geometry = self.screen().availableGeometry()
         width = max(screen_geometry.width() // 3, 640)
         height = max(screen_geometry.height() // 3, 360)
         self.resize(width, height)
-        if self.session_plan is not None:
-            self.session_plan_table.load_session_plan(session_plan)
+        # Load plan
+        if session_config is not None:
+            if isinstance(session_config, dict):
+                # New sessions
+                self.session_autoplay_checkbox.setChecked(
+                    session_config['autoplay'])
+                self.session_plan_table.load_session_plan(
+                    session_config['plan'])
+            else:
+                # Old sessions
+                # todo: delete this in future versions
+                self.session_autoplay_checkbox.setChecked(False)
+                self.session_plan_table.load_session_plan(session_config)
 
     def create_layout(self):
         # Main layout
         main_layout = QVBoxLayout()
+        # General configurations
+        session_config_box = QGroupBox('Config')
+        session_config_box_layout = QVBoxLayout()
+        self.session_autoplay_checkbox = QCheckBox('Play run automatically')
+        self.session_autoplay_checkbox.setChecked(True)
+        session_config_box_layout.addWidget(self.session_autoplay_checkbox)
+        session_config_box.setLayout(session_config_box_layout)
+        main_layout.addWidget(session_config_box)
         # Session plan table
+        session_plan_box = QGroupBox('Plan')
         table_layout = QHBoxLayout()
         self.session_plan_table = self.TableWidget(self.apps_manager,
                                                    self.theme_colors)
         table_layout.addWidget(self.session_plan_table)
         # Table buttons
-        buttons_layout = QVBoxLayout()
+        table_buttons_layout = QVBoxLayout()
         add_row_button = QToolButton()
         add_row_button.setIconSize(QSize(20, 20))
         add_row_button.setIcon(gu.get_icon("add.svg", self.theme_colors))
         add_row_button.clicked.connect(self.add_run)
-        buttons_layout.addWidget(add_row_button)
+        table_buttons_layout.addWidget(add_row_button)
         remove_row_button = QToolButton()
         remove_row_button.setIconSize(QSize(20, 20))
         remove_row_button.setIcon(gu.get_icon(
             "remove.svg", custom_color=self.theme_colors['THEME_RED']))
         remove_row_button.clicked.connect(self.remove_run)
-        buttons_layout.addWidget(remove_row_button)
-        save_session_button = QToolButton()
-        save_session_button.setIconSize(QSize(20, 20))
-        save_session_button.setIcon(gu.get_icon(
-            "save_as.svg", self.theme_colors))
-        save_session_button.clicked.connect(self.save_session_plan)
-        buttons_layout.addWidget(save_session_button)
+        table_buttons_layout.addWidget(remove_row_button)
         spacer = QSpacerItem(0, 0, QSizePolicy.Minimum,
                              QSizePolicy.Expanding)
-        buttons_layout.addItem(spacer)
-        table_layout.addLayout(buttons_layout)
-        main_layout.addLayout(table_layout)
-
+        table_buttons_layout.addItem(spacer)
+        table_layout.addLayout(table_buttons_layout)
+        session_plan_box.setLayout(table_layout)
+        main_layout.addWidget(session_plan_box)
         # Bottom buttons
-        QBtn = QDialogButtonBox.Ok | QDialogButtonBox.Cancel
-        buttonBox = QDialogButtonBox(QBtn)
-        buttonBox.accepted.connect(self.on_accept)
-        buttonBox.rejected.connect(self.on_cancel)
-        main_layout.addWidget(buttonBox)
+        dialog_buttons_layout = QHBoxLayout()
+        save_button = QPushButton('Save')
+        save_button.clicked.connect(self.save_session_config)
+        dialog_buttons_layout.addWidget(save_button)
+        spacer = QSpacerItem(0, 0, QSizePolicy.Expanding,
+                             QSizePolicy.Minimum)
+        dialog_buttons_layout.addItem(spacer)
+        ok_button = QPushButton('Ok')
+        ok_button.clicked.connect(self.on_accept)
+        dialog_buttons_layout.addWidget(ok_button)
+        cancel_button = QPushButton('Cancel')
+        cancel_button.clicked.connect(self.on_cancel)
+        dialog_buttons_layout.addWidget(cancel_button)
+        main_layout.addLayout(dialog_buttons_layout)
 
         return main_layout
 
@@ -1193,11 +1220,27 @@ class ConfigSessionDialog(dialogs.MedusaDialog):
     def remove_run(self):
         self.session_plan_table.remove_row()
 
-    def save_session_plan(self):
-        session_plan = self.session_plan_table.get_session_plan()
-        if not self.check_session_plan(session_plan):
+    def check_session_plan(self, plan):
+        # todo: check rec file paths to avoid unwanted loss of information if
+        #  the file already exists
+        # Check app ids
+        for i, run in enumerate(plan):
+            if run['app_id'] is None:
+                dialogs.error_dialog(
+                    'Please, select an app in row %i' % (i + 1),
+                    'Error!', theme_colors=self.theme_colors)
+                return False
+        return True
+
+    def save_session_config(self):
+        # Get session config
+        autoplay = self.session_autoplay_checkbox.isChecked()
+        plan = self.session_plan_table.get_session_plan()
+        if not self.check_session_plan(plan):
             return
-        self.session_plan = session_plan
+        # Update plan
+        self.session_config['autoplay'] = autoplay
+        self.session_config['plan'] = plan
         # Save file
         filt = "Session plan (*.session)"
         directory = "../config"
@@ -1206,31 +1249,22 @@ class ConfigSessionDialog(dialogs.MedusaDialog):
                                                 filter=filt)[0]
         if file_path != '':
             with open(file_path, 'w') as f:
-                json.dump(self.session_plan, f, indent=4)
-
-    def check_session_plan(self, session_plan):
-        # todo: check rec file paths to avoid unwanted loss of information if
-        #  the file already exists
-        # Check app ids
-        for i, run in enumerate(session_plan):
-            if run['app_id'] is None:
-                dialogs.error_dialog(
-                    'Please, select an app in row %i' % (i + 1),
-                    'Error!', theme_colors=self.theme_colors)
-                return False
-        return True
+                json.dump(self.session_config, f, indent=4)
 
     def on_accept(self):
         # Get session plan and check
-        session_plan = self.session_plan_table.get_session_plan()
-        if not self.check_session_plan(session_plan):
+        autoplay = self.session_autoplay_checkbox.isChecked()
+        plan = self.session_plan_table.get_session_plan()
+        if not self.check_session_plan(plan):
             return
-        self.session_plan = session_plan
+        # Update session config
+        self.session_config['autoplay'] = autoplay
+        self.session_config['plan'] = plan
         # Trigger accept event
         self.accept()
 
     def on_cancel(self):
-        self.session_plan = None
+        self.session_config = None
         self.reject()
 
     class TableWidget(QWidget):
@@ -1375,12 +1409,12 @@ class FakeUser(QThread):
     app_stop = Signal()
     session_finished = Signal()
 
-    def __init__(self, medusa_interface, app_state, run_state, session_plan):
+    def __init__(self, medusa_interface, app_state, run_state, session_config):
         super().__init__()
         self.medusa_interface = medusa_interface
         self.app_state = app_state
         self.run_state = run_state
-        self.session_plan = session_plan
+        self.session_config = session_config
         self.continue_to_next_run = False
         self.stop = False
 
@@ -1395,7 +1429,7 @@ class FakeUser(QThread):
 
     def run(self):
         try:
-            for run in self.session_plan:
+            for run in self.session_config['plan']:
                 self.continue_to_next_run = False
                 while self.app_state.value != constants.APP_STATE_OFF:
                     # Check stop session
@@ -1421,8 +1455,9 @@ class FakeUser(QThread):
                 # Check stop session
                 if self.stop:
                     break
-                self.app_play.emit()
-                play_time = time.time()
+                if self.session_config['autoplay']:
+                    self.app_play.emit()
+                    play_time = time.time()
                 # Wait until the run has finished
                 while self.run_state.value != constants.RUN_STATE_FINISHED:
                     # Check stop session

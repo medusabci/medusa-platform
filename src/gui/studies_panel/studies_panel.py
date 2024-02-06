@@ -126,8 +126,7 @@ class StudiesPanelWidget(QWidget, ui_plots_panel_widget):
         if not os.path.exists(directory):
             os.makedirs(directory)
         studies_root_path = QFileDialog.getExistingDirectory(
-            caption="Root path",
-            directory=directory)
+            caption="Root path", dir=directory)
         self.studies_panel_config['root_path'] = studies_root_path
         self.update_studies_panel()
         self.save_studies_config()
