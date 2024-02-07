@@ -1182,7 +1182,7 @@ class ConfigSessionDialog(dialogs.MedusaDialog):
         # General configurations
         session_config_box = QGroupBox('Config')
         session_config_box_layout = QVBoxLayout()
-        self.session_autoplay_checkbox = QCheckBox('Play run automatically')
+        self.session_autoplay_checkbox = QCheckBox('Play runs automatically')
         self.session_autoplay_checkbox.setChecked(
             self.session_config['autoplay'])
         session_config_box_layout.addWidget(self.session_autoplay_checkbox)

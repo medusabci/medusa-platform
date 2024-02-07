@@ -3,6 +3,8 @@ import json
 import os
 import glob
 import shutil
+import subprocess
+import re
 
 # EXTERNAL MODULES
 from PySide6.QtUiTools import loadUiType
@@ -136,6 +138,23 @@ class StudiesPanelWidget(QWidget, ui_plots_panel_widget):
         raise NotImplementedError()
 
     @exceptions.error_handler(scope='studies')
+    def custom_sort_key(self, element_path):
+        """This function provides custom short keys for the tree model. For
+        instance, it will sort ['S1', 'S10', 'S2', 'S100', 'AB200', 'A1'] as
+        ['A1', 'S1', 'S2', 'S10', 'S100', 'AB200']
+         """
+        # Split the section into alphabetical and numerical parts
+        element_path = os.path.basename(os.path.normpath(element_path))
+        re_match = re.match(r'([A-Za-z]+)(\d*)', element_path)
+        if re_match is not None:
+            alpha_part, num_part = re_match.groups()
+        else:
+            alpha_part, num_part = element_path, 0
+        # Convert the numerical part to an integer (treat empty string as 0)
+        num_value = int(num_part) if num_part else 0
+        return alpha_part, num_value
+
+    @exceptions.error_handler(scope='studies')
     def update_studies_panel(self, checked=None):
         # Clean variables
         self.selected_item_type = None
@@ -162,14 +181,17 @@ class StudiesPanelWidget(QWidget, ui_plots_panel_widget):
                 self.studies_panel_config['root_path']), self.theme_colors)
             studies = glob.glob(
                 '%s/*/' % self.studies_panel_config['root_path'])
+            studies.sort(key=self.custom_sort_key)
             # Append studies
             for study in studies:
                 subjects = glob.glob('%s/*/' % study)
+                subjects.sort(key=self.custom_sort_key)
                 study_item = StudyItem(os.path.basename(study[0:-1]),
                                        self.theme_colors)
                 # Append subjects
                 for subject in subjects:
                     sessions = glob.glob('%s/*/' % subject)
+                    sessions.sort(key=self.custom_sort_key)
                     subject_item = SubjectItem(
                         os.path.basename(subject[0:-1]), self.theme_colors)
                     for session in sessions:
@@ -195,6 +217,9 @@ class StudiesPanelWidget(QWidget, ui_plots_panel_widget):
         delete_action = QAction('Delete', self)
         delete_action.triggered.connect(self.on_delete_element)
         menu.addAction(delete_action)
+        open_action = QAction('Open in explorer', self)
+        open_action.triggered.connect(self.on_open_in_explorer)
+        menu.addAction(open_action)
         menu.popup(self.treeView_studies.viewport().mapToGlobal(pos))
 
     @exceptions.error_handler(scope='studies')
@@ -213,7 +238,7 @@ class StudiesPanelWidget(QWidget, ui_plots_panel_widget):
         elif len(self.selected_item_tree) == 2:
             element_to_create = 'session'
         else:
-            element_to_create = None
+            raise ValueError('Study management dos not support more levels!')
         dialog = CreateElementDialog(element_to_create,
                                      self.selected_item_tree,
                                      self.studies_panel_config['root_path'])
@@ -234,10 +259,10 @@ class StudiesPanelWidget(QWidget, ui_plots_panel_widget):
         element_path = self.get_element_dir(
             self.studies_panel_config['root_path'],
             self.selected_item_tree)
-        title = 'This %s is not empty!' % self.selected_item_type \
-            if self.selected_item_type != 'root' else \
-            'The root folder is not empty!'
         if len(glob.glob('%s/*' % element_path)):
+            title = 'This %s is not empty!' % self.selected_item_type \
+                if self.selected_item_type != 'root' else \
+                'The root folder is not empty!'
             res = dialogs.confirmation_dialog(
                 text='All contents will be eliminated. Do you want to proceed?',
                 title=title)
@@ -245,6 +270,25 @@ class StudiesPanelWidget(QWidget, ui_plots_panel_widget):
                 return
         shutil.rmtree(element_path)
         self.update_studies_panel()
+
+    @exceptions.error_handler(scope='studies')
+    def on_open_in_explorer(self, checked=None):
+        element_path = self.get_element_dir(
+            self.studies_panel_config['root_path'],
+            self.selected_item_tree)
+        element_path = os.path.normpath(element_path)
+        if os.path.exists(element_path):
+            # Use 'explorer' command on Windows
+            if os.name == 'nt':
+                subprocess.run(['explorer', element_path], shell=True)
+            # Use 'xdg-open' command on Linux
+            elif os.name == 'posix':
+                subprocess.run(['xdg-open', element_path])
+            # Use 'open' command on macOS
+            elif os.name == 'darwin':
+                subprocess.run(['open', element_path])
+        else:
+            raise ValueError('The folder %s does not exist!' % element_path)
 
     @exceptions.error_handler(scope='studies')
     def on_item_selected(self, selected_item, deselected_item):
