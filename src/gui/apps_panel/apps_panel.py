@@ -154,7 +154,8 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
                 gu.get_icon("route.svg", self.theme_colors))
             self.toolButton_session_load.setToolTip('Load session')
             self.toolButton_session_play.setIcon(
-                gu.get_icon("fast_forward.svg", self.theme_colors))
+                gu.get_icon("fast_forward.svg",
+                            custom_color=self.theme_colors['THEME_GREEN']))
             self.toolButton_session_play.setToolTip('Play session')
             self.toolButton_session_config.setIcon(
                 gu.get_icon("settings.svg", self.theme_colors))
@@ -551,14 +552,16 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
         if not os.path.exists(directory):
             os.makedirs(directory)
         session_path = QFileDialog.getOpenFileName(caption="Session config",
-                                                     dir=directory,
-                                                     filter=filt)[0]
+                                                   dir=directory,
+                                                   filter=filt)[0]
         if len(session_path) > 0:
             with open(session_path, 'r') as f:
                 self.session_config = json.load(f)
-            # Enable session buttons
-            self.toolButton_session_play.setDisabled(False)
+            # Check session format
             self.toolButton_session_config.setDisabled(False)
+            if not isinstance(self.session_config, dict):
+                raise ValueError('Invalid session. Please, configure it')
+            self.toolButton_session_play.setDisabled(False)
 
     @exceptions.error_handler(scope='app')
     def play_session(self, checked=None):
@@ -611,7 +614,8 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
     @exceptions.error_handler(scope='app')
     def on_play_session_finished(self, checked=None):
         self.toolButton_session_play.setIcon(
-            gu.get_icon("fast_forward.svg", self.theme_colors))
+            gu.get_icon("fast_forward.svg",
+                        custom_color=self.theme_colors['THEME_GREEN']))
         self.fake_user = None
 
     @exceptions.error_handler(scope='general')
@@ -640,17 +644,20 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
 
     @exceptions.error_handler(scope='general')
     def on_session_config_dialog_accepted(self, checked=None):
-        self.session_config = self.config_session_dialog.session_config
-        if len(self.session_config) > 0:
-            self.toolButton_session_play.setDisabled(False)
-            self.toolButton_session_config.setDisabled(False)
-        self.config_session_dialog = None
+        if self.fake_user is None:
+            self.session_config = self.config_session_dialog.session_config
+            if len(self.session_config['plan']) > 0:
+                self.toolButton_session_play.setDisabled(False)
+                self.toolButton_session_config.setDisabled(False)
+            else:
+                self.toolButton_session_play.setDisabled(True)
+                self.toolButton_session_config.setDisabled(False)
+            self.config_session_dialog = None
+        else:
+            self.config_session_dialog = None
 
     @exceptions.error_handler(scope='general')
     def on_session_config_dialog_rejected(self, checked=None):
-        self.session_config = None
-        self.toolButton_session_play.setDisabled(True)
-        self.toolButton_session_config.setDisabled(True)
         self.config_session_dialog = None
 
     @exceptions.error_handler(scope='general')
@@ -1002,6 +1009,7 @@ class ConfigureRecInfoDialog(dialogs.MedusaDialog):
         self.path_line_edit = None
         self.study_line_edit = None
         self.subject_line_edit = None
+        self.subject_line_edit = None
         self.session_line_edit = None
         self.study_info_text_edit = None
         super().__init__('Configure recording info',
@@ -1022,8 +1030,9 @@ class ConfigureRecInfoDialog(dialogs.MedusaDialog):
         self.file_ext_combo_box = QComboBox()
         self.file_ext_combo_box.addItems(['bson', 'mat', 'json'])
         self.path_line_edit = QLineEdit()
-        search_action = QAction(
-            gu.get_icon("search.svg", self.theme_colors), 'Search', self)
+        search_button_color = self.theme_colors['THEME_MAIN_BUTTON_DARK']
+        icon = gu.get_icon("search.svg", custom_color=search_button_color)
+        search_action = QAction(icon, 'Search', self)
         search_action.triggered.connect(self.on_search_path)
         self.path_line_edit.addAction(search_action,
                                       QLineEdit.TrailingPosition)
@@ -1128,10 +1137,23 @@ class ConfigureRecInfoDialog(dialogs.MedusaDialog):
 
 class ConfigSessionDialog(dialogs.MedusaDialog):
 
-    def __init__(self, apps_manager, session_config=None,
-                 theme_colors=None):
+    def __init__(self, apps_manager, session_config=None, theme_colors=None):
         self.apps_manager = apps_manager
+        # Load session config
         self.session_config = None
+        if session_config is not None:
+            if isinstance(session_config, dict):
+                # New sessions
+                self.set_session_config(autoplay=session_config['autoplay'],
+                                        plan=session_config['plan'])
+            elif isinstance(session_config, list):
+                # Old sessions
+                # todo: delete this in future versions
+                self.set_session_config(autoplay=False, plan=session_config)
+            else:
+                self.set_session_config(autoplay=False, plan=list())
+        else:
+            self.set_session_config(autoplay=False, plan=list())
         # Key layout elements
         self.study_line_edit = None
         self.subject_line_edit = None
@@ -1145,31 +1167,11 @@ class ConfigSessionDialog(dialogs.MedusaDialog):
         width = max(screen_geometry.width() // 3, 640)
         height = max(screen_geometry.height() // 3, 360)
         self.resize(width, height)
-        # Load session config
-        if session_config is not None:
-            if isinstance(session_config, dict):
-                # New sessions
-                self.set_session_config(autoplay=session_config['autoplay'],
-                                        plan=session_config['plan'])
-            elif isinstance(session_config, list):
-                # Old sessions
-                # todo: delete this in future versions
-                self.set_session_config(autoplay=False, plan=session_config)
-            else:
-                self.set_session_config()
-        else:
-            self.set_session_config()
 
-    def set_session_config(self, autoplay=False, plan=[], update_gui=True):
+    def set_session_config(self, autoplay, plan):
         self.session_config = dict()
         self.session_config['autoplay'] = autoplay
         self.session_config['plan'] = plan
-        # Update gui elements
-        if update_gui:
-            self.session_autoplay_checkbox.setChecked(
-                self.session_config['autoplay'])
-            self.session_plan_table.load_session_plan(
-                self.session_config['plan'])
 
     def create_layout(self):
         # Main layout
@@ -1178,7 +1180,8 @@ class ConfigSessionDialog(dialogs.MedusaDialog):
         session_config_box = QGroupBox('Config')
         session_config_box_layout = QVBoxLayout()
         self.session_autoplay_checkbox = QCheckBox('Play run automatically')
-        self.session_autoplay_checkbox.setChecked(True)
+        self.session_autoplay_checkbox.setChecked(
+            self.session_config['autoplay'])
         session_config_box_layout.addWidget(self.session_autoplay_checkbox)
         session_config_box.setLayout(session_config_box_layout)
         main_layout.addWidget(session_config_box)
@@ -1188,11 +1191,14 @@ class ConfigSessionDialog(dialogs.MedusaDialog):
         self.session_plan_table = self.TableWidget(self.apps_manager,
                                                    self.theme_colors)
         table_layout.addWidget(self.session_plan_table)
+        self.session_plan_table.load_session_plan(self.session_config['plan'])
         # Table buttons
         table_buttons_layout = QVBoxLayout()
         add_row_button = QToolButton()
         add_row_button.setIconSize(QSize(20, 20))
-        add_row_button.setIcon(gu.get_icon("add.svg", self.theme_colors))
+        add_row_button.setIcon(
+            gu.get_icon("add_element.svg",
+                        custom_color=self.theme_colors['THEME_GREEN']))
         add_row_button.clicked.connect(self.add_run)
         table_buttons_layout.addWidget(add_row_button)
         remove_row_button = QToolButton()
@@ -1209,6 +1215,9 @@ class ConfigSessionDialog(dialogs.MedusaDialog):
         main_layout.addWidget(session_plan_box)
         # Bottom buttons
         dialog_buttons_layout = QHBoxLayout()
+        clear_button = QPushButton('Clear')
+        clear_button.clicked.connect(self.clear_session_config)
+        dialog_buttons_layout.addWidget(clear_button)
         save_button = QPushButton('Save')
         save_button.clicked.connect(self.save_session_config)
         dialog_buttons_layout.addWidget(save_button)
@@ -1224,6 +1233,14 @@ class ConfigSessionDialog(dialogs.MedusaDialog):
         main_layout.addLayout(dialog_buttons_layout)
 
         return main_layout
+
+    def clear_session_config(self):
+        self.set_session_config(autoplay=False, plan=list())
+        print(self.session_config)
+        self.session_autoplay_checkbox.setChecked(
+            self.session_config['autoplay'])
+        self.session_plan_table.load_session_plan(
+            self.session_config['plan'])
 
     def add_run(self):
         self.session_plan_table.add_row()
@@ -1250,7 +1267,7 @@ class ConfigSessionDialog(dialogs.MedusaDialog):
         if not self.check_session_plan(plan):
             return
         # Update session config
-        self.set_session_config(autoplay=autoplay, plan=plan, update_gui=False)
+        self.set_session_config(autoplay=autoplay, plan=plan)
         # Save file
         filt = "Session plan (*.session)"
         directory = "../config"
@@ -1268,7 +1285,7 @@ class ConfigSessionDialog(dialogs.MedusaDialog):
         if not self.check_session_plan(plan):
             return
         # Update session config
-        self.set_session_config(autoplay=autoplay, plan=plan, update_gui=False)
+        self.set_session_config(autoplay=autoplay, plan=plan)
         # Trigger accept event
         self.accept()
 
@@ -1333,8 +1350,9 @@ class ConfigSessionDialog(dialogs.MedusaDialog):
             settings_line_edit.setProperty("class", "line-edit-table")
             settings_line_edit.setSizePolicy(QSizePolicy.Expanding,
                                     QSizePolicy.Expanding)
-            search_action = QAction(
-                gu.get_icon("search.svg", self.theme_colors), 'Search', self)
+            search_button_color = self.theme_colors['THEME_MAIN_BUTTON_DARK']
+            icon = gu.get_icon("search.svg", custom_color=search_button_color)
+            search_action = QAction(icon, 'Search', self)
             search_action.triggered.connect(
                 lambda: self.on_search_settings_file(row_position))
             settings_line_edit.addAction(search_action,
@@ -1359,6 +1377,9 @@ class ConfigSessionDialog(dialogs.MedusaDialog):
                         file_ext_combo_box.setCurrentIndex(i)
                         break
             self.tableWidget.setCellWidget(row_position, 4, file_ext_combo_box)
+
+        def clear_table(self):
+            self.tableWidget.setRowCount(0)
 
         def remove_row(self):
             row_position = self.tableWidget.currentRow()
@@ -1403,6 +1424,7 @@ class ConfigSessionDialog(dialogs.MedusaDialog):
             return session_plan
 
         def load_session_plan(self, session_plan):
+            self.clear_table()
             for run in session_plan:
                 self.add_row(rec_id=run['rec_id'],
                              app_id=run['app_id'],

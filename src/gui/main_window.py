@@ -1387,7 +1387,7 @@ class SplashScreen:
             "border: 1px solid transparent; "
             "background: rgba(0,0,0,0); "
             "margin-left: 370px; "
-            "margin-top: 275px;"
+            "margin-top: 276px;"
             "}" +
             "QProgressBar::chunk{ background: #ffffff; }")
 
