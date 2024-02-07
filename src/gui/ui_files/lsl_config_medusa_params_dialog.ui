@@ -46,7 +46,53 @@
       <item row="1" column="1">
        <widget class="QComboBox" name="comboBox_medusa_type"/>
       </item>
-      <item row="2" column="1">
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="QGroupBox" name="groupBox_3">
+     <property name="title">
+      <string>Channels parameters</string>
+     </property>
+     <layout class="QVBoxLayout" name="verticalLayout_2">
+      <item>
+       <layout class="QFormLayout" name="formLayout">
+        <item row="0" column="0">
+         <widget class="QLabel" name="label_3">
+          <property name="toolTip">
+           <string>XML field that contains the channel information in the LSL stream_info object</string>
+          </property>
+          <property name="text">
+           <string>Channels field in LSL info</string>
+          </property>
+         </widget>
+        </item>
+        <item row="0" column="1">
+         <widget class="QComboBox" name="comboBox_desc_channels_field"/>
+        </item>
+        <item row="1" column="0">
+         <widget class="QLabel" name="label_channels_label_field">
+          <property name="toolTip">
+           <string>Name of the XML field insideeach channel that contains the labels of the channels</string>
+          </property>
+          <property name="text">
+           <string>Channel label field </string>
+          </property>
+         </widget>
+        </item>
+        <item row="1" column="1">
+         <widget class="QComboBox" name="comboBox_channel_label_field"/>
+        </item>
+        <item row="2" column="1">
+         <widget class="QPushButton" name="pushButton_read_channels_info">
+          <property name="text">
+           <string>Read channels info</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+      <item>
        <widget class="QTableWidget" name="tableWidget_channels">
         <property name="sizePolicy">
          <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
@@ -97,45 +143,6 @@
          <bool>false</bool>
         </attribute>
        </widget>
-      </item>
-     </layout>
-    </widget>
-   </item>
-   <item>
-    <widget class="QGroupBox" name="groupBox_3">
-     <property name="title">
-      <string>Channels parameters</string>
-     </property>
-     <layout class="QVBoxLayout" name="verticalLayout_2">
-      <item>
-       <layout class="QFormLayout" name="formLayout">
-        <item row="0" column="0">
-         <widget class="QLabel" name="label_3">
-          <property name="toolTip">
-           <string>XML field that contains the channel information in the LSL stream_info object</string>
-          </property>
-          <property name="text">
-           <string>Channels field in LSL info</string>
-          </property>
-         </widget>
-        </item>
-        <item row="1" column="0">
-         <widget class="QLabel" name="label_channels_label_field">
-          <property name="toolTip">
-           <string>Name of the XML field insideeach channel that contains the labels of the channels</string>
-          </property>
-          <property name="text">
-           <string>Channel label field </string>
-          </property>
-         </widget>
-        </item>
-        <item row="1" column="1">
-         <widget class="QComboBox" name="comboBox_channel_label_field"/>
-        </item>
-        <item row="0" column="1">
-         <widget class="QComboBox" name="comboBox_desc_channels_field"/>
-        </item>
-       </layout>
       </item>
      </layout>
     </widget>
