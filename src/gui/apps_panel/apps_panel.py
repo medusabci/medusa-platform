@@ -1131,8 +1131,7 @@ class ConfigSessionDialog(dialogs.MedusaDialog):
     def __init__(self, apps_manager, session_config=None,
                  theme_colors=None):
         self.apps_manager = apps_manager
-        self.session_config = session_config if session_config is not None \
-            else dict()
+        self.session_config = None
         # Key layout elements
         self.study_line_edit = None
         self.subject_line_edit = None
@@ -1146,19 +1145,31 @@ class ConfigSessionDialog(dialogs.MedusaDialog):
         width = max(screen_geometry.width() // 3, 640)
         height = max(screen_geometry.height() // 3, 360)
         self.resize(width, height)
-        # Load plan
+        # Load session config
         if session_config is not None:
             if isinstance(session_config, dict):
                 # New sessions
-                self.session_autoplay_checkbox.setChecked(
-                    session_config['autoplay'])
-                self.session_plan_table.load_session_plan(
-                    session_config['plan'])
-            else:
+                self.set_session_config(autoplay=session_config['autoplay'],
+                                        plan=session_config['plan'])
+            elif isinstance(session_config, list):
                 # Old sessions
                 # todo: delete this in future versions
-                self.session_autoplay_checkbox.setChecked(False)
-                self.session_plan_table.load_session_plan(session_config)
+                self.set_session_config(autoplay=False, plan=session_config)
+            else:
+                self.set_session_config()
+        else:
+            self.set_session_config()
+
+    def set_session_config(self, autoplay=False, plan=[], update_gui=True):
+        self.session_config = dict()
+        self.session_config['autoplay'] = autoplay
+        self.session_config['plan'] = plan
+        # Update gui elements
+        if update_gui:
+            self.session_autoplay_checkbox.setChecked(
+                self.session_config['autoplay'])
+            self.session_plan_table.load_session_plan(
+                self.session_config['plan'])
 
     def create_layout(self):
         # Main layout
@@ -1238,9 +1249,8 @@ class ConfigSessionDialog(dialogs.MedusaDialog):
         plan = self.session_plan_table.get_session_plan()
         if not self.check_session_plan(plan):
             return
-        # Update plan
-        self.session_config['autoplay'] = autoplay
-        self.session_config['plan'] = plan
+        # Update session config
+        self.set_session_config(autoplay=autoplay, plan=plan, update_gui=False)
         # Save file
         filt = "Session plan (*.session)"
         directory = "../config"
@@ -1258,8 +1268,7 @@ class ConfigSessionDialog(dialogs.MedusaDialog):
         if not self.check_session_plan(plan):
             return
         # Update session config
-        self.session_config['autoplay'] = autoplay
-        self.session_config['plan'] = plan
+        self.set_session_config(autoplay=autoplay, plan=plan, update_gui=False)
         # Trigger accept event
         self.accept()
 
