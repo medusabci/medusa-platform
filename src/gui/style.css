@@ -658,7 +658,7 @@ Style of the user login and profile
 }
 
 #login_container a {
-    color: #55aa00;
+    color: #bb22b3;
 }
 
 #login_container {
@@ -683,7 +683,7 @@ Style of the user login and profile
 }
 
 .profile-link {
-    color: #55aa00 !important;
+    color: #bb22b3 !important;
     font-family: "Roboto Mono";
     font-size: 9pt;
     text-decoration: underline;
@@ -740,6 +740,7 @@ Style of studies management widget.
 
 QDialog#qdialog_about{
     border-image: url("gui/images/medusa_about.png");
+
 }
 
 QDialog#qdialog_about QLabel {
@@ -747,8 +748,19 @@ QDialog#qdialog_about QLabel {
     color: white;
 }
 
+QDialog#qdialog_about QWidget {
+    background-color: transparent;
+}
+
 QDialog#qdialog_about QTextBrowser {
     background-color: transparent;
+    font-size: 8pt;
+    font-family:'Roboto Mono';
     border: none;
     color: white;
+}
+
+#about_details a {
+    color: #bb22b3;
+    text-decoration: none;
 }

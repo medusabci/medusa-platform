@@ -1327,7 +1327,7 @@ class AboutDialog(QDialog, gui_about):
         theme_colors = gu.get_theme_colors('dark')
         self.stl = gu.set_css_and_theme(self, theme_colors)
         self.setWindowIcon(QIcon('gui/images/medusa_task_icon.png'))
-        self.setWindowTitle('About MEDUSA')
+        self.setWindowTitle('About MEDUSA©')
 
         # Details
         self.label_date.setText('Built on ' + release_info['date'])
@@ -1342,17 +1342,22 @@ class AboutDialog(QDialog, gui_about):
             'name="qrichtext" content="1" /><meta charset="utf-8"/> ' \
             '<style>%s</style></head><body>%s</body></html>'
         style = 'p, li { white-space: pre-wrap; } p { font-family: "Roboto ' \
-                'Mono"; font-size:8pt; color: white;} a {text-decoration: ' \
-                'none; color:#55aa00;}'
-        body_ = '<br><p>Developed by (PhD) Eduardo Santamaría-Vázquez & (PhD) ' \
-                'Víctor Martínez-Cagigal.<br><br>' \
+                'Mono"; font-size: 8pt;} a {text-decoration: ' \
+                'none; color:#bb22b3;}'
+        body_ = '<p align="justify">Please cite us: ' \
+                'Eduardo Santamaría-Vázquez, Víctor Martínez-Cagigal, ' \
+                'Diego Marcos-Martínez, Víctor Rodríguez-González, Sergio ' \
+                'Pérez-Velasco, Selene Moreno-Calderón, Roberto Hornero, ' \
+                '"MEDUSA: A Novel Brain-Computer Interface Platform based on ' \
+                'Python", Computer Methods & Programs in Biomedicine, 2022.' \
+                '<br><br>' \
                 'More information at <a ' \
-                'href="https://medusabci.com/">www.medusabci.com</a><br><br' \
-                '></p>' \
-                '<p align="center">Powered by <a ' \
-                'href="http://gib.tel.uva.es/">Grupo de ' \
+                'href="https://medusabci.com/">www.medusabci.com</a>. ' \
+                'Powered by <a ' \
+                'href="https://gib.tel.uva.es/">Grupo de ' \
                 'Ingeniería Biomédica</a>, University of Valladolid, Spain.</p>'
-        self.textBrowser_details.setText(TEXT_BROWSER_TEMPLATE % (style, body_))
+        self.about_details.setText(TEXT_BROWSER_TEMPLATE % (style, body_))
+
         self.setModal(True)
 
 
@@ -1374,21 +1379,21 @@ class SplashScreen:
         self.splash_progbar.setTextVisible(False)
         self.splash_progbar.setStyleSheet(
             "QProgressBar{ "
-            "height: 8px; "
-            "width: 360px;"
+            "height: 7px; "
+            "width: 100px;"
             "margin-right: -5px;"
             "padding-right: 0px;"
             "color: none; "
             "border: 1px solid transparent; "
             "background: rgba(0,0,0,0); "
-            "margin-left: 440px; "
-            "margin-top: 330px;"
+            "margin-left: 370px; "
+            "margin-top: 275px;"
             "}" +
-            "QProgressBar::chunk{ background: #04211a; }")
+            "QProgressBar::chunk{ background: #ffffff; }")
 
         # Creating the progress text
         self.splash_text = QLabel('Making a PhD thesis...')
-        self.splash_text.setStyleSheet("color: #04211a; "
+        self.splash_text.setStyleSheet("color: #ffffff; "
                                        "font-size: 8pt; "
                                        "font-weight: bold; "
                                        "margin-top: 360px; "
