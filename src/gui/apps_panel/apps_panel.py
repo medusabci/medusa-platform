@@ -580,13 +580,14 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
                             custom_color=self.theme_colors['THEME_RED']))
         else:
             self.app_stop()
-            self.stop_session()
+            self.fake_user.stop = True
 
     @exceptions.error_handler(scope='app')
     def stop_session(self):
         self.fake_user.stop = True
         # todo: this blocks the main thread. Is there a better way?
         self.fake_user.wait()
+        self.fake_user = None
 
     @exceptions.error_handler(scope='app')
     def on_play_session_app_power(self, run):
@@ -616,13 +617,14 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
         self.toolButton_session_play.setIcon(
             gu.get_icon("fast_forward.svg",
                         custom_color=self.theme_colors['THEME_GREEN']))
-        self.fake_user = None
+        self.stop_session()
 
     @exceptions.error_handler(scope='general')
     def config_session(self, checked=None):
         self.config_session_dialog = ConfigSessionDialog(
             apps_manager=self.apps_manager,
             session_config=self.session_config,
+            playing_session=self.fake_user is None,
             theme_colors=self.theme_colors)
         self.config_session_dialog.accepted.connect(
             self.on_session_config_dialog_accepted)
@@ -634,8 +636,7 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
     def create_session(self, checked=None):
         self.config_session_dialog = ConfigSessionDialog(
             apps_manager=self.apps_manager,
-            theme_colors=self.theme_colors
-        )
+            theme_colors=self.theme_colors)
         self.config_session_dialog.accepted.connect(
             self.on_session_config_dialog_accepted)
         self.config_session_dialog.rejected.connect(
@@ -1137,8 +1138,10 @@ class ConfigureRecInfoDialog(dialogs.MedusaDialog):
 
 class ConfigSessionDialog(dialogs.MedusaDialog):
 
-    def __init__(self, apps_manager, session_config=None, theme_colors=None):
+    def __init__(self, apps_manager, session_config=None,
+                 playing_session=False, theme_colors=None):
         self.apps_manager = apps_manager
+        self.playing_session = playing_session
         # Load session config
         self.session_config = None
         if session_config is not None:
@@ -1227,6 +1230,8 @@ class ConfigSessionDialog(dialogs.MedusaDialog):
         ok_button = QPushButton('Ok')
         ok_button.clicked.connect(self.on_accept)
         dialog_buttons_layout.addWidget(ok_button)
+        if not self.playing_session:
+            ok_button.setDisabled(True)
         cancel_button = QPushButton('Cancel')
         cancel_button.clicked.connect(self.on_cancel)
         dialog_buttons_layout.addWidget(cancel_button)
