@@ -14,7 +14,7 @@ from PySide6.QtCore import *
 from PySide6.QtGui import QFont, QAction
 from scipy import signal as scp_signal
 from matplotlib.figure import Figure
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
+from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
 
 # MEDUSA-PLATFORM MODULES
 from acquisition import lsl_utils
@@ -146,8 +146,6 @@ class TopographyPlot(RealTimePlot):
     def __init__(self, uid, plot_state, medusa_interface, theme_colors):
         super().__init__(uid, plot_state, medusa_interface, theme_colors)
         # Graph variables
-        self.fig = None
-        self.axes = None
         self.channel_set = None
         self.win_s = None
         self.interp_p = None
@@ -291,8 +289,6 @@ class ConnectivityPlot(RealTimePlot):
     def __init__(self, uid, plot_state, medusa_interface, theme_colors):
         super().__init__(uid, plot_state, medusa_interface, theme_colors)
         # Graph variables
-        self.fig = None
-        self.axes = None
         self.channel_set = None
         self.win_s = None
         self.interp_p = None
