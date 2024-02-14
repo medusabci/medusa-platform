@@ -94,7 +94,12 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
 
         # Reset panels
         self.lsl_config = None
+        self.box_studies_panel = None
+        self.studies_panel_widget = None
         self.apps_manager = None
+        self.apps_panel_widget = None
+        self.log_panel_widget = None
+        self.plots_panel_widget = None
         self.reset_panels()
 
         # Menu and toolbar action initializing
@@ -258,25 +263,18 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
 
     @exceptions.error_handler(scope='general')
     def reset_panels(self):
-        # Log panel (set up first in case any exception is raised in other
-        # functions)
-        self.log_panel_widget = None
+        # Log panel (set up first in case is used in other functions)
         self.set_up_log_panel()
         # LSL config
-        self.lsl_config = None
         self.set_up_lsl_config()
         # Apps panel
         self.apps_manager = app_manager.AppManager(
             self.accounts_manager, self.medusa_interface,
             self.platform_release_info)
-        self.apps_panel_widget = None
         self.set_up_apps_panel()
         # Studies panel
-        self.box_studies_panel = None
-        self.studies_panel_widget = None
         self.set_up_studies_panel()
         # Plots dashboard
-        self.plots_panel_widget = None
         self.set_up_plots_panel()
 
     def check_updates(self, exclude_prereleases=True):
@@ -338,7 +336,11 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
 
     @exceptions.error_handler(scope='general')
     def set_up_studies_panel(self):
+        # Add widget if study mode is on
         if self.gui_config['study_mode']:
+            # Avoid multiple instances of the studies panel
+            if self.box_studies_panel is not None:
+                return
             # Group box
             self.box_studies_panel = QGroupBox('STUDIES')
             self.box_studies_panel.setLayout(QVBoxLayout())
@@ -356,10 +358,10 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
             self.studies_panel_widget.selection_signal.connect(
                 self.on_studies_panel_selection)
             # Clear layout
-            while self.box_studies_panel.layout().count():
-                child = self.box_studies_panel.layout().takeAt(0)
-                if child.widget():
-                    child.widget().deleteLater()
+            # while self.box_studies_panel.layout().count():
+            #     child = self.box_studies_panel.layout().takeAt(0)
+            #     if child.widget():
+            #         child.widget().deleteLater()
             # Add widget
             self.box_studies_panel.layout().addWidget(self.studies_panel_widget)
             self.box_studies_panel.layout().setContentsMargins(0, 0, 0, 0)
@@ -367,8 +369,10 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
             self.studies_panel_widget.toolButton_studies_undock.clicked.connect(
                 self.undock_studies_panel)
         else:
+            # Clear layout
             if self.box_studies_panel is not None:
                 self.box_studies_panel.deleteLater()
+                self.box_studies_panel = None
         self.update_menu_action_study_mode()
 
     @exceptions.error_handler(scope='general')
@@ -606,11 +610,13 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
 
     # ============================== PREFERENCES ============================= #
     def set_dark_theme(self):
+        print('set_dark_theme')
         self.gui_config['theme'] = 'dark'
         self.set_theme()
         self.reset_panels()
 
     def set_light_theme(self):
+        print('set_light_theme')
         self.gui_config['theme'] = 'light'
         self.set_theme()
         self.reset_panels()
@@ -621,7 +627,8 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         # Insert studies box and update apps panel
         self.set_up_studies_panel()
         self.apps_panel_widget.study_mode = self.gui_config['study_mode']
-        self.apps_panel_widget.rec_info = None
+        rec_info = self.apps_panel_widget.get_default_rec_info()
+        self.apps_panel_widget.set_rec_info(rec_info)
 
     @exceptions.error_handler(scope='general')
     def update_menu_action_study_mode(self):
