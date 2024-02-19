@@ -76,6 +76,10 @@ class UserSession:
             resp = self.session.get(url, json=data, verify=True)
         except requests.exceptions.SSLError as e:
             resp = self.session.get(url, json=data, verify=False)
+        except (ConnectionError, requests.exceptions.ConnectionError) as e:
+            raise ConnectionError('Failed to connect to %s. Internet '
+                                  'connection is required to perform this'
+                                  ' operation' % self.url_server)
         # Response handling
         if resp.status_code == 200:
             return json.loads(resp.content)['license_key']
@@ -87,8 +91,7 @@ class UserSession:
         elif resp.status_code == 404:
             raise exceptions.NotFoundError(
                 'This download is not licensed by MEDUSA. Please, '
-                'download the app from the official website.'
-            )
+                'download the app from the official website.')
         else:
             raise Exception("\n\n" + resp.text)
 
@@ -103,6 +106,8 @@ class UserSession:
             resp = self.session.post(url, json=data, verify=True)
         except requests.exceptions.SSLError as e:
             resp = self.session.post(url, json=data, verify=False)
+        except (ConnectionError, requests.exceptions.ConnectionError) as e:
+            return
         # Response handling
         if resp.status_code == 200:
             return json.loads(resp.content)['versions']

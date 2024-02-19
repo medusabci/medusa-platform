@@ -256,10 +256,11 @@ class AppManager:
             get_medusa_latest_version_of_apps(app_ids, target)
         # Check for updates
         for app_id, app_info in self.apps_dict.items():
-            if app_id not in latest_versions:
+            if latest_versions is None or app_id not in latest_versions:
                 self.apps_dict[app_id]['update'] = False
                 self.apps_dict[app_id]['update-version'] = None
                 continue
+            # Check if an update is available
             curr_version = app_info['version']
             latest_version = latest_versions[app_id]['version']
             # Set update parameter

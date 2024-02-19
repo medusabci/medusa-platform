@@ -449,7 +449,6 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
                                                dir=directory,
                                                filter=filt)[0]
         if app_file != '':
-
             # Initialize progress dialog
             self.progress_dialog = ThreadProgressDialog(
                 window_title='Installing app...',
@@ -457,7 +456,6 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
                 theme_colors=self.theme_colors)
             self.progress_dialog.done.connect(self.installation_finished)
             self.progress_dialog.show()
-
             # Install
             th = threading.Thread(target=self.apps_manager.install_app_bundle,
                                   args=(app_file, self.progress_dialog))
