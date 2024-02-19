@@ -485,10 +485,24 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
 
     @exceptions.error_handler(scope='general')
     def update_app(self, app_key):
-        dialogs.warning_dialog(
-            'No available updates for %s' %
-            self.apps_manager.apps_dict[app_key]['name'],
-            'Update', self.theme_colors)
+        if self.apps_manager.apps_dict[app_key]['update']:
+            app_info = self.apps_manager.apps_dict[app_key]
+            app_name = app_info['name']
+            current_version = app_info['version']
+            latest_version = app_info['update-version']['version']
+            info_text = '%s %s is out! Do you want to update? ' \
+                        'Download the latest version from the market' % \
+                        (app_name, latest_version)
+            title_text = 'Update for %s %s available' % \
+                         (app_name, current_version)
+            resp = dialogs.confirmation_dialog(text=info_text, title=title_text,
+                                               theme_colors=self.theme_colors)
+            if resp:
+                webbrowser.open('https://www.medusabci.com/market/%s' % app_key)
+        else:
+            app_name = self.apps_manager.apps_dict[app_key]['name']
+            dialogs.warning_dialog('No available updates for %s' % app_name,
+                                   'Update', self.theme_colors)
 
     @exceptions.error_handler(scope='general')
     def package_app(self, app_key):
@@ -873,7 +887,8 @@ class AppWidget(QFrame):
         self.apps_folder = apps_folder
         self.theme_colors = theme_colors
         self.pixmap_path = self.get_icon_path()
-        self.main_layout = QVBoxLayout()
+        self.main_layout = QStackedLayout()
+        self.main_layout.setStackingMode(QStackedLayout.StackAll)
         # Icon
         self.pix_map = QPixmap(self.pixmap_path)
         self.icon = QLabel()
@@ -891,18 +906,48 @@ class AppWidget(QFrame):
         gu.set_point_size(self.title, 8)
         # Restrictions
         self.setMinimumWidth(self.min_widget_width)
-        self.setMaximumHeight(
-            int(1.1 * self.min_widget_width))
+        self.setMaximumHeight(int(1.1 * self.min_widget_width))
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Minimum)
-        # Add layout
-        self.main_layout.addWidget(self.icon)
-        self.main_layout.addWidget(self.title)
-        self.main_layout.addItem(
+        # Add main widget
+        self.main_widget = QWidget(self)
+        main_widget_layout = QVBoxLayout()
+        self.main_widget.setLayout(main_widget_layout)
+        main_widget_layout.addWidget(self.icon)
+        main_widget_layout.addWidget(self.title)
+        main_widget_layout.addItem(
             QSpacerItem(0, 0, QSizePolicy.Ignored, QSizePolicy.Expanding))
-        self.setProperty("class", "app-widget")
-        # self.setCursor(QCursor(Qt.PointingHandCursor))
-        # gu.modify_property(self, "background-color", '#00a05f')
+        self.main_widget.setProperty("class", "app-widget")
+        self.main_layout.addWidget(self.main_widget)
+        # Update circle
+        if self.app_params['update']:
+            circle = self.CircleWidget(self.theme_colors)
+            self.main_layout.addWidget(circle)
+        # Set layout
         self.setLayout(self.main_layout)
+
+    class CircleWidget(QWidget):
+        def __init__(self, theme_colors):
+            super().__init__()
+            self.theme_colors = theme_colors
+            self.setToolTip('Update available')
+
+        def paintEvent(self, event):
+            painter = QPainter(self)
+            painter.setRenderHint(QPainter.Antialiasing)
+
+            # Set brush color
+            brush = QBrush(QColor(self.theme_colors['THEME_GREEN']))
+            painter.setBrush(brush)
+
+            # Set pen color to be transparent (eliminate the border)
+            pen = painter.pen()
+            pen.setColor(QColor(0, 0, 0, 0))
+            painter.setPen(pen)
+
+            # Draw a circle
+            radius = 5
+            painter.drawEllipse(self.width() - 2 * radius - 3, 3,
+                                2 * radius, 2 * radius)
 
     class AppMenu(QMenu):
 

@@ -10,7 +10,7 @@ class UserSession:
     # TODO: Handle connection error uniformly for all methods
 
     def __init__(self):
-        """ This class handles user sessions to a BeeLab database """
+        """ This class handles user sessions"""
 
         # Server and database name
         self.url_server = 'https://www.medusabci.com/api'
@@ -91,4 +91,22 @@ class UserSession:
             )
         else:
             raise Exception("\n\n" + resp.text)
+
+    def get_medusa_latest_version_of_apps(self, app_ids, target):
+        # Parse URL
+        url = self.url_server + '/get-medusa-apps-versions/'
+        # Make request
+        params = {'app_ids': app_ids,
+                  'target': target}
+        data = json.dumps(params)
+        try:
+            resp = self.session.post(url, json=data, verify=True)
+        except requests.exceptions.SSLError as e:
+            resp = self.session.post(url, json=data, verify=False)
+        # Response handling
+        if resp.status_code == 200:
+            return json.loads(resp.content)['versions']
+        else:
+            raise Exception("\n\n" + resp.text)
+
 

@@ -24,7 +24,7 @@ class AccountsManager:
             self.current_session = UserSession()
 
     def wrap_path(self, path):
-        """This function wraps the given path for the current session foler
+        """This function wraps the given path for the current session folder
         """
         if self.check_session():
             alias = self.current_session.user_info['alias']
