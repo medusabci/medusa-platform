@@ -934,7 +934,8 @@ class AppWidget(QFrame):
             painter.setRenderHint(QPainter.Antialiasing)
 
             # Set brush color
-            brush = QBrush(QColor(self.theme_colors['THEME_GREEN']))
+            brush = QBrush(QColor(self.theme_colors['THEME_BLUE']))
+            brush = QBrush('#77aaff')
             painter.setBrush(brush)
 
             # Set pen color to be transparent (eliminate the border)
@@ -943,7 +944,7 @@ class AppWidget(QFrame):
             painter.setPen(pen)
 
             # Draw a circle
-            radius = 5
+            radius = 6
             painter.drawEllipse(self.width() - 2 * radius - 3, 3,
                                 2 * radius, 2 * radius)
 

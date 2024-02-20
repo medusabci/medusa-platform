@@ -10,7 +10,7 @@ themes = {
         'THEME_BG_SELECTED': '#515658',
         'THEME_BG_FORM_FIELDS': '#cecece',
         'THEME_BG_ACCENT': '#0075db',
-        'THEME_MENU_SELECTED': '#4b6eaf',
+        'THEME_MENU_SELECTED': '#526D82',
         'THEME_MAIN_BUTTON_LIGHT': '#344963',
         'THEME_MAIN_BUTTON_MID': '#26364a',
         'THEME_MAIN_BUTTON_DARK': '#1b2532',
