@@ -4,7 +4,7 @@ import os, time
 # External imports
 from PySide6.QtUiTools import loadUiType
 from PySide6.QtCore import Signal, Qt, QThread
-from PySide6.QtGui import QIcon, QTextCursor, QPixmap
+from PySide6.QtGui import QIcon, QTextCursor, QPixmap, QFont
 from PySide6.QtWidgets import *
 
 import constants
@@ -383,7 +383,7 @@ class AboutAppDialog(QDialog, gui_about_app):
         self.setWindowFlags(
             self.windowFlags() & ~Qt.WindowContextHelpButtonHint)
         self.setupUi(self)
-        self.resize(600, 350)
+        self.resize(800, 325)
         theme_colors = gui_utils.get_theme_colors('dark')
         self.stl = gui_utils.set_css_and_theme(self, theme_colors)
         self.setWindowIcon(QIcon('gui/images/medusa_task_icon.png'))
@@ -393,20 +393,30 @@ class AboutAppDialog(QDialog, gui_about_app):
         pixmap = QPixmap(app_icon_path)
         # Set the maximum width for the image
         max_width = 300
-        # scaled_height = int(pixmap.height() * (max_width / pixmap.width()))
         scaled_pixmap = pixmap.scaledToWidth(max_width)
         self.icon.setPixmap(scaled_pixmap)
 
         # Details
         self.label_app_name.setText(app_info['name'])
         if dev_app:
-            self.label_version.setText('Development version')
-            self.label_target.setVisible(False)
+            # Set title style
+            self.label_app_name.setAlignment(Qt.AlignCenter)
+            # Set development version label
+            self.label_target.setText('Development version')
+            font = QFont()
+            font.setPointSize(12)
+            self.label_target.setFont(font)
+            self.label_target.setAlignment(Qt.AlignCenter)
+            # Set creation date
+            self.label_installation_date.setText(
+                'Created on %s' % app_info['installation-date'])
+            self.label_installation_date.setAlignment(Qt.AlignCenter)
+            # Hide unused labels
+            self.label_version.setVisible(False)
             self.label_compilation_date.setVisible(False)
-            self.label_installation_date.setVisible(False)
             self.label_license.setVisible(False)
             self.about_details.setVisible(False)
-            self.resize(600, 350)
+            self.resize(600, 325)
         else:
             # Labels
             self.label_version.setText('[%s]' % (app_info['version']))
@@ -427,12 +437,10 @@ class AboutAppDialog(QDialog, gui_about_app):
                     'Mono"; font-size: 8pt;} a {text-decoration: none; ' \
                     'color:#bb22b3;}'
             body_ = '<p align="justify">%s</p>' \
-                    '<br>' \
                     'More information at <a href="https://medusabci.com/market/%s">' \
                     'www.medusabci.com/market/%s</a>.' % \
                     (app_info['description'], app_info['id'], app_info['id'])
             self.about_details.setText(TEXT_BROWSER_TEMPLATE % (style, body_))
-            self.resize(600, 350)
         self.setModal(True)
 
 
