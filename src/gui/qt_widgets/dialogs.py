@@ -1,17 +1,20 @@
 # Python imports
 import multiprocessing
 import os, time
-from multiprocessing import Queue
 # External imports
 from PySide6.QtUiTools import loadUiType
 from PySide6.QtCore import Signal, Qt, QThread
-from PySide6.QtGui import QIcon, QTextCursor
+from PySide6.QtGui import QIcon, QTextCursor, QPixmap
 from PySide6.QtWidgets import *
-# Medusa imports
-from PySide6.QtWidgets import QDialog
 
 import constants
+# Medusa imports
 from gui import gui_utils
+
+
+# PREDEFINED DIALOG GUIS
+gui_about = loadUiType(os.getcwd() + "/gui/ui_files/about.ui")[0]
+gui_about_app = loadUiType(os.getcwd() + "/gui/ui_files/about_app.ui")[0]
 
 
 class MedusaDialog(QDialog):
@@ -327,6 +330,110 @@ class ThreadProgressDialog(MedusaDialog):
             self.stop = True
             self.queue.put((None, None))
             self.wait()
+
+
+class AboutDialog(QDialog, gui_about):
+
+    def __init__(self, release_info, parent=None, alias=''):
+        super().__init__(parent)
+        self.setWindowFlags(
+            self.windowFlags() & ~Qt.WindowContextHelpButtonHint)
+        self.setupUi(self)
+        theme_colors = gui_utils.get_theme_colors('dark')
+        self.stl = gui_utils.set_css_and_theme(self, theme_colors)
+        self.setWindowIcon(QIcon('gui/images/medusa_task_icon.png'))
+        self.setWindowTitle('About MEDUSA©')
+
+        # Details
+        self.label_date.setText('Built on ' + release_info['date'])
+        self.label_version.setText(release_info['version'] + ' [' +
+                                   release_info['name'] + ']')
+        self.label_license.setText('Licensed to ' + alias)
+
+        # Textbrowser
+        TEXT_BROWSER_TEMPLATE = \
+            '<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0//EN" ' \
+            '"http://www.w3.org/TR/REC-html40/strict.dtd"><html><head> <meta ' \
+            'name="qrichtext" content="1" /><meta charset="utf-8"/> ' \
+            '<style>%s</style></head><body>%s</body></html>'
+        style = 'p, li { white-space: pre-wrap; } p { font-family: "Roboto ' \
+                'Mono"; font-size: 8pt;} a {text-decoration: ' \
+                'none; color:#bb22b3;}'
+        body_ = '<p align="justify">Please cite us: ' \
+                'Eduardo Santamaría-Vázquez, Víctor Martínez-Cagigal, ' \
+                'Diego Marcos-Martínez, Víctor Rodríguez-González, Sergio ' \
+                'Pérez-Velasco, Selene Moreno-Calderón, Roberto Hornero, ' \
+                '"MEDUSA: A Novel Brain-Computer Interface Platform based on ' \
+                'Python", Computer Methods & Programs in Biomedicine, 2022.' \
+                '<br><br>' \
+                'More information at <a ' \
+                'href="https://medusabci.com/">www.medusabci.com</a>. ' \
+                'Powered by <a ' \
+                'href="https://gib.tel.uva.es/">Grupo de ' \
+                'Ingeniería Biomédica</a>, University of Valladolid, Spain.</p>'
+        self.about_details.setText(TEXT_BROWSER_TEMPLATE % (style, body_))
+
+        self.setModal(True)
+
+
+class AboutAppDialog(QDialog, gui_about_app):
+
+    def __init__(self, app_info, app_icon_path, parent=None, alias=''):
+        super().__init__(parent)
+        self.setWindowFlags(
+            self.windowFlags() & ~Qt.WindowContextHelpButtonHint)
+        self.setupUi(self)
+        self.resize(600, 350)
+        theme_colors = gui_utils.get_theme_colors('dark')
+        self.stl = gui_utils.set_css_and_theme(self, theme_colors)
+        self.setWindowIcon(QIcon('gui/images/medusa_task_icon.png'))
+        self.setWindowTitle('About')
+        dev_app = app_info['compilation-date'] == 'development'
+        # Icon
+        pixmap = QPixmap(app_icon_path)
+        # Set the maximum width for the image
+        max_width = 300
+        # scaled_height = int(pixmap.height() * (max_width / pixmap.width()))
+        scaled_pixmap = pixmap.scaledToWidth(max_width)
+        self.icon.setPixmap(scaled_pixmap)
+
+        # Details
+        self.label_app_name.setText(app_info['name'])
+        if dev_app:
+            self.label_version.setText('Development version')
+            self.label_target.setVisible(False)
+            self.label_compilation_date.setVisible(False)
+            self.label_installation_date.setVisible(False)
+            self.label_license.setVisible(False)
+            self.about_details.setVisible(False)
+            self.resize(600, 350)
+        else:
+            # Labels
+            self.label_version.setText('[%s]' % (app_info['version']))
+            self.label_target.setText(
+                'For MEDUSA PLATFORM %s' % app_info['target'])
+            self.label_compilation_date.setText(
+                'Built on %s' % app_info['compilation-date'])
+            self.label_installation_date.setText(
+                'Installed on %s' % app_info['installation-date'])
+            self.label_license.setText('Licensed to %s' % alias)
+            # Text browser
+            TEXT_BROWSER_TEMPLATE = \
+                '<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0//EN" ' \
+                '"http://www.w3.org/TR/REC-html40/strict.dtd"><html><head> ' \
+                '<meta name="qrichtext" content="1" /><meta charset="utf-8"/> ' \
+                '<style>%s</style></head><body>%s</body></html>'
+            style = 'p, li { white-space: pre-wrap; } p { font-family: "Roboto ' \
+                    'Mono"; font-size: 8pt;} a {text-decoration: none; ' \
+                    'color:#bb22b3;}'
+            body_ = '<p align="justify">%s</p>' \
+                    '<br>' \
+                    'More information at <a href="https://medusabci.com/market/%s">' \
+                    'www.medusabci.com/market/%s</a>.' % \
+                    (app_info['description'], app_info['id'], app_info['id'])
+            self.about_details.setText(TEXT_BROWSER_TEMPLATE % (style, body_))
+            self.resize(600, 350)
+        self.setModal(True)
 
 
 if __name__ == '__main__':

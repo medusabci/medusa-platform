@@ -49,6 +49,7 @@ LOG_CONFIG_FILE = 'log_config.json'
 APPS_CONFIG_FILE = 'apps_config.json'
 GUI_CONFIG_FILE = 'gui_config.json'
 STUDIES_CONFIG_FILE = 'studies_config.json'
+ACCOUNTS_DIR = 'accounts'
 
 # Images folder
 IMG_FOLDER = 'gui/images'

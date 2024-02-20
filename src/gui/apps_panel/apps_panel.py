@@ -463,10 +463,20 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
 
     @exceptions.error_handler(scope='general')
     def about_app(self, app_key):
-        dialogs.info_dialog(
-            '%s' % json.dumps(self.apps_manager.apps_dict[app_key], indent=4),
-            'About %s' % self.apps_manager.apps_dict[app_key]['name'],
-            self.theme_colors)
+        # dialogs.info_dialog(
+        #     '%s' % json.dumps(self.apps_manager.apps_dict[app_key], indent=4),
+        #     'About %s' % self.apps_manager.apps_dict[app_key]['name'],
+        #     self.theme_colors)
+        curr_session = self.apps_manager.accounts_manager.current_session
+        dialog = dialogs.AboutAppDialog(
+            app_info=self.apps_manager.apps_dict[app_key],
+            app_icon_path=self.get_icon_path(app_key), parent=self,
+            alias=curr_session.user_info['alias'])
+        dialog.exec()
+
+    @exceptions.error_handler(scope='general')
+    def get_icon_path(self, app_key):
+        return '%s/%s/icon.png' % (self.apps_folder, app_key)
 
     @exceptions.error_handler(scope='general')
     def documentation_app(self, app_key):
@@ -934,7 +944,6 @@ class AppWidget(QFrame):
             painter.setRenderHint(QPainter.Antialiasing)
 
             # Set brush color
-            brush = QBrush(QColor(self.theme_colors['THEME_BLUE']))
             brush = QBrush('#77aaff')
             painter.setBrush(brush)
 
