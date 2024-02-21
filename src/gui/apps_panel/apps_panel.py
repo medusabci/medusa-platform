@@ -151,17 +151,17 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
         # Session icons
         if self.fake_user is None:
             self.toolButton_session_load.setIcon(
-                gu.get_icon("route.svg", self.theme_colors))
+                gu.get_icon("load_session.svg", self.theme_colors))
             self.toolButton_session_load.setToolTip('Load session')
             self.toolButton_session_play.setIcon(
                 gu.get_icon("fast_forward.svg",
                             custom_color=self.theme_colors['THEME_GREEN']))
             self.toolButton_session_play.setToolTip('Play session')
             self.toolButton_session_config.setIcon(
-                gu.get_icon("settings.svg", self.theme_colors))
+                gu.get_icon("config_session.svg", self.theme_colors))
             self.toolButton_session_config.setToolTip('Configure session')
             self.toolButton_session_create.setIcon(
-                gu.get_icon("add.svg", self.theme_colors))
+                gu.get_icon("add_session.svg", self.theme_colors))
             self.toolButton_session_create.setToolTip('Create session')
             # Recording info icons
             self.toolButton_edit_rec_info.setIcon(
