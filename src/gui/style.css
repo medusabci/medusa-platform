@@ -24,6 +24,9 @@ This css sheet contains the style of Medusa Qt elements. Index:
     9.  DASHBOARD DESIGN
     10. APPS PANEL
     11. USER PROFILE
+    12. STUDIES WIDGET
+    13. ABOUT DIALOG
+    14. ABOUT APP DIALOG
 ============================================================================= */
 
 
@@ -753,6 +756,39 @@ QDialog#qdialog_about QWidget {
 }
 
 QDialog#qdialog_about QTextBrowser {
+    background-color: transparent;
+    font-size: 8pt;
+    font-family:'Roboto Mono';
+    border: none;
+    color: white;
+}
+
+#about_details a {
+    color: #bb22b3;
+    text-decoration: none;
+}
+
+
+/* =============================================================================
+14. ABOUT APP DIALOG
+
+Style of studies management widget.
+============================================================================= */
+
+QDialog#qdialog_about_app{
+
+}
+
+QDialog#qdialog_about_app QLabel {
+    background-color: transparent;
+    color: white;
+}
+
+QDialog#qdialog_about_app QWidget {
+    background-color: transparent;
+}
+
+QDialog#qdialog_about_app QTextBrowser {
     background-color: transparent;
     font-size: 8pt;
     font-family:'Roboto Mono';

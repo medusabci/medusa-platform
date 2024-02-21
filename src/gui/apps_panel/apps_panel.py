@@ -449,7 +449,6 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
                                                dir=directory,
                                                filter=filt)[0]
         if app_file != '':
-
             # Initialize progress dialog
             self.progress_dialog = ThreadProgressDialog(
                 window_title='Installing app...',
@@ -457,7 +456,6 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
                 theme_colors=self.theme_colors)
             self.progress_dialog.done.connect(self.installation_finished)
             self.progress_dialog.show()
-
             # Install
             th = threading.Thread(target=self.apps_manager.install_app_bundle,
                                   args=(app_file, self.progress_dialog))
@@ -465,10 +463,20 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
 
     @exceptions.error_handler(scope='general')
     def about_app(self, app_key):
-        dialogs.info_dialog(
-            '%s' % json.dumps(self.apps_manager.apps_dict[app_key], indent=4),
-            'About %s' % self.apps_manager.apps_dict[app_key]['name'],
-            self.theme_colors)
+        # dialogs.info_dialog(
+        #     '%s' % json.dumps(self.apps_manager.apps_dict[app_key], indent=4),
+        #     'About %s' % self.apps_manager.apps_dict[app_key]['name'],
+        #     self.theme_colors)
+        curr_session = self.apps_manager.accounts_manager.current_session
+        dialog = dialogs.AboutAppDialog(
+            app_info=self.apps_manager.apps_dict[app_key],
+            app_icon_path=self.get_icon_path(app_key), parent=self,
+            alias=curr_session.user_info['alias'])
+        dialog.exec()
+
+    @exceptions.error_handler(scope='general')
+    def get_icon_path(self, app_key):
+        return '%s/%s/icon.png' % (self.apps_folder, app_key)
 
     @exceptions.error_handler(scope='general')
     def documentation_app(self, app_key):
@@ -485,10 +493,24 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
 
     @exceptions.error_handler(scope='general')
     def update_app(self, app_key):
-        dialogs.warning_dialog(
-            'No available updates for %s' %
-            self.apps_manager.apps_dict[app_key]['name'],
-            'Update', self.theme_colors)
+        if self.apps_manager.apps_dict[app_key]['update']:
+            app_info = self.apps_manager.apps_dict[app_key]
+            app_name = app_info['name']
+            current_version = app_info['version']
+            latest_version = app_info['update-version']['version']
+            info_text = '%s %s is out! Do you want to update? ' \
+                        'Download the latest version from the market' % \
+                        (app_name, latest_version)
+            title_text = 'Update for %s %s available' % \
+                         (app_name, current_version)
+            resp = dialogs.confirmation_dialog(text=info_text, title=title_text,
+                                               theme_colors=self.theme_colors)
+            if resp:
+                webbrowser.open('https://www.medusabci.com/market/%s' % app_key)
+        else:
+            app_name = self.apps_manager.apps_dict[app_key]['name']
+            dialogs.warning_dialog('No available updates for %s' % app_name,
+                                   'Update', self.theme_colors)
 
     @exceptions.error_handler(scope='general')
     def package_app(self, app_key):
@@ -580,13 +602,14 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
                             custom_color=self.theme_colors['THEME_RED']))
         else:
             self.app_stop()
-            self.stop_session()
+            self.fake_user.stop = True
 
     @exceptions.error_handler(scope='app')
     def stop_session(self):
         self.fake_user.stop = True
         # todo: this blocks the main thread. Is there a better way?
         self.fake_user.wait()
+        self.fake_user = None
 
     @exceptions.error_handler(scope='app')
     def on_play_session_app_power(self, run):
@@ -616,13 +639,14 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
         self.toolButton_session_play.setIcon(
             gu.get_icon("fast_forward.svg",
                         custom_color=self.theme_colors['THEME_GREEN']))
-        self.fake_user = None
+        self.stop_session()
 
     @exceptions.error_handler(scope='general')
     def config_session(self, checked=None):
         self.config_session_dialog = ConfigSessionDialog(
             apps_manager=self.apps_manager,
             session_config=self.session_config,
+            playing_session=self.fake_user is None,
             theme_colors=self.theme_colors)
         self.config_session_dialog.accepted.connect(
             self.on_session_config_dialog_accepted)
@@ -634,8 +658,7 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
     def create_session(self, checked=None):
         self.config_session_dialog = ConfigSessionDialog(
             apps_manager=self.apps_manager,
-            theme_colors=self.theme_colors
-        )
+            theme_colors=self.theme_colors)
         self.config_session_dialog.accepted.connect(
             self.on_session_config_dialog_accepted)
         self.config_session_dialog.rejected.connect(
@@ -872,7 +895,8 @@ class AppWidget(QFrame):
         self.apps_folder = apps_folder
         self.theme_colors = theme_colors
         self.pixmap_path = self.get_icon_path()
-        self.main_layout = QVBoxLayout()
+        self.main_layout = QStackedLayout()
+        self.main_layout.setStackingMode(QStackedLayout.StackAll)
         # Icon
         self.pix_map = QPixmap(self.pixmap_path)
         self.icon = QLabel()
@@ -890,18 +914,48 @@ class AppWidget(QFrame):
         gu.set_point_size(self.title, 8)
         # Restrictions
         self.setMinimumWidth(self.min_widget_width)
-        self.setMaximumHeight(
-            int(1.1 * self.min_widget_width))
+        self.setMaximumHeight(int(1.1 * self.min_widget_width))
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Minimum)
-        # Add layout
-        self.main_layout.addWidget(self.icon)
-        self.main_layout.addWidget(self.title)
-        self.main_layout.addItem(
+        # Add main widget
+        self.main_widget = QWidget(self)
+        main_widget_layout = QVBoxLayout()
+        self.main_widget.setLayout(main_widget_layout)
+        main_widget_layout.addWidget(self.icon)
+        main_widget_layout.addWidget(self.title)
+        main_widget_layout.addItem(
             QSpacerItem(0, 0, QSizePolicy.Ignored, QSizePolicy.Expanding))
-        self.setProperty("class", "app-widget")
-        # self.setCursor(QCursor(Qt.PointingHandCursor))
-        # gu.modify_property(self, "background-color", '#00a05f')
+        self.main_widget.setProperty("class", "app-widget")
+        self.main_layout.addWidget(self.main_widget)
+        # Update circle
+        if self.app_params['update']:
+            circle = self.CircleWidget(self.theme_colors)
+            self.main_layout.addWidget(circle)
+        # Set layout
         self.setLayout(self.main_layout)
+
+    class CircleWidget(QWidget):
+        def __init__(self, theme_colors):
+            super().__init__()
+            self.theme_colors = theme_colors
+            self.setToolTip('Update available')
+
+        def paintEvent(self, event):
+            painter = QPainter(self)
+            painter.setRenderHint(QPainter.Antialiasing)
+
+            # Set brush color
+            brush = QBrush('#77aaff')
+            painter.setBrush(brush)
+
+            # Set pen color to be transparent (eliminate the border)
+            pen = painter.pen()
+            pen.setColor(QColor(0, 0, 0, 0))
+            painter.setPen(pen)
+
+            # Draw a circle
+            radius = 6
+            painter.drawEllipse(self.width() - 2 * radius - 3, 3,
+                                2 * radius, 2 * radius)
 
     class AppMenu(QMenu):
 
@@ -1137,8 +1191,10 @@ class ConfigureRecInfoDialog(dialogs.MedusaDialog):
 
 class ConfigSessionDialog(dialogs.MedusaDialog):
 
-    def __init__(self, apps_manager, session_config=None, theme_colors=None):
+    def __init__(self, apps_manager, session_config=None,
+                 playing_session=False, theme_colors=None):
         self.apps_manager = apps_manager
+        self.playing_session = playing_session
         # Load session config
         self.session_config = None
         if session_config is not None:
@@ -1179,7 +1235,7 @@ class ConfigSessionDialog(dialogs.MedusaDialog):
         # General configurations
         session_config_box = QGroupBox('Config')
         session_config_box_layout = QVBoxLayout()
-        self.session_autoplay_checkbox = QCheckBox('Play run automatically')
+        self.session_autoplay_checkbox = QCheckBox('Play runs automatically')
         self.session_autoplay_checkbox.setChecked(
             self.session_config['autoplay'])
         session_config_box_layout.addWidget(self.session_autoplay_checkbox)
@@ -1227,6 +1283,8 @@ class ConfigSessionDialog(dialogs.MedusaDialog):
         ok_button = QPushButton('Ok')
         ok_button.clicked.connect(self.on_accept)
         dialog_buttons_layout.addWidget(ok_button)
+        if not self.playing_session:
+            ok_button.setDisabled(True)
         cancel_button = QPushButton('Cancel')
         cancel_button.clicked.connect(self.on_cancel)
         dialog_buttons_layout.addWidget(cancel_button)

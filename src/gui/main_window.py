@@ -29,12 +29,11 @@ from gui.log_panel import log_panel
 from gui.studies_panel import studies_panel
 from gui.user_profile import login
 from gui.user_profile import user_profile
-from gui.qt_widgets.dialogs import info_dialog, error_dialog
+from gui.qt_widgets.dialogs import *
 from gui.qt_widgets.dialogs import ThreadProgressDialog
 
 # Load the .ui file
 gui_main_user_interface = loadUiType("gui/ui_files/main_window.ui")[0]
-gui_about = loadUiType(os.getcwd() + "/gui/ui_files/about.ui")[0]
 
 
 class GuiMainClass(QMainWindow, gui_main_user_interface):
@@ -94,7 +93,12 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
 
         # Reset panels
         self.lsl_config = None
+        self.box_studies_panel = None
+        self.studies_panel_widget = None
         self.apps_manager = None
+        self.apps_panel_widget = None
+        self.log_panel_widget = None
+        self.plots_panel_widget = None
         self.reset_panels()
 
         # Menu and toolbar action initializing
@@ -258,25 +262,18 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
 
     @exceptions.error_handler(scope='general')
     def reset_panels(self):
-        # Log panel (set up first in case any exception is raised in other
-        # functions)
-        self.log_panel_widget = None
+        # Log panel (set up first in case is used in other functions)
         self.set_up_log_panel()
         # LSL config
-        self.lsl_config = None
         self.set_up_lsl_config()
         # Apps panel
         self.apps_manager = app_manager.AppManager(
             self.accounts_manager, self.medusa_interface,
             self.platform_release_info)
-        self.apps_panel_widget = None
         self.set_up_apps_panel()
         # Studies panel
-        self.box_studies_panel = None
-        self.studies_panel_widget = None
         self.set_up_studies_panel()
         # Plots dashboard
-        self.plots_panel_widget = None
         self.set_up_plots_panel()
 
     def check_updates(self, exclude_prereleases=True):
@@ -338,7 +335,11 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
 
     @exceptions.error_handler(scope='general')
     def set_up_studies_panel(self):
+        # Add widget if study mode is on
         if self.gui_config['study_mode']:
+            # Avoid multiple instances of the studies panel
+            if self.box_studies_panel is not None:
+                return
             # Group box
             self.box_studies_panel = QGroupBox('STUDIES')
             self.box_studies_panel.setLayout(QVBoxLayout())
@@ -356,10 +357,10 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
             self.studies_panel_widget.selection_signal.connect(
                 self.on_studies_panel_selection)
             # Clear layout
-            while self.box_studies_panel.layout().count():
-                child = self.box_studies_panel.layout().takeAt(0)
-                if child.widget():
-                    child.widget().deleteLater()
+            # while self.box_studies_panel.layout().count():
+            #     child = self.box_studies_panel.layout().takeAt(0)
+            #     if child.widget():
+            #         child.widget().deleteLater()
             # Add widget
             self.box_studies_panel.layout().addWidget(self.studies_panel_widget)
             self.box_studies_panel.layout().setContentsMargins(0, 0, 0, 0)
@@ -367,8 +368,10 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
             self.studies_panel_widget.toolButton_studies_undock.clicked.connect(
                 self.undock_studies_panel)
         else:
+            # Clear layout
             if self.box_studies_panel is not None:
                 self.box_studies_panel.deleteLater()
+                self.box_studies_panel = None
         self.update_menu_action_study_mode()
 
     @exceptions.error_handler(scope='general')
@@ -575,10 +578,10 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
     def set_up_menu_bar_main(self):
         # Preferences
         # TODO: menuAction_view_integrated, menuAction_view_split
-        self.menuAction_color_dark.triggered.connect(
-            self.set_dark_theme)
-        self.menuAction_color_light.triggered.connect(
-            self.set_light_theme)
+        # self.menuAction_color_dark.triggered.connect(
+        #     self.set_dark_theme)
+        # self.menuAction_color_light.triggered.connect(
+        #     self.set_light_theme)
         self.menuAction_study_mode.triggered.connect(
             self.change_study_mode)
         # Lab streaming layer
@@ -621,7 +624,8 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         # Insert studies box and update apps panel
         self.set_up_studies_panel()
         self.apps_panel_widget.study_mode = self.gui_config['study_mode']
-        self.apps_panel_widget.rec_info = None
+        rec_info = self.apps_panel_widget.get_default_rec_info()
+        self.apps_panel_widget.set_rec_info(rec_info)
 
     @exceptions.error_handler(scope='general')
     def update_menu_action_study_mode(self):
@@ -812,7 +816,7 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
 
     @exceptions.error_handler(scope='general')
     def open_help_forum(self, checked=None):
-        return webbrowser.open('https://forum.medusabci.com/')
+        return webbrowser.open('https://discord.gg/G8dWPXtBsC')
 
     @exceptions.error_handler(scope='general')
     def open_help_bugs(self, checked=None):
@@ -839,7 +843,7 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
             alias=self.accounts_manager.current_session.user_info['alias'],
             release_info=self.platform_release_info
         )
-        dialog.exec_()
+        dialog.exec()
 
     # ====================== APPS PANEL FUNCTIONS ======================== #
 
@@ -1315,51 +1319,6 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
             if not self.medusa_interface_queue.is_closed():
                 self.medusa_interface_queue.flush()
             self.wait()
-
-
-class AboutDialog(QDialog, gui_about):
-
-    def __init__(self, release_info, parent=None, alias=''):
-        QDialog.__init__(self, parent)
-        self.setWindowFlags(
-            self.windowFlags() & ~Qt.WindowContextHelpButtonHint)
-        self.setupUi(self)
-        theme_colors = gu.get_theme_colors('dark')
-        self.stl = gu.set_css_and_theme(self, theme_colors)
-        self.setWindowIcon(QIcon('gui/images/medusa_task_icon.png'))
-        self.setWindowTitle('About MEDUSA©')
-
-        # Details
-        self.label_date.setText('Built on ' + release_info['date'])
-        self.label_version.setText(release_info['version'] + ' [' +
-                                   release_info['name'] + ']')
-        self.label_license.setText('Licensed to ' + alias)
-
-        # Textbrowser
-        TEXT_BROWSER_TEMPLATE = \
-            '<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0//EN" ' \
-            '"http://www.w3.org/TR/REC-html40/strict.dtd"><html><head> <meta ' \
-            'name="qrichtext" content="1" /><meta charset="utf-8"/> ' \
-            '<style>%s</style></head><body>%s</body></html>'
-        style = 'p, li { white-space: pre-wrap; } p { font-family: "Roboto ' \
-                'Mono"; font-size: 8pt;} a {text-decoration: ' \
-                'none; color:#bb22b3;}'
-        body_ = '<p align="justify">Please cite us: ' \
-                'Eduardo Santamaría-Vázquez, Víctor Martínez-Cagigal, ' \
-                'Diego Marcos-Martínez, Víctor Rodríguez-González, Sergio ' \
-                'Pérez-Velasco, Selene Moreno-Calderón, Roberto Hornero, ' \
-                '"MEDUSA: A Novel Brain-Computer Interface Platform based on ' \
-                'Python", Computer Methods & Programs in Biomedicine, 2022.' \
-                '<br><br>' \
-                'More information at <a ' \
-                'href="https://medusabci.com/">www.medusabci.com</a>. ' \
-                'Powered by <a ' \
-                'href="https://gib.tel.uva.es/">Grupo de ' \
-                'Ingeniería Biomédica</a>, University of Valladolid, Spain.</p>'
-        self.about_details.setText(TEXT_BROWSER_TEMPLATE % (style, body_))
-
-        self.setModal(True)
-
 
 class SplashScreen:
 
