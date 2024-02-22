@@ -260,10 +260,20 @@ class AppManager:
                 self.apps_dict[app_id]['update'] = False
                 self.apps_dict[app_id]['update-version'] = None
                 continue
+            if not isinstance(latest_versions[app_id], dict):
+                # This happens when you change manually the id of an app that
+                # was installed previously from the market. It can also
+                # happen if the app is deleted from the market.
+                self.apps_dict[app_id]['update'] = False
+                self.apps_dict[app_id]['update-version'] = None
+                ex = Exception('App %s is not available in the market' %
+                               app_info['name'])
+                self.medusa_interface.error(ex)
+                continue
             # Check if an update is available
             curr_version = app_info['version']
             latest_version = latest_versions[app_id]['version']
-            # Set update parameter
+                # Set update parameter
             if latest_version > curr_version:
                 self.apps_dict[app_id]['update'] = True
                 self.apps_dict[app_id]['update-version'] = \
