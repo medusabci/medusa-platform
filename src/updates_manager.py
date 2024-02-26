@@ -5,6 +5,7 @@ import shutil
 import tempfile
 import zipfile
 import sys
+import json
 
 import exceptions
 import utils
@@ -183,9 +184,7 @@ class UpdatesManager:
             temp_medusa_src_file.close()
             # Generate version file
             with open('%s/version' % mds_path, 'w') as f:
-                f.write('\n'.join([latest_version_info['depth_2_tag'],
-                                   latest_version_info['name'],
-                                   latest_version_info['date']]))
+                json.dump(latest_version_info, f, indent=4)
             # Update progress bar
             progress_dialog.update_action('Finished')
             progress_dialog.update_value(100)

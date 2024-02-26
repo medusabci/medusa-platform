@@ -138,8 +138,6 @@ def get_medusa_repo_releases_info(depth, repo='medusa-platform',
     exclude_prereleases: bool
         If True, the returned dict excludes pre-releases (e.g., v2023-beta,
         v2023.1-alpha)
-    essential_info_only: bool
-        If True, it returns only the essential information for MEDUSA ecosystem
     """
     # TODO: If you change this function, update also in MEDUSA Platform and
     #   MEDUSA Web!
