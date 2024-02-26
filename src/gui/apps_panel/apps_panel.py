@@ -1241,11 +1241,11 @@ class ConfigSessionDialog(dialogs.MedusaDialog):
         # session_config_box.setLayout(session_config_box_layout)
         # main_layout.addWidget(session_config_box)
         # Session plan table
-        session_plan_box = QGroupBox('Plan')
-        table_layout = QHBoxLayout()
+        # session_plan_box = QGroupBox('Plan')
+        plan_layout = QHBoxLayout()
         self.session_plan_table = self.TableWidget(self.apps_manager,
                                                    self.theme_colors)
-        table_layout.addWidget(self.session_plan_table)
+        plan_layout.addWidget(self.session_plan_table)
         self.session_plan_table.load_session_plan(self.session_config['plan'])
         # Table buttons
         table_buttons_layout = QVBoxLayout()
@@ -1265,9 +1265,9 @@ class ConfigSessionDialog(dialogs.MedusaDialog):
         spacer = QSpacerItem(0, 0, QSizePolicy.Minimum,
                              QSizePolicy.Expanding)
         table_buttons_layout.addItem(spacer)
-        table_layout.addLayout(table_buttons_layout)
-        session_plan_box.setLayout(table_layout)
-        main_layout.addWidget(session_plan_box)
+        plan_layout.addLayout(table_buttons_layout)
+        main_layout.addLayout(plan_layout)
+        # main_layout.addWidget(session_plan_box)
         # Bottom buttons
         dialog_buttons_layout = QHBoxLayout()
         clear_button = QPushButton('Clear')
@@ -1366,20 +1366,40 @@ class ConfigSessionDialog(dialogs.MedusaDialog):
                 5, QHeaderView.ResizeToContents)
             self.tableWidget.setSelectionBehavior(QAbstractItemView.SelectRows)
             main_layout.addWidget(self.tableWidget)
+            # Update rec ids checkbox
+            checkbox_layout = QHBoxLayout()
+            checkbox_layout.setAlignment(Qt.AlignLeft)
+            self.update_rec_ids_checkbox = QCheckBox(
+                'Update default rec ids automatically')
+            checkbox_layout.addWidget(self.update_rec_ids_checkbox)
+            main_layout.addLayout(checkbox_layout)
             # Set layout
             self.setLayout(main_layout)
 
         def add_row(self, checked=None, rec_id=None, app_id=None,
                     settings=None, max_time=None, file_ext=None,
                     autoplay=True):
-            row_position = self.tableWidget.rowCount()
+            row_position = self.tableWidget.currentRow()
+            if row_position < 0:
+                row_position = self.tableWidget.rowCount()
+            else:
+                row_position += 1
             self.tableWidget.insertRow(row_position)
             # Add run line edit widget to col 0
             rec_line_edit = QLineEdit()
             if rec_id is None:
-                rec_id = 'R%i' % row_position
+                rec_id = 'R%i' % (row_position+1)
             rec_line_edit.setText(rec_id)
             self.tableWidget.setCellWidget(row_position, 0, rec_line_edit)
+            # Rename default IDs
+            update_rec_ids = self.update_rec_ids_checkbox.isChecked()
+            if update_rec_ids:
+                for r in range(row_position+1, self.tableWidget.rowCount()):
+                    rec_line_edit = self.tableWidget.cellWidget(r, 0)
+                    rec_id = rec_line_edit.text()
+                    if rec_line_edit.text() == 'R%i' % (r):
+                        new_rec_id = 'R%i' % (r+1)
+                        rec_line_edit.setText(new_rec_id)
             # Add combo box to col 1
             cond_combo_box = QComboBox()
             cond_combo_box.addItem('Selection')
@@ -1434,17 +1454,24 @@ class ConfigSessionDialog(dialogs.MedusaDialog):
             autoplay_checkbox.setChecked(autoplay)
             autoplay_checkbox.setSizePolicy(QSizePolicy.Expanding,
                                             QSizePolicy.Expanding)
-            # autoplay_checkbox.setProperty(
-            #     'class', 'session-plan-table-checkbox')
             self.tableWidget.setCellWidget(row_position, 5, autoplay_checkbox)
 
         def clear_table(self):
             self.tableWidget.setRowCount(0)
 
-        def remove_row(self):
+        def remove_row(self, update_rec_ids=False):
             row_position = self.tableWidget.currentRow()
             if row_position >= 0:
                 self.tableWidget.removeRow(row_position)
+                # Rename default IDs
+                update_rec_ids = self.update_rec_ids_checkbox.isChecked()
+                if update_rec_ids:
+                    for r in range(row_position, self.tableWidget.rowCount()):
+                        rec_line_edit = self.tableWidget.cellWidget(r, 0)
+                        rec_id = rec_line_edit.text()
+                        if rec_line_edit.text() == 'R%i' % (r+2):
+                            new_rec_id = 'R%i' % (r+1)
+                            rec_line_edit.setText(new_rec_id)
 
         def on_search_settings_file(self, row_position):
             directory = "../config"
