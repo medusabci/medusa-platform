@@ -195,11 +195,12 @@ class LSLStreamWrapper(components.SerializableComponent):
         self.set_inlet()
 
     def set_inlet(self):
-        self.lsl_stream_inlet = pylsl.StreamInlet(
-            self.lsl_stream,
-            processing_flags=pylsl.proc_dejitter |
-                             pylsl.proc_monotonize |
-                             pylsl.proc_threadsafe)
+        self.lsl_stream_inlet = pylsl.StreamInlet(self.lsl_stream)
+        # self.lsl_stream_inlet = pylsl.StreamInlet(
+        #     self.lsl_stream,
+        #     processing_flags=pylsl.proc_dejitter |
+        #                      pylsl.proc_monotonize |
+        #                      pylsl.proc_threadsafe)
         self.lsl_stream_info = self.lsl_stream_inlet.info()
         # LSL parameters
         self.lsl_name = self.lsl_stream_info.name()
@@ -464,7 +465,7 @@ class LSLStreamReceiver:
      """
 
     def __init__(self, lsl_stream_mds, min_chunk_size=None, max_chunk_size=None,
-                 timeout=None, auto_mode=True):
+                 timeout=None, auto_mode=False):
         """Class constructor
 
         Parameters
@@ -535,7 +536,7 @@ class LSLStreamReceiver:
 
         # Get data
         while True:
-            # Check if we need to update the max_chunk_size and timout
+            # Check if we need to update the max_chunk_size and timeout
             if self.auto_mode:
                 s_avlbl = self.lsl_stream.lsl_stream_inlet.samples_available()
                 if s_avlbl > self.max_chunk_size:
