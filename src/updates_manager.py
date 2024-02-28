@@ -99,28 +99,29 @@ class UpdatesManager:
                 print('The file requirements.txt has been corrupted. '
                       'Dependency medusa-kernel cannot be found.',
                       file=sys.stderr)
-        # Check if there are updates available
-        update = False
-        rejected = False
-        latest_version_info = None
-        sorted_versions = sorted(self.kernel_versions_info)
-        sorted_versions.reverse()
-        for versionv in sorted_versions:
-            version = versionv.replace('v', '')
-            if self.kernel_release_info['tag_name'] >= version:
-                continue
-            # Check if this kernel version fits the requirements
-            if min_version <= version < max_version:
-                latest_version_info = version
-                if latest_version_info['prerelease'] and exclude_prereleases:
-                    return False, False, latest_version_info
-                dialog = self.UpdateAvailableDialog(
-                    'kernel', self.kernel_release_info, latest_version_info)
-                update = dialog.exec()
-                rejected = not update
-                print(rejected)
-                break
-        return update, rejected, latest_version_info
+            # Check if there are updates available
+            update = False
+            rejected = False
+            version_to_update = None
+            sorted_versions = sorted(self.kernel_versions_info)
+            sorted_versions.reverse()
+            for versionv in sorted_versions:
+                version = versionv.replace('v', '')
+                if self.kernel_release_info['tag_name'] >= version:
+                    continue
+                # Check if this kernel version fits the requirements
+                if min_version <= version < max_version:
+                    latest_version_info = self.kernel_versions_info[versionv]
+                    if latest_version_info[
+                        'prerelease'] and exclude_prereleases:
+                        return False, False, latest_version_info
+                    dialog = self.UpdateAvailableDialog(
+                        'kernel', self.kernel_release_info, latest_version_info)
+                    update = dialog.exec()
+                    version_to_update = version
+                    rejected = not update
+                    break
+            return update, rejected, version_to_update
 
     @exceptions.error_handler(scope='general')
     def update_platform(self, latest_version_info, progress_dialog):
