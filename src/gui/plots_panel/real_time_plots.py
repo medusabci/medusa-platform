@@ -1750,6 +1750,19 @@ class RealTimePlotWorker(QThread):
                 self.update.emit(chunk_times, chunk_data)
             time.sleep(self.sleep_time)
 
+        # Debugging
+        # path = r'C:\Users\edusa\Proyectos\medusa\medusa-platform\data'
+        # curr_date = time.strftime("%d-%m-%Y_%H%M%S", time.localtime())
+        # fname = 'sync_debug_%s' % curr_date
+        # data = {'transmission_times': self.receiver.transmission_times,
+        #         'init_time': self.receiver.init_time,
+        #         'last_time': self.receiver.last_time,
+        #         'n_chunk': self.receiver.chunk_counter,
+        #         'n_samples': self.receiver.sample_counter}
+        # import json
+        # with open(r'%s\%s.json' % (path, fname), 'w') as f:
+        #     json.dump(data, f)
+
 
 class PlotsRealTimePreprocessor:
 

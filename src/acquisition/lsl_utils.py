@@ -510,22 +510,25 @@ class LSLStreamReceiver:
         # Timeout cannot be None in order to avoid blocking processes
         self.timeout = 1.5 * self.max_chunk_size / self.fs \
             if timeout is None else timeout
+        self.aliasing_correction = True
         # print('LSL stream: %s\nmin_chunk_size: %i\nmax_chunk_size: '
         #       '%i\ntimeout: %.2f' % (self.lsl_stream.lsl_name,
         #                              self.min_chunk_size,
         #                              self.max_chunk_size, self.timeout))
         # Calculate LSL time offset
-        # self.lsl_clock_offset = \
+        # self.unix_clock_offset = \
         #     np.mean([time.time() - pylsl.local_clock() for _ in range(10)])
-        # Initialize auxiliary variables
+
+        # Initialize auxiliary and debugging variables
         self.chunk_counter = 0
-        # self.lsl_chunk_counter = 0
-        # self.lsl_mean_chunk_size = 0
+        self.sample_counter = 0
         self.last_t_local = -1
         self.last_t_lsl = -1
+        self.init_time = None
+        self.last_time = None
         self.hist_unix_lock_offsets = list()
         self.hist_lsl_lock_offsets = list()
-        self.aliasing_correction = True
+        self.transmission_times = list()
 
     def get_chunk(self):
         """Get signal chunk. Throws an error if the reception time exceeds
@@ -534,6 +537,9 @@ class LSLStreamReceiver:
         timer = self.Timer()
         samples = list()
         times = list()
+
+        if self.init_time is None:
+            self.init_time = time.time()
 
         # Estimate the current clock offset between LSL and UNIX local time
         unix_clock_offset = time.time() - pylsl.local_clock()
@@ -571,6 +577,7 @@ class LSLStreamReceiver:
             if len(times) >= self.min_chunk_size:
                 # Increment chunk counter
                 self.chunk_counter += 1
+                self.sample_counter += len(times)
                 # LSL time to local time
                 lsl_times = np.array(times) + lsl_clock_offset
                 local_times = lsl_times + unix_clock_offset
@@ -581,8 +588,7 @@ class LSLStreamReceiver:
                 #     print('diff respect old offset: %.4f ms' % (1000*(
                 #             self.lsl_clock_offset - (time.time() -
                 #                                      timestamps[0]))))
-                # ============================================================ #
-                # UNCOMMENT FOR DEBUGGING
+                #
                 # for i in range(len(times)):
                 #     print('#%i, LSL time: %s; Local time: %s; LSL offset: %s, '
                 #           'Transmission time: %s; Sample %s' %
@@ -614,6 +620,14 @@ class LSLStreamReceiver:
                         lsl_times = corrected_times[1:]
                 self.last_t_local = local_times[-1]
                 self.last_t_lsl = lsl_times[-1]
+
+                # Debugging info
+                transmission_time = np.mean(time.time() - local_times)
+                self.transmission_times.append(transmission_time)
+                self.last_time = time.time()
+                print('#%i, Elapsed time: %s; Average transmission time: %s' %
+                      (self.chunk_counter, (self.last_time - self.init_time),
+                       transmission_time))
 
                 return samples[:, self.idx_cha], local_times, lsl_times
 
