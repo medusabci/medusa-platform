@@ -4,29 +4,28 @@ from abc import ABC, abstractmethod
 import weakref
 import traceback
 import time
+import math
 
 # EXTERNAL MODULES
 import numpy as np
 import pyqtgraph as pg
-from PyQt5.QtWidgets import *
-from PyQt5.QtCore import *
-from PyQt5.QtGui import QFont
+from PySide6.QtWidgets import *
+from PySide6.QtCore import *
+from PySide6.QtGui import QFont, QAction
 from scipy import signal as scp_signal
 from matplotlib.figure import Figure
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
+from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
 
 # MEDUSA-PLATFORM MODULES
 from acquisition import lsl_utils
-import constants
-# ToDo: remove this dependency and change it to medusa.plots.head_plots for
-#  MEDUSA v2024
-from gui.plots_panel import head_plots
+import constants, exceptions
 
 # MEDUSA-CORE MODULES
 import medusa
 from medusa import meeg
 from medusa.local_activation import spectral_parameteres
 from medusa.connectivity import amplitude_connectivity, phase_connectivity
+from medusa.plots import head_plots
 
 
 class RealTimePlot(ABC):
@@ -83,7 +82,8 @@ class RealTimePlot(ABC):
             self.worker = RealTimePlotWorker(
                 self.plot_state,
                 self.lsl_stream_info,
-                self.signal_settings)
+                self.signal_settings,
+                self.medusa_interface)
             self.worker.update.connect(self.update_plot)
             self.worker.error.connect(self.handle_exception)
             self.fs = self.worker.get_effective_fs()
@@ -146,8 +146,6 @@ class TopographyPlot(RealTimePlot):
     def __init__(self, uid, plot_state, medusa_interface, theme_colors):
         super().__init__(uid, plot_state, medusa_interface, theme_colors)
         # Graph variables
-        self.fig = None
-        self.axes = None
         self.channel_set = None
         self.win_s = None
         self.interp_p = None
@@ -214,7 +212,7 @@ class TopographyPlot(RealTimePlot):
             'channel-standard': '10-05',
             'extra_radius': 0.29,
             'interp_points': 100,
-            'cmap': 'PiYG',
+            'cmap': 'YlOrRd',
             'head_skin_color': '#E8BEAC',
             'plot_channel_labels': True,
             'plot_channel_points': True
@@ -291,8 +289,6 @@ class ConnectivityPlot(RealTimePlot):
     def __init__(self, uid, plot_state, medusa_interface, theme_colors):
         super().__init__(uid, plot_state, medusa_interface, theme_colors)
         # Graph variables
-        self.fig = None
-        self.axes = None
         self.channel_set = None
         self.win_s = None
         self.interp_p = None
@@ -736,11 +732,9 @@ class TimePlotMultichannel(RealTimePlotPyQtGraph):
             max_t = self.time_in_graph.max(initial=0)
             n_win = max_t // self.win_t
             max_win_t = (n_win+1) * self.win_t
-            if n_win == 2:
-                print()
             # Check overflow
             if chunk_times[-1] > max_win_t:
-                idx_overflow = chunk_times > max_win_t
+                idx_overflow = chunk_times >= max_win_t
                 # Append part of the chunk at the end
                 time_in_graph = np.insert(
                     self.time_in_graph, self.pointer,
@@ -1091,7 +1085,7 @@ class TimePlot(RealTimePlotPyQtGraph):
             max_win_t = (n_win+1) * self.win_t
             # Check overflow
             if chunk_times[-1] > max_win_t:
-                idx_overflow = chunk_times > max_win_t
+                idx_overflow = chunk_times >= max_win_t
                 # Append part of the chunk at the end
                 time_in_graph = np.insert(
                     self.time_in_graph, self.pointer,
@@ -1687,28 +1681,25 @@ class RealTimePlotWorker(QThread):
     """Thread that receives samples in real time and sends them to the gui
     for plotting
     """
-    update = pyqtSignal(np.ndarray, np.ndarray)
-    error = pyqtSignal(Exception)
+    update = Signal(np.ndarray, np.ndarray)
+    error = Signal(Exception)
 
-    def __init__(self, plot_state, lsl_stream_info, signal_settings):
+    def __init__(self, plot_state, lsl_stream_info, signal_settings,
+                 medusa_interface):
         super().__init__()
         self.plot_state = plot_state
         self.lsl_stream_info = lsl_stream_info
         self.signal_settings = signal_settings
+        self.medusa_interface = medusa_interface
         self.fs = self.lsl_stream_info.fs
         self.sleep_time = self.signal_settings['update-rate'] * 0.9
-        # Get minimum and maximum chunk sizes
-        min_chunk_size = self.signal_settings['update-rate'] * self.fs
-        min_chunk_size = max(int(min_chunk_size), 1)
-        max_chunk_size = 10 * min_chunk_size
-        timeout = max(int(max_chunk_size / lsl_stream_info.fs), 1)
+        # Get minimum chunk size to comply with the update rate
+        min_chunk_size = int(self.signal_settings['update-rate'] * self.fs)
+        min_chunk_size = max(min_chunk_size, 1)
         # Set receiver
         self.receiver = lsl_utils.LSLStreamReceiver(
             self.lsl_stream_info,
-            min_chunk_size=min_chunk_size,
-            max_chunk_size=max_chunk_size,
-            timeout=timeout
-        )
+            min_chunk_size=min_chunk_size)
         # Set real time preprocessor
         self.preprocessor = PlotsRealTimePreprocessor(self.signal_settings)
         self.preprocessor.fit(self.receiver.fs,
@@ -1717,6 +1708,9 @@ class RealTimePlotWorker(QThread):
                               self.receiver.min_chunk_size)
         self.wait = False
 
+    def handle_exception(self, ex):
+        self.medusa_interface.error(ex)
+
     def get_effective_fs(self):
         if self.signal_settings['downsampling']['apply']:
             fs = self.fs // self.signal_settings['downsampling']['factor']
@@ -1724,23 +1718,59 @@ class RealTimePlotWorker(QThread):
             fs = self.fs
         return fs
 
+    @exceptions.error_handler(def_importance='important', scope='plots')
     def run(self):
-        try:
-            self.receiver.flush_stream()
-            while self.plot_state.value == constants.PLOT_STATE_ON:
-                # Get chunks
-                chunk_data, chunk_times = self.receiver.get_chunk()
-                chunk_times, chunk_data = self.preprocessor.transform(
-                    chunk_times, chunk_data)
-                # print('Chunk received at: %.6f' % time.time())
-                # Check if the plot is ready to receive data (sometimes get
-                # chunk takes a while and the user presses the button in
-                # between)
-                if self.plot_state.value == constants.PLOT_STATE_ON:
-                    self.update.emit(chunk_times, chunk_data)
-                time.sleep(self.sleep_time)
-        except Exception as e:
-            self.error.emit(e)
+        error_counter = 0
+        self.receiver.flush_stream()
+        while self.plot_state.value == constants.PLOT_STATE_ON:
+            # Get chunks
+            try:
+                chunk_data, chunk_times, _ = self.receiver.get_chunk()
+            except exceptions.LSLStreamTimeout as e:
+                error_counter += 1
+                if error_counter > 5:
+                    raise exceptions.MedusaException(
+                        e, importance='important',
+                        msg='LSLStreamAppWorker is not receiving signal from '
+                            '%s. Is the device connected?' % self.receiver.name,
+                        scope='app', origin='LSLStreamAppWorker.run')
+                else:
+                    self.medusa_interface.log(
+                        msg='LSLStreamAppWorker is not receiving signal from '
+                            '%s. Trying to reconnect.' % self.receiver.name,
+                        style='warning')
+                    continue
+            chunk_times, chunk_data = self.preprocessor.transform(
+                chunk_times, chunk_data)
+            # print('Chunk received at: %.6f' % time.time())
+            # Check if the plot is ready to receive data (sometimes get
+            # chunk takes a while and the user presses the button in
+            # between)
+            if self.plot_state.value == constants.PLOT_STATE_ON:
+                self.update.emit(chunk_times, chunk_data)
+            time.sleep(self.sleep_time)
+
+        # ==================================================================== #
+        # Debugging synchronization
+        # ==================================================================== #
+        # path = r'..\data'
+        # curr_date = time.strftime("%d-%m-%Y_%H%M%S", time.localtime())
+        # fname = 'sync_debug_%s' % curr_date
+        # data = {'unix_clock_offsets': self.receiver.hist_unix_clock_offsets,
+        #         'lsl_clock_offsets': self.receiver.hist_lsl_clock_offsets,
+        #         'init_unix_clock_offset': self.receiver.unix_clock_offset,
+        #         'init_lsl_clock_offset': self.receiver.lsl_clock_offset,
+        #         'local_timestamps': self.receiver.hist_local_timestamps,
+        #         'lsl_timestamps': self.receiver.hist_lsl_timestamps,
+        #         'init_time': self.receiver.init_time,
+        #         'last_time': self.receiver.last_time,
+        #         'n_chunk': self.receiver.chunk_counter,
+        #         'n_samples': self.receiver.sample_counter}
+        # import json
+        # with open(r'%s\%s.json' % (path, fname), 'w') as f:
+        #     json.dump(data, f, indent=4)
+        # print('Synchronization data correctly saved!')
+        # ==================================================================== #
 
 
 class PlotsRealTimePreprocessor:
@@ -1749,8 +1779,9 @@ class PlotsRealTimePreprocessor:
     keeping it simple: band-pass filter and notch filter. For more advanced
     pre-processing, implement another class"""
 
-    def __init__(self, preprocessing_settings):
+    def __init__(self, preprocessing_settings, **kwargs):
         # Settings
+        super().__init__(**kwargs)
         self.freq_filt_settings = preprocessing_settings['frequency-filter']
         self.notch_filt_settings = preprocessing_settings['notch-filter']
         self.re_referencing_settings = preprocessing_settings['re-referencing']

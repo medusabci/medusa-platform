@@ -8,7 +8,9 @@ themes = {
         'THEME_BG_MID': '#313335',
         'THEME_BG_DARK': '#2b2b2b',
         'THEME_BG_SELECTED': '#515658',
-        'THEME_MENU_SELECTED': '#4b6eaf',
+        'THEME_BG_FORM_FIELDS': '#cecece',
+        'THEME_BG_ACCENT': '#0075db',
+        'THEME_MENU_SELECTED': '#526D82',
         'THEME_MAIN_BUTTON_LIGHT': '#344963',
         'THEME_MAIN_BUTTON_MID': '#26364a',
         'THEME_MAIN_BUTTON_DARK': '#1b2532',
@@ -19,10 +21,10 @@ themes = {
         'THEME_SIGNAL_GRID': '#bbbbbb',
         'THEME_SIGNAL_CURVE': '#16ffdb',
         'THEME_SIGNAL_MARKER': '#ffffff',
-        'THEME_ICON_COLOR_START': '#cef576',
-        'THEME_ICON_COLOR_END': '#84fb95',
+        'THEME_ICON_COLOR_START': '#f2e26b',
+        'THEME_ICON_COLOR_END': '#d09246',
         'THEME_ICON_COLOR_DISABLED': '#686868',
-        'THEME_LINK': '#ff1ae0'
+        'THEME_LINK': '#bb22b3'
     },
     'light': {
         'THEME_TEXT_LIGHT': '#090909',
@@ -33,6 +35,7 @@ themes = {
         'THEME_BG_MID': '#e3e3e3',
         'THEME_BG_DARK': '#eaeaf2',
         'THEME_BG_SELECTED': '#c9e1ea',
+        'THEME_BG_FORM_FIELDS': '#cecece',
         'THEME_MENU_SELECTED': '#1a7dc4',
         'THEME_MAIN_BUTTON_LIGHT': '#344963',
         'THEME_MAIN_BUTTON_MID': '#26364a',

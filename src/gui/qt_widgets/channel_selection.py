@@ -3,8 +3,11 @@
 import copy
 
 from gui.qt_widgets.notifications import NotificationStack
-from PyQt5 import QtGui, QtWidgets, uic, QtCore
-from PyQt5.QtWidgets import QWidget
+
+from PySide6.QtUiTools import loadUiType
+from PySide6.QtGui import QIcon
+from PySide6.QtCore import Signal, Qt
+from PySide6.QtWidgets import *
 from gui import gui_utils
 import os
 import time
@@ -19,15 +22,17 @@ matplotlib.use('Qt5Agg')
 
 
 # Load the .ui files
-ui_main_file = uic.loadUiType(os.path.dirname(__file__) + "/channel_selection.ui")[0]
+ui_main_file = loadUiType(os.path.dirname(__file__) + "/channel_selection.ui")[0]
 
 
-class ChannelSelectionWidget(QtWidgets.QDialog, ui_main_file):
-    """This class allows you to control the GUI of the EEG channel selection widget."""
-    close_signal = QtCore.pyqtSignal(object)
+class ChannelSelectionWidget(QDialog, ui_main_file):
+    """This class allows you to control the GUI of the EEG channel
+       selection widget."""
+
+    close_signal = Signal(object)
 
     def __init__(self, montage='10-20', ch_labels=None):
-        QtWidgets.QDialog.__init__(self)
+        QDialog.__init__(self)
         self.setupUi(self)
         self.TAG = '[widget/EEG Channel Selection]'
 
@@ -39,7 +44,7 @@ class ChannelSelectionWidget(QtWidgets.QDialog, ui_main_file):
         self.theme_colors = gui_utils.get_theme_colors('dark') if \
             theme_colors is None else theme_colors
         self.stl = gui_utils.set_css_and_theme(self, self.theme_colors)
-        self.setWindowIcon(QtGui.QIcon('gui\images/medusa_task_icon.png'))
+        self.setWindowIcon(QIcon('gui\images/medusa_task_icon.png'))
         self.setWindowTitle('MEDUSA EEG Channel Selection')
         self.used_btn.setStyleSheet('QPushButton {background-color: #76ba1b; color: #000000;}')
         self.ground_btn.setStyleSheet('QPushButton {background-color: #fff44f; color: #000000;}')
@@ -121,7 +126,7 @@ class ChannelSelectionWidget(QtWidgets.QDialog, ui_main_file):
 
     def save(self):
         """ Opens a dialog to save the configuration as a file. """
-        fdialog = QtWidgets.QFileDialog()
+        fdialog = QFileDialog()
         fname = fdialog.getSaveFileName(
             fdialog, 'Save Channel Selection', '../../channelset/', 'JSON (*.json)')
         if fname[0]:
@@ -132,7 +137,7 @@ class ChannelSelectionWidget(QtWidgets.QDialog, ui_main_file):
 
     def load(self):
         """ Opens a dialog to load a configuration file. """
-        fdialog = QtWidgets.QFileDialog()
+        fdialog = QFileDialog()
         fname = fdialog.getOpenFileName(
             fdialog, 'Load Channel Selection', '../../channelset/', 'JSON (*.json)')
         if fname[0]:
@@ -163,15 +168,15 @@ class ChannelSelectionWidget(QtWidgets.QDialog, ui_main_file):
             If the user do not want to close the window, and
             QtWidgets.QMessageBox.Yes otherwise.
         """
-        msg = QtWidgets.QMessageBox()
-        msg.setIcon(QtWidgets.QMessageBox.Warning)
+        msg = QMessageBox()
+        msg.setIcon(QMessageBox.Warning)
         msg.setWindowTitle("EEG Channel Selection")
-        msg.setWindowIcon(QtGui.QIcon(os.path.join(
+        msg.setWindowIcon(QIcon(os.path.join(
             os.path.dirname(__file__), '../../gui/images/medusa_task_icon.png')))
         msg.setText("Do you want to leave this window?")
         msg.setInformativeText("Non-saved changes will be discarded.")
         msg.setStandardButtons(
-            QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No)
+            QMessageBox.Yes | QMessageBox.No)
         return msg.exec_()
 
     def closeEvent(self, event):
@@ -179,7 +184,7 @@ class ChannelSelectionWidget(QtWidgets.QDialog, ui_main_file):
         """
         if self.changes_made:
             retval = self.close_dialog()
-            if retval == QtWidgets.QMessageBox.Yes:
+            if retval == QMessageBox.Yes:
                 self.close_signal.emit(None)
                 event.accept()
             else:
@@ -274,7 +279,10 @@ class EEGChannelSelectionPlot(SerializableComponent):
         dist_matrix = self.channel_set.compute_dist_matrix()
         dist_matrix.sort()
         percentage = self.set_tolerance_parameter()
-        self.tolerance_radius = 1.5 * percentage * dist_matrix[:, 1].min()
+        if len(self.l_cha) > 1:
+            self.tolerance_radius = 1.5 * percentage * dist_matrix[:, 1].min()
+        else:
+            self.tolerance_radius = percentage
 
     def set_tolerance_parameter(self):
         """ Computes the percentage of the minimum distance between channels
@@ -439,6 +447,6 @@ class EEGChannelSelectionPlot(SerializableComponent):
 
 if __name__ == '__main__':
     # self.show must be uncommented
-    app = QtWidgets.QApplication([])
+    app = QApplication([])
     mw = ChannelSelectionWidget(montage='10-05')
     app.exec_()

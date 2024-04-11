@@ -1,16 +1,25 @@
 # BUILT-IN MODULES
-import shutil, json, os, glob, re, time
+import glob
+import json
+import os
+import re
+import shutil
+import tempfile
 import threading
+import time
+import zipfile
 from datetime import datetime
-import zipfile, tempfile
 from io import BytesIO
+
 import pkg_resources
+from cryptography.fernet import Fernet
 # EXTERNAL MODULES
 from jinja2 import Template
-from cryptography.fernet import Fernet
+
 # INTERNAL MODULES
-import constants, exceptions, utils
-from gui.qt_widgets import dialogs
+import constants
+import exceptions
+import utils
 
 
 class AppManager:
@@ -24,7 +33,10 @@ class AppManager:
             constants.APPS_CONFIG_FILE)
         self.apps_folder = self.accounts_manager.wrap_path('apps')
         self.apps_dict = None
+        # Load apps file
         self.load_apps_file()
+        # Check apps updates
+        self.check_updates()
 
     def handle_exception(self, ex):
         # Send exception to gui main
@@ -135,12 +147,18 @@ class AppManager:
                             raise Exception('App %s is already installed' %
                                             info['name'])
                         # Check target version of the platform
-                        if info['target'] != self.release_info['version']:
-                            # todo: convert to dialog
-                            self.medusa_interface.log(
-                                'This app has been designed for MEDUSA Platform'
-                                ' %s. Correct operation is not guaranteed' %
-                                info['target'], style='warning')
+                        if self.release_info['version'] != 'Dev' and \
+                            info['target'] != self.release_info['version']:
+                        # if info['target'] != self.release_info['version']:
+                            ex = exceptions.IncorrectAppVersionTarget()
+                            self.medusa_interface.error(ex=ex, mode='dialog')
+                            progress_dialog.update_action(
+                                'Error!')
+                            progress_dialog.update_log(
+                                'Installation aborted',
+                                style='error')
+                            progress_dialog.finish()
+                            return
                         # Move files from temp dir to final dir
                         progress_dialog.update_action(
                             'Moving to destination folder...')
@@ -154,8 +172,11 @@ class AppManager:
                         progress_dialog.update_action('Finished!')
                         progress_dialog.update_value(100)
                         progress_dialog.finish()
-                # Update apps file
+                # Default params
                 info['installation-date'] = self.get_date_today()
+                info['update'] = False
+                info['update-version'] = None
+                # Save apps dict
                 self.apps_dict[info['id']] = info
                 self.update_apps_file()
         except Exception as e:
@@ -234,6 +255,46 @@ class AppManager:
             progress_dialog.update_log('ERROR: %s' % str(e), style='error')
             progress_dialog.finish()
             self.handle_exception(e)
+
+    def check_updates(self):
+        # Get app ids
+        app_ids = list()
+        for app_id, app_info in self.apps_dict.items():
+            if app_info['compilation-date'] != 'development':
+                app_ids.append(app_id)
+        # Get target
+        target = self.release_info['version']
+        target = None if target == 'Dev' else target
+        # Get latest versions
+        latest_versions = self.accounts_manager.current_session.\
+            get_medusa_latest_version_of_apps(app_ids, target)
+        # Check for updates
+        for app_id, app_info in self.apps_dict.items():
+            if latest_versions is None or app_id not in latest_versions:
+                self.apps_dict[app_id]['update'] = False
+                self.apps_dict[app_id]['update-version'] = None
+                continue
+            if not isinstance(latest_versions[app_id], dict):
+                # This happens when you change manually the id of an app that
+                # was installed previously from the market. It can also
+                # happen if the app is deleted from the market.
+                self.apps_dict[app_id]['update'] = False
+                self.apps_dict[app_id]['update-version'] = None
+                ex = Exception('App %s is not available in the market' %
+                               app_info['name'])
+                self.medusa_interface.error(ex)
+                continue
+            # Check if an update is available
+            curr_version = app_info['version']
+            latest_version = latest_versions[app_id]['version']
+                # Set update parameter
+            if latest_version > curr_version:
+                self.apps_dict[app_id]['update'] = True
+                self.apps_dict[app_id]['update-version'] = \
+                    latest_versions[app_id]
+            else:
+                self.apps_dict[app_id]['update'] = False
+                self.apps_dict[app_id]['update-version'] = None
 
     def uninstall_app(self, app_key):
         # Remove directory

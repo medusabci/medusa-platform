@@ -4,10 +4,10 @@ import multiprocessing as mp
 import time
 
 # EXTERNAL MODULES
-from PyQt5 import uic
-from PyQt5.QtWidgets import *
-from PyQt5.QtCore import *
-from PyQt5.QtGui import *
+from PySide6.QtUiTools import loadUiType
+from PySide6.QtWidgets import *
+from PySide6.QtCore import *
+from PySide6.QtGui import *
 # MEDUSA MODULES
 import utils
 from gui.plots_panel import plots_panel_config, real_time_plots
@@ -17,8 +17,7 @@ from acquisition import lsl_utils
 from gui import gui_utils as gu
 
 
-ui_plots_panel_widget = \
-    uic.loadUiType('gui/ui_files/plots_panel_widget.ui')[0]
+ui_plots_panel_widget = loadUiType('gui/ui_files/plots_panel_widget.ui')[0]
 
 
 class PlotsPanelWidget(QWidget, ui_plots_panel_widget):
@@ -47,8 +46,8 @@ class PlotsPanelWidget(QWidget, ui_plots_panel_widget):
                     self.plots_panel_config = json.load(f)
                 self.update_plots_panel()
             except json.decoder.JSONDecodeError as e:
-                msg = '[ERROR] Corrupted file plots_panel_config.json. ' \
-                      'The plots config could not be loaded'
+                msg = '[ERROR] Corrupted file %s. The plots config could not ' \
+                      'be loaded' % self.plots_config_file_path
                 self.medusa_interface.log(msg)
 
     def handle_exception(self, ex):
@@ -64,29 +63,27 @@ class PlotsPanelWidget(QWidget, ui_plots_panel_widget):
     @exceptions.error_handler(scope='plots')
     def set_undocked(self, undocked):
         self.undocked = undocked
+        # Change icon and tooltip
         self.reset_tool_bar_plot_buttons()
 
     @exceptions.error_handler(scope='plots')
     def reset_tool_bar_plot_buttons(self):
-        # Creates QIcons for the app tool bar
-        plot_start_icon = gu.get_icon("visibility.svg", self.theme_colors)
-        plot_config_icon = gu.get_icon("settings.svg", self.theme_colors)
-        plot_undock_icon = gu.get_icon("open_in_new.svg", self.theme_colors)
-
-        # plot_start_icon = QIcon("%s/icons/plot_icon.png" % constants.IMG_FOLDER)
-        # plot_config_icon = QIcon("%s/icons/gear.png" % constants.IMG_FOLDER)
-        # undock_button_image = "dock_enabled_icon.png" if self.undocked else \
-        #     "undock_enabled_icon.png"
-        # plot_undock_icon = QIcon("%s/icons/%s" %
-        #                          (constants.IMG_FOLDER, undock_button_image))
-
         # Set icons in buttons
-        self.toolButton_plot_start.setIcon(plot_start_icon)
-        self.toolButton_plot_config.setIcon(plot_config_icon)
-        self.toolButton_plot_undock.setIcon(plot_undock_icon)
+        self.toolButton_plot_start.setIcon(
+            gu.get_icon("visibility.svg", self.theme_colors))
         self.toolButton_plot_start.setToolTip('Start plotting')
+        self.toolButton_plot_config.setIcon(
+            gu.get_icon("settings.svg", self.theme_colors))
         self.toolButton_plot_config.setToolTip('Configure plots')
-        self.toolButton_plot_undock.setToolTip('Undock')
+        if self.undocked:
+            self.toolButton_plot_undock.setIcon(
+                gu.get_icon("open_in_new_down.svg", self.theme_colors))
+            self.toolButton_plot_undock.setToolTip(
+                'Redock in main window')
+        else:
+            self.toolButton_plot_undock.setIcon(
+                gu.get_icon("open_in_new.svg", self.theme_colors))
+            self.toolButton_plot_undock.setToolTip('Undock')
 
     @exceptions.error_handler(scope='plots')
     def set_up_tool_bar_plot(self):
@@ -219,6 +216,13 @@ class PlotsPanelWidget(QWidget, ui_plots_panel_widget):
                           'reconfigure' % (plot_uid)
                     self.medusa_interface.log(msg, style='warning')
                     continue
+                except KeyError as e:
+                    msg = 'Plot %i. KeyError: %s The configuration of ' \
+                          'this plot is not valid. This may be due to ' \
+                          'a corrupted file or a software update. ' \
+                          'Please, reset the configuration of this ' \
+                          'plot.' % (plot_uid, str(e))
+                    raise exceptions.IncorrectSettingsConfig(msg)
                 except Exception as e:
                     msg = type(e)('Plot %i. %s' % (plot_uid, str(e)))
                     ex = exceptions.MedusaException(
@@ -310,15 +314,18 @@ class PlotsPanelWindow(QMainWindow):
 
     """This window holds the plots panel widget in undocked mode"""
 
-    close_signal = pyqtSignal()
+    close_signal = Signal()
 
     def __init__(self, plots_panel_widget, theme_colors,
                  width=1200, height=900):
         super().__init__()
-        # self.plots_panel_widget = plots_panel_widget
         self.theme_colors = theme_colors
         self.setCentralWidget(plots_panel_widget)
         gu.set_css_and_theme(self, self.theme_colors)
+        # Window title and icon
+        self.setWindowIcon(QIcon('%s/medusa_task_icon.png' %
+                                 constants.IMG_FOLDER))
+        self.setWindowTitle('Real time plots panel')
         # Resize plots window
         self.resize(width, height)
         self.show()

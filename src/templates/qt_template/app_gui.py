@@ -1,8 +1,8 @@
 # Python modules
 import os, time
 # External modules
-from PyQt5 import QtGui, QtWidgets
-from PyQt5.QtCore import *
+from PySide6 import QtGui, QtWidgets
+from PySide6.QtCore import *
 # Medusa modules
 from gui import gui_utils
 from gui.qt_widgets import dialogs
@@ -46,7 +46,7 @@ class AppGui(QtWidgets.QMainWindow):
         self.run_state = run_state
         self.queue_from_manager = queue_from_manager
         self.queue_to_manager = queue_to_manager
-        self.is_close_forced = False
+        self.force_close = False
 
         # Create layout
         self.main_layout = QtWidgets.QVBoxLayout()
@@ -75,6 +75,8 @@ class AppGui(QtWidgets.QMainWindow):
             self.queue_from_manager, self.queue_to_manager)
         self.working_thread.update_response_signal.connect(
             self.update_response_handler)
+        self.working_thread.close_signal.connect(
+            self.close_forced)
         self.working_thread.start()
 
         # Show application
@@ -87,15 +89,14 @@ class AppGui(QtWidgets.QMainWindow):
         # Treat exception
         if isinstance(ex, exceptions.MedusaException):
             if ex.importance == 'critical':
-                self.is_close_forced = True
+                self.force_close = True
                 self.close()
 
-    @pyqtSlot(int)
     def update_response_handler(self, value):
         self.spin_box.setValue(value)
 
     def close_forced(self):
-        self.is_close_forced = True
+        self.force_close = True
         return self.close()
 
     def closeEvent(self, event):
@@ -103,7 +104,7 @@ class AppGui(QtWidgets.QMainWindow):
         application. All the processes and threads have to be closed
         """
         try:
-            if self.is_close_forced is False:
+            if self.force_close is False:
                 # POWERING_OFF only if the user press the stop button.
                 if self.run_state.value == constants.RUN_STATE_STOP:
                     self.working_thread.stop = True
@@ -127,7 +128,8 @@ class AppGui(QtWidgets.QMainWindow):
 
 class AppGuiWorker(QThread):
 
-    update_response_signal = pyqtSignal(int)
+    update_response_signal = Signal(int)
+    close_signal = Signal()
 
     def __init__(self, app_settings, run_state, queue_from_manager,
                  queue_to_manager):
@@ -151,15 +153,27 @@ class AppGuiWorker(QThread):
             while not self.stop:
                 time.sleep(1/(self.app_settings.updates_per_min/60))
                 if self.run_state.value == constants.RUN_STATE_RUNNING:
-                    # print('[AppGuiWorker] Request update')
                     self.queue_to_manager.put({'event_type': 'update_request'})
                     resp = self.queue_from_manager.get()
-                    # print('\t>> Response: ' + str(resp))
                     if resp['event_type'] == 'update_response':
                         self.update_response_signal.emit(resp['data'])
+                elif self.run_state.value == constants.RUN_STATE_STOP:
+                    self.close_app()
+
         except Exception as ex:
             ex = exceptions.MedusaException(
                 ex, importance='critical',
                 scope='app',
                 origin='AppGuiWorker/run')
+            self.handle_exception(ex)
+
+    def close_app(self):
+        try:
+            self.close_signal.emit()
+            self.stop = True
+        except Exception as ex:
+            ex = exceptions.MedusaException(
+                ex, importance='unknown',
+                scope='app',
+                origin='AppGuiWorker/finish_run')
             self.handle_exception(ex)

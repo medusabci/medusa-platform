@@ -1,0 +1,98 @@
+{
+    "connection_settings": {
+        "ip": "127.0.0.1",
+        "port": 50000,
+        "path_to_exe": "D:\\MEDUSA\\medusa-dev\\medusa-platform\\src\\accounts\\dmarcos97\\apps\\itaca/unity/Trapped Spaceship/ITACA Trapped Spaceship.exe"
+    },
+    "run_settings": {
+        "user": "S02",
+        "session": 1,
+        "run": 3,
+        "nft_paradigm": 3,
+        "fc_measure": "AECORT",
+        "montage": {
+            "l_cha": [
+                "F7",
+                "FZ",
+                "F8",
+                "C3",
+                "CZ",
+                "C4",
+                "PO3",
+                "PO4"
+            ]
+        },
+        "standard": "10-05",
+        "target_channels": [
+            "FZ"
+        ],
+        "app": "Trapped Spaceship",
+        "update_feature_window": 1.0,
+        "n_cha_lp": 4,
+        "baseline_recording": "",
+        "show_update_rate": true
+    },
+    "timings": {
+        "n_runs": 5,
+        "time_between_runs": 15.0,
+        "max_run_duration": 20.0,
+        "calibration": 20.0
+    },
+    "band_selection": {
+        "main_band": [
+            [
+                4.0,
+                8.0
+            ]
+        ],
+        "denominator_band": [
+            [
+                4,
+                8
+            ]
+        ],
+        "restricting_bands": {
+            "ocular": true,
+            "muscular": true
+        },
+        "filter_dict": [
+            {
+                "type": "training",
+                "cutoff": [
+                    [
+                        4.0,
+                        8.0
+                    ]
+                ]
+            },
+            {
+                "type": "artifact",
+                "cutoff": [
+                    [
+                        0.5,
+                        2
+                    ]
+                ]
+            },
+            {
+                "type": "artifact",
+                "cutoff": [
+                    [
+                        35,
+                        40
+                    ]
+                ]
+            }
+        ],
+        "pct_tol_ocular": 0.9,
+        "pct_tol_muscular": 0.9,
+        "increase_activity": true,
+        "apply_car": true,
+        "apply_laplacian": false
+    },
+    "game_settings": {
+        "trapped_spaceship_sett": {
+            "pct_max": 0.35
+        }
+    }
+}

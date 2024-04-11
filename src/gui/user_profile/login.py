@@ -1,29 +1,25 @@
 # Built-in imports
 import sys, os, json, traceback, webbrowser, pickle
 # External imports
-from PyQt5 import QtCore, QtGui, QtWidgets, uic
-from PyQt5.QtCore import Qt
+from PySide6.QtUiTools import loadUiType
+from PySide6 import QtCore, QtGui, QtWidgets
+from PySide6.QtCore import Qt
 import requests
 # Medusa imports
 from gui import gui_utils
 from gui.qt_widgets import dialogs
-from gui.qt_widgets.notifications import NotificationStack
-from acquisition import lsl_utils
 import exceptions
 import constants
-from medusa.plots import optimal_subplots
-import user_session
 
 # Load the .ui files
-ui_main_dialog = \
-    uic.loadUiType('gui/ui_files/login_dialog.ui')[0]
+ui_main_dialog = loadUiType('gui/ui_files/login_dialog.ui')[0]
 
 
 class LoginDialog(QtWidgets.QDialog, ui_main_dialog):
     """ Dialog for Login to MEDUSA
     """
 
-    error_signal = QtCore.pyqtSignal(Exception)
+    error_signal = QtCore.Signal(Exception)
 
     def __init__(self, user_session, theme_colors=None):
         """ Class constructor
@@ -82,7 +78,7 @@ class LoginDialog(QtWidgets.QDialog, ui_main_dialog):
         self.show()
 
     @exceptions.error_handler(scope='general')
-    def on_toggle_password_Action(self, show):
+    def on_toggle_password_Action(self):
         if not self.password_shown:
             self.lineEdit_password.setEchoMode(QtWidgets.QLineEdit.Normal)
             self.password_shown = True
@@ -97,11 +93,11 @@ class LoginDialog(QtWidgets.QDialog, ui_main_dialog):
         self.error_signal.emit(mds_ex)
 
     @exceptions.error_handler(scope='general')
-    def on_button_login_clicked(self, checked):
+    def on_button_login_clicked(self):
         """Query to www.medusabci.com to log in"""
         # Reset error message
         self.label_error_msg.setText('')
-        QtWidgets.qApp.processEvents()
+        QtWidgets.QApplication.instance().processEvents()
         # Get data
         email = self.lineEdit_email.text()
         password = self.lineEdit_password.text()

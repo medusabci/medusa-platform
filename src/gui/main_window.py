@@ -10,10 +10,10 @@ import datetime
 import pkg_resources
 
 # EXTERNAL MODULES
-from PyQt5 import uic
-from PyQt5.QtWidgets import *
-from PyQt5.QtCore import *
-from PyQt5.QtGui import *
+from PySide6.QtUiTools import loadUiType
+from PySide6.QtWidgets import *
+from PySide6.QtCore import *
+from PySide6.QtGui import *
 
 # MEDUSA general
 import constants, resources, exceptions, accounts_manager, app_manager
@@ -29,12 +29,11 @@ from gui.log_panel import log_panel
 from gui.studies_panel import studies_panel
 from gui.user_profile import login
 from gui.user_profile import user_profile
-from gui.qt_widgets.dialogs import info_dialog, error_dialog
+from gui.qt_widgets.dialogs import *
 from gui.qt_widgets.dialogs import ThreadProgressDialog
 
 # Load the .ui file
-gui_main_user_interface = uic.loadUiType("gui/ui_files/main_window.ui")[0]
-gui_about = uic.loadUiType(os.getcwd() + "/gui/ui_files/about.ui")[0]
+gui_main_user_interface = loadUiType("gui/ui_files/main_window.ui")[0]
 
 
 class GuiMainClass(QMainWindow, gui_main_user_interface):
@@ -44,81 +43,89 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
     """
     def __init__(self):
         QMainWindow.__init__(self)
-        self.setupUi(self)
 
-        # Load version
+        # Load versions info
         self.platform_release_info = self.get_platform_release_info()
         self.kernel_release_info = self.get_kernel_release_info()
 
-        # Qt parameters
-        self.setWindowIcon(QIcon('%s/medusa_task_icon.png' %
-                                 constants.IMG_FOLDER))
-        self.setWindowTitle('MEDUSA© Platform %s [%s]' %
-                            (self.platform_release_info['version'],
-                             self.platform_release_info['name']))
-        self.setFocusPolicy(Qt.StrongFocus)
-        self.setAttribute(Qt.WA_DeleteOnClose)
-        # self.setWindowFlags(Qt.FramelessWindowHint)
-
-        # Tell windows that this application is not pythonw.exe so it can
-        # have its own icon
+        # Set application name so it can have its own icon
         medusaid = u'gib.medusa.' + self.platform_release_info['version']
         ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(medusaid)
 
         # Splash screen
         splash_screen = SplashScreen(self.platform_release_info)
-        splash_screen.set_state(0, "Initializing...")
+        splash_screen.set_state(0, '')
 
-        # Instantiate accounts manager
-        self.accounts_manager = accounts_manager.AccountsManager()
-
-        # Set GUI settings
-        self.gui_config = None
-        self.screen_size = None
-        self.display_size = None
-        self.theme_colors = None
-        self.load_gui_config()
-        self.set_theme()
-
-        # Build layout
-        self.build_layout()
-        self.set_up_menu_bar_main()
-        self.set_up_tool_bar_main()
-        splash_screen.set_state(25, "Setting everything up...")
-
+        # ========================= PARAMS & TOOLS =========================== #
         # State constants shared across medusa. See constants.py for more info
         self.plot_state = mp.Value('i', constants.PLOT_STATE_OFF)
         self.app_state = mp.Value('i', constants.APP_STATE_OFF)
         self.run_state = mp.Value('i', constants.RUN_STATE_READY)
 
-        # Medusa interface
+        # # Medusa interface
         self.interface_queue = self.MedusaInterfaceQueue()
         self.medusa_interface_listener = None
         self.set_up_medusa_interface_listener(self.interface_queue)
         self.medusa_interface = resources.MedusaInterface(self.interface_queue)
-        splash_screen.set_state(50, "Loading resources...")
 
-        # Update managers
+        splash_screen.set_state(25, '')
+
+        # Load version and instantiate updates manager
         self.updates_manager = updates_manager.UpdatesManager(
             self.medusa_interface, self.platform_release_info,
             self.kernel_release_info)
-        splash_screen.set_state(75, "Checking for updates...")
+
+        # Instantiate accounts manager
+        self.accounts_manager = accounts_manager.AccountsManager()
+
+        splash_screen.set_state(50, '')
+
+        # ============================ GUI CONFIG ============================ #
+        # Load gui config, set layout and theme
+        self.screen_size = None
+        self.display_size = None
+        self.theme_colors = None
+        self.gui_config = None
+        self.setupUi(self)
+        self.load_gui_config()
+        self.build_layout()
+        self.set_theme()
 
         # Reset panels
         self.lsl_config = None
+        self.box_studies_panel = None
+        self.studies_panel_widget = None
         self.apps_manager = None
+        self.apps_panel_widget = None
+        self.log_panel_widget = None
+        self.plots_panel_widget = None
         self.reset_panels()
-        splash_screen.set_state(100, "Tidying up the panels...")
 
-        # Set up
-        splash_screen.hide()
+        # Menu and toolbar action initializing
+        self.set_up_menu_bar_main()
+        self.set_up_tool_bar_main()
 
-        # Show
-        self.set_window_config()
+        splash_screen.set_state(75, '')
+
+        # Main window parameters
+        icon = QIcon()
+        icon.addPixmap('%s/medusa_task_icon.png' % constants.IMG_FOLDER)
+        self.setWindowIcon(icon)
+        self.setWindowTitle('MEDUSA© Platform %s [%s]' %
+                            (self.platform_release_info['version'],
+                             self.platform_release_info['name']))
+        self.setFocusPolicy(Qt.StrongFocus)
+        self.setAttribute(Qt.WA_DeleteOnClose)
         self.set_status('Ready')
-        self.show()
+        self.set_window_config()
 
-        # User account
+        splash_screen.set_state(100, '')
+
+        # ============================== SHOW ================================ #
+        # Hide splash screen and show window
+        splash_screen.hide()
+        self.show()
+        # Set user account and check for updates
         self.set_up_user_account()
 
     @exceptions.error_handler(scope='general')
@@ -133,7 +140,8 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
     # ================================ SET UP ================================ #
     @exceptions.error_handler(scope='general')
     def build_layout(self):
-        # todo: configurable layout
+        """This function builds the default layout"""
+        # todo: configurable layout loaded from self.gui_config
         # Left widget
         self.widget_left_side = QWidget()
         self.widget_left_side.setLayout(QVBoxLayout())
@@ -162,12 +170,12 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
     @exceptions.error_handler(scope='general')
     def load_gui_config(self):
         # Get display environment
-        desktop_widget = QDesktopWidget()
-        screen_size = desktop_widget.availableGeometry(self).size()
+        current_screen = self.screen()
+        screen_size = current_screen.availableGeometry().size()
         self.screen_size = [screen_size.width(), screen_size.height()]
         self.display_size = [0, 0]
-        for i in range(desktop_widget.screenCount()):
-            screen_size = desktop_widget.screenGeometry(i).size()
+        for screen in QApplication.instance().screens():
+            screen_size = screen.geometry().size()
             self.display_size[0] += screen_size.width()
             self.display_size[1] += screen_size.height()
 
@@ -204,6 +212,7 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         self.gui_config['splitter_ratio'] = [0.36, 0.64]
         self.gui_config['splitter_2_ratio'] = [0.28, 0.72]
         self.gui_config['maximized'] = False
+        self.gui_config['screen_idx'] = 0
         # Study mode
         self.gui_config['study_mode'] = False
         # Default theme
@@ -220,6 +229,7 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
             s/sum(self.splitter_2.sizes()) for s in self.splitter_2.sizes()]
         self.gui_config['position'] = [self.pos().x(), self.pos().y()]
         self.gui_config['maximized'] = self.isMaximized()
+        self.gui_config['screen_idx'] = len(QApplication.instance().screens())
         # Save config
         gui_config_file_path = self.accounts_manager.wrap_path(
             constants.GUI_CONFIG_FILE)
@@ -252,32 +262,27 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
 
     @exceptions.error_handler(scope='general')
     def reset_panels(self):
-        # Log panel (set up first in case any exception is raised in other
-        # functions)
-        self.log_panel_widget = None
+        # Log panel (set up first in case is used in other functions)
         self.set_up_log_panel()
         # LSL config
-        self.lsl_config = None
         self.set_up_lsl_config()
         # Apps panel
         self.apps_manager = app_manager.AppManager(
             self.accounts_manager, self.medusa_interface,
             self.platform_release_info)
-        self.apps_panel_widget = None
         self.set_up_apps_panel()
         # Studies panel
-        self.box_studies_panel = None
-        self.studies_panel_widget = None
         self.set_up_studies_panel()
         # Plots dashboard
-        self.plots_panel_widget = None
         self.set_up_plots_panel()
 
-    def check_updates(self):
+    def check_updates(self, exclude_prereleases=True):
+
         # Check for available updates of MEDUSA Platform
-        update, latest_version_info = \
-            self.updates_manager.check_for_medusa_platform_updates()
-        if update:
+        platform_update, platform_rejected, latest_version_info = \
+            self.updates_manager.check_for_medusa_platform_updates(
+                exclude_prereleases=exclude_prereleases)
+        if platform_update:
             # Initialize progress dialog
             self.progress_dialog = ThreadProgressDialog(
                 window_title='Updating MEDUSA\u00A9 Platform...',
@@ -291,9 +296,10 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
                 args=(latest_version_info, self.progress_dialog))
             th.start()
         # Check for available updates of MEDUSA Kernel
-        update, latest_version_info = \
-            self.updates_manager.check_for_medusa_kernel_updates()
-        if update:
+        kernel_update, kernel_rejected, latest_version_info = \
+            self.updates_manager.check_for_medusa_kernel_updates(
+                exclude_prereleases=exclude_prereleases)
+        if kernel_update:
             # Initialize progress dialog
             self.progress_dialog = ThreadProgressDialog(
                 window_title='Updating MEDUSA\u00A9 Kernel...',
@@ -307,7 +313,7 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
                 args=('medusa-kernel==%s' % latest_version_info,
                       self.progress_dialog))
             th.start()
-        return update
+        return platform_update, platform_rejected, kernel_update, kernel_rejected
 
     @exceptions.error_handler(scope='general')
     def update_finished(self):
@@ -329,11 +335,11 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
 
     @exceptions.error_handler(scope='general')
     def set_up_studies_panel(self):
-        # Todo: eliminate these lines when study mode is ready
-        self.menuAction_study_mode.setDisabled(True)
-        self.menuAction_study_mode.setVisible(False)
-        # Set study mode
+        # Add widget if study mode is on
         if self.gui_config['study_mode']:
+            # Avoid multiple instances of the studies panel
+            if self.box_studies_panel is not None:
+                return
             # Group box
             self.box_studies_panel = QGroupBox('STUDIES')
             self.box_studies_panel.setLayout(QVBoxLayout())
@@ -342,17 +348,19 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
                 self.gui_config['splitter_2_ratio'] = [0.25, 0.25, 0.5]
                 self.splitter_2.setSizes(
                     [int(r * self.gui_config['height'])
-                     for r in self.gui_config['splitter_2_ratio']]
-                )
+                     for r in self.gui_config['splitter_2_ratio']])
             # Panel widget
             self.studies_panel_widget = studies_panel.StudiesPanelWidget(
                 self.medusa_interface,
+                self.accounts_manager.wrap_path(constants.STUDIES_CONFIG_FILE),
                 self.theme_colors)
+            self.studies_panel_widget.selection_signal.connect(
+                self.on_studies_panel_selection)
             # Clear layout
-            while self.box_studies_panel.layout().count():
-                child = self.box_studies_panel.layout().takeAt(0)
-                if child.widget():
-                    child.widget().deleteLater()
+            # while self.box_studies_panel.layout().count():
+            #     child = self.box_studies_panel.layout().takeAt(0)
+            #     if child.widget():
+            #         child.widget().deleteLater()
             # Add widget
             self.box_studies_panel.layout().addWidget(self.studies_panel_widget)
             self.box_studies_panel.layout().setContentsMargins(0, 0, 0, 0)
@@ -360,12 +368,47 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
             self.studies_panel_widget.toolButton_studies_undock.clicked.connect(
                 self.undock_studies_panel)
         else:
+            # Clear layout
             if self.box_studies_panel is not None:
                 self.box_studies_panel.deleteLater()
+                self.box_studies_panel = None
         self.update_menu_action_study_mode()
 
     @exceptions.error_handler(scope='general')
+    def on_studies_panel_selection(self):
+        """Updates the study info. This function is called when there is a
+        selection on the studies panel."""
+        # Get selection information
+        selected_item_type = self.studies_panel_widget.selected_item_type
+        selected_item_tree = self.studies_panel_widget.selected_item_tree
+        # Pass this information to the apps panel
+        study = selected_item_tree[0] if len(selected_item_tree) > 0 else \
+            {'item_name': None, 'item_data': None}
+        subject = selected_item_tree[1] if len(selected_item_tree) > 1 else \
+            {'item_name': None, 'item_data': None}
+        session = selected_item_tree[2] if len(selected_item_tree) > 2 else \
+            {'item_name': None, 'item_data': None}
+        path = self.studies_panel_widget.get_element_dir(
+            self.studies_panel_widget.studies_panel_config['root_path'],
+            self.studies_panel_widget.selected_item_tree)
+        # Set rec_info
+        rec_info = self.apps_panel_widget.get_default_rec_info()
+        rec_info['path'] = path
+        rec_info['study_id'] = study['item_name']
+        rec_info['subject_id'] = subject['item_name']
+        rec_info['session_id'] = session['item_name']
+        # Specific info, available only in study mode
+        rec_info['study_info'] = {
+            'selected_item_type': selected_item_type,
+            'study_data': study['item_data'],
+            'subject_data': subject['item_data'],
+            'session_data': session['item_data'],
+        }
+        self.apps_panel_widget.set_rec_info(rec_info)
+
+    @exceptions.error_handler(scope='general')
     def set_up_log_panel(self):
+        # Instantiate Log layout
         self.log_panel_widget = log_panel.LogPanelWidget(
             self.medusa_interface,
             self.theme_colors)
@@ -451,9 +494,11 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
             self.run_state,
             self.medusa_interface,
             self.accounts_manager.wrap_path('apps'),
+            self.gui_config['study_mode'],
             self.theme_colors)
         # Connect signals
-        self.apps_panel_widget.error_signal.connect(self.handle_exception)
+        self.apps_panel_widget.error_signal.connect(
+            self.handle_exception)
         # Clear layout
         while self.box_apps_panel.layout().count():
             child = self.box_apps_panel.layout().takeAt(0)
@@ -462,6 +507,9 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         # Add widget
         self.box_apps_panel.layout().addWidget(self.apps_panel_widget)
         self.box_apps_panel.layout().setContentsMargins(0, 0, 0, 0)
+        # Connect external actions
+        self.apps_panel_widget.toolButton_app_undock.clicked.connect(
+            self.undock_apps_panel)
 
     @exceptions.error_handler(scope='general')
     def set_up_plots_panel(self):
@@ -502,21 +550,16 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
     def get_platform_release_info():
         try:
             with open('../version', 'r') as f:
-                release_info = dict(zip(['tag_name', 'name', 'date'],
-                                        f.read().split('\n')))
-                release_tag_split = release_info['tag_name'].split('.')
-                release_info['version'] = release_tag_split[0]
-                release_info['major_patch'] = release_tag_split[1]
-                release_info['minor_patch'] = release_tag_split[2]
+                release_info = json.load(f)
         except Exception as e:
-            release_info = dict()
-            release_info['tag_name'] = 'Dev.0.0'
-            release_info['name'] = 'Development'
-            release_info['date'] = str(datetime.date.today())
-            release_tag_split = release_info['tag_name'].split('.')
-            release_info['version'] = release_tag_split[0]
-            release_info['major_patch'] = release_tag_split[1]
-            release_info['minor_patch'] = release_tag_split[2]
+            release_info = {
+                'date': str(datetime.date.today()),
+                'tag_name': 'Dev.0.0',
+                'version': 'Dev',
+                'major_patch': 0,
+                'minor_patch': 0,
+                'name': 'Development',
+            }
         return release_info
 
     @staticmethod
@@ -535,10 +578,10 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
     def set_up_menu_bar_main(self):
         # Preferences
         # TODO: menuAction_view_integrated, menuAction_view_split
-        self.menuAction_color_dark.triggered.connect(
-            self.set_dark_theme)
-        self.menuAction_color_light.triggered.connect(
-            self.set_light_theme)
+        # self.menuAction_color_dark.triggered.connect(
+        #     self.set_dark_theme)
+        # self.menuAction_color_light.triggered.connect(
+        #     self.set_light_theme)
         self.menuAction_study_mode.triggered.connect(
             self.change_study_mode)
         # Lab streaming layer
@@ -578,8 +621,11 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
     @exceptions.error_handler(scope='general')
     def change_study_mode(self, checked=None):
         self.gui_config['study_mode'] = not self.gui_config['study_mode']
-        # Insert studies box
+        # Insert studies box and update apps panel
         self.set_up_studies_panel()
+        self.apps_panel_widget.study_mode = self.gui_config['study_mode']
+        rec_info = self.apps_panel_widget.get_default_rec_info()
+        self.apps_panel_widget.set_rec_info(rec_info)
 
     @exceptions.error_handler(scope='general')
     def update_menu_action_study_mode(self):
@@ -629,11 +675,12 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         self.reset_tool_bar_main()
 
     @exceptions.error_handler(scope='general')
-    def open_analyzer_window(self, checked):
-        raise NotImplementedError('This functionality is still under development!')
+    def open_analyzer_window(self):
+        raise NotImplementedError('This functionality is still under '
+                                  'development!')
 
     @exceptions.error_handler(scope='general')
-    def open_account_window(self, event):
+    def open_account_window(self):
         if not self.accounts_manager.check_session():
             self.open_login_window()
         else:
@@ -769,7 +816,7 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
 
     @exceptions.error_handler(scope='general')
     def open_help_forum(self, checked=None):
-        return webbrowser.open('https://forum.medusabci.com/')
+        return webbrowser.open('https://discord.gg/G8dWPXtBsC')
 
     @exceptions.error_handler(scope='general')
     def open_help_bugs(self, checked=None):
@@ -778,9 +825,17 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
 
     @exceptions.error_handler(scope='general')
     def open_help_updates(self, checked=None):
-        # TODO: check for updates automatically
-        return webbrowser.open(
-            'https://www.medusabci.com/solutions/medusa-platform/')
+        check, exclude_prereleases = \
+            self.updates_manager.show_check_for_updates_dialog()
+        if check:
+            res = self.check_updates(exclude_prereleases=exclude_prereleases)
+            if all(not item for item in res):
+                info_dialog('There are no available updates for MEDUSA\u00A9 '
+                            '%s. Check our website to find more recent '
+                            'versions' % self.platform_release_info['version'],
+                            'No updates', theme_colors=self.theme_colors)
+                return webbrowser.open(
+                    'https://www.medusabci.com/solutions/medusa-platform/')
 
     @exceptions.error_handler(scope='general')
     def open_help_about(self, checked=None):
@@ -788,7 +843,43 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
             alias=self.accounts_manager.current_session.user_info['alias'],
             release_info=self.platform_release_info
         )
-        dialog.exec_()
+        dialog.exec()
+
+    # ====================== APPS PANEL FUNCTIONS ======================== #
+
+    @exceptions.error_handler(scope='general')
+    def undock_apps_panel(self, checked=None):
+        if not self.apps_panel_widget.undocked:
+            # Get current dimensions
+            window_height = self.height()
+            apps_panel_width = self.apps_panel_widget.width()
+            # Create main window
+            self.apps_panel_window = apps_panel.AppsPanelWindow(
+                self.apps_panel_widget, self.theme_colors,
+                width=apps_panel_width, height=window_height)
+            self.apps_panel_widget.set_undocked(True)
+            self.apps_panel_window.close_signal.connect(
+                self.dock_apps_panel)
+            # Delete group box
+            self.box_apps_panel.deleteLater()
+        else:
+            self.apps_panel_window.close()
+
+    @exceptions.error_handler(scope='general')
+    def dock_apps_panel(self, checked=None):
+        # Update state
+        self.apps_panel_widget.set_undocked(False)
+        # Add widget
+        self.box_apps_panel = QGroupBox('APPS')
+        self.box_apps_panel.setLayout(QVBoxLayout())
+        self.box_apps_panel.layout().addWidget(self.apps_panel_widget)
+        self.box_apps_panel.layout().setContentsMargins(0, 0, 0, 0)
+        self.splitter_2.insertWidget(self.splitter_2.count()-1,
+                                     self.box_apps_panel)
+        self.splitter_2.setSizes(
+            [int(r * self.gui_config['height'])
+             for r in self.gui_config['splitter_2_ratio']]
+        )
 
     # ======================= PLOTS PANEL FUNCTIONS ========================== #
     @exceptions.error_handler(scope='general')
@@ -797,8 +888,7 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
             # Get current dimensions
             window_height = self.height()
             plots_panel_width = self.plots_panel_widget.width()
-            apps_panel_width = self.apps_panel_widget.width()
-            # Create main window
+            # Create new window
             self.plots_panel_window = plots_panel.PlotsPanelWindow(
                 self.plots_panel_widget, self.theme_colors,
                 plots_panel_width, window_height
@@ -970,13 +1060,17 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
             self.log_panel_widget.print_log(msg, style, mode)
 
     # ====================== EXCEPTION HANDLER, CLOSE ======================== #
-    def handle_exception(self, ex):
+    def handle_exception(self, ex, mode='log'):
         """ This function handles all the exceptions in MEDUSA
 
         Parameters
         ----------
         ex: Exception or subclass
             Exception raised in medusa
+        mode: str {'log', 'dialog}
+            Mode to show the exception. If 'log', a summary will be displayed
+            in the log panel. If dialog, the exception message will be
+            displayed in a dialog.
         """
         try:
             # Check exception
@@ -1002,7 +1096,15 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
             print('\tException msg: %s\n' % ex.exception_msg, file=sys.stderr)
             print(ex.traceback, file=sys.stderr)
             # Print exception in log panel
-            self.print_log(ex.get_msg(verbose=True), style='error')
+            if mode == 'log':
+                self.print_log(ex.get_msg(verbose=True), style='error')
+            elif mode == 'dialog':
+                error_dialog(message=ex.get_msg(verbose=True),
+                             title='ERROR!',
+                             theme_colors=self.theme_colors)
+            else:
+                raise ValueError('Unknown display mode %s for exception.' %
+                                 mode)
             # Take actions
             if ex.importance == 'critical' and not ex.handled:
                 if ex.scope == 'app':
@@ -1012,6 +1114,8 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
                     self.reset_plots_panel()
                 elif ex.scope == 'log':
                     self.reset_log_panel()
+                elif ex.scope == 'studies':
+                    self.reset_studies_panel()
                 elif ex.scope == 'general' or ex.scope is None:
                     self.apps_panel_widget.terminate_app_process(kill=True)
                     self.reset()
@@ -1149,21 +1253,21 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         """
 
         # Basic info types
-        msg_signal = pyqtSignal(str, object, str)
-        exception_signal = pyqtSignal(exceptions.MedusaException)
+        msg_signal = Signal(str, object, str)
+        exception_signal = Signal(exceptions.MedusaException, str)
         # Plot info types
-        plot_state_changed_signal = pyqtSignal(int)
-        undocked_plots_closed = pyqtSignal()
+        plot_state_changed_signal = Signal(int)
+        undocked_plots_closed = Signal()
         # Apps info types
-        app_state_changed_signal = pyqtSignal(int)
-        run_state_changed_signal = pyqtSignal(int)
+        app_state_changed_signal = Signal(int)
+        run_state_changed_signal = Signal(int)
 
         def __init__(self, medusa_interface_queue):
             """Class constructor
 
             Parameters
             ----------
-            medusa_interface_queue : multiprocessing.queue
+            medusa_interface_queue : MedusaInterfaceQueue
                     Queue where the manager process puts the messages
             """
             QThread.__init__(self)
@@ -1190,7 +1294,8 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
                         self.msg_signal.emit(info['info'], info['style'], mode)
                     elif info['info_type'] == \
                             resources.MedusaInterface.INFO_EXCEPTION:
-                        self.exception_signal.emit(info['info'])
+                        mode = info['mode'] if 'mode' in info else 'log'
+                        self.exception_signal.emit(info['info'], mode)
                     elif info['info_type'] == \
                             resources.MedusaInterface.INFO_APP_STATE_CHANGED:
                         self.app_state_changed_signal.emit(info['info'])
@@ -1212,7 +1317,7 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
                             'communication queue',
                         scope='general',
                         origin='MedusaInterfaceListener.run')
-                    self.exception_signal.emit(ex)
+                    self.exception_signal.emit(ex, 'log')
                 except Exception as e:
                     ex = exceptions.MedusaException(
                         e, uid='MedusaInterfaceError',
@@ -1220,7 +1325,7 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
                         msg='Catastrophic error in MedusaInterfaceListener',
                         scope='general',
                         origin='MedusaInterfaceListener.run')
-                    self.exception_signal.emit(ex)
+                    self.exception_signal.emit(ex, 'log')
 
         def terminate(self):
             self.stop = True
@@ -1229,55 +1334,14 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
             self.wait()
 
 
-class AboutDialog(QDialog, gui_about):
-
-    def __init__(self, release_info, parent=None, alias=''):
-        QDialog.__init__(self, parent)
-        self.setWindowFlags(
-            self.windowFlags() & ~Qt.WindowContextHelpButtonHint)
-        self.setupUi(self)
-        theme_colors = gu.get_theme_colors('dark')
-        self.stl = gu.set_css_and_theme(self, theme_colors)
-        self.setWindowIcon(QIcon('gui/images/medusa_task_icon.png'))
-        self.setWindowTitle('About MEDUSA')
-
-        # Details
-        self.label_date.setText('Built on ' + release_info['date'])
-        self.label_version.setText(release_info['version'] + ' [' +
-                                   release_info['name'] + ']')
-        self.label_license.setText('Licensed to ' + alias)
-
-        # Textbrowser
-        TEXT_BROWSER_TEMPLATE = \
-            '<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0//EN" ' \
-            '"http://www.w3.org/TR/REC-html40/strict.dtd"><html><head> <meta ' \
-            'name="qrichtext" content="1" /><meta charset="utf-8"/> ' \
-            '<style>%s</style></head><body>%s</body></html>'
-        style = 'p, li { white-space: pre-wrap; } p { font-family: "Roboto ' \
-                'Mono"; font-size:8pt; color: white;} a {text-decoration: ' \
-                'none; color:#55aa00;}'
-        body_ = '<br><p>Developed by (PhD) Eduardo Santamaría-Vázquez & (PhD) ' \
-                'Víctor Martínez-Cagigal.<br><br>' \
-                'More information at <a ' \
-                'href="https://medusabci.com/">www.medusabci.com</a><br><br' \
-                '></p>' \
-                '<p align="center">Powered by <a ' \
-                'href="http://gib.tel.uva.es/">Grupo de ' \
-                'Ingeniería Biomédica</a>, University of Valladolid, Spain.</p>'
-        self.textBrowser_details.setText(TEXT_BROWSER_TEMPLATE % (style, body_))
-        self.setModal(True)
-
-
 class SplashScreen:
 
     def __init__(self, release_info):
         """ Sets the initial splash screen while it loads things."""
         # Attaching the splash image
         self.release_info = release_info
-        img_path = glob.glob('gui/images/medusa_splash_v2023.png')[0]
+        img_path = glob.glob('gui/images/medusa_splash.png')[0]
         splash_image = QPixmap(img_path)
-        # self.splash_screen = QSplashScreen(splash_image,
-        #                                    Qt.WindowStaysOnTopHint)
         self.splash_screen = QSplashScreen(splash_image)
         self.splash_screen.setStyleSheet("QSplashScreen { margin-right: 0px; "
                                          "padding-right: 0px;}")
@@ -1288,20 +1352,21 @@ class SplashScreen:
         self.splash_progbar.setTextVisible(False)
         self.splash_progbar.setStyleSheet(
             "QProgressBar{ "
-            "height: 8px; "
-            "width: 360px;"
+            "height: 7px; "
+            "width: 100px;"
             "margin-right: -5px;"
             "padding-right: 0px;"
             "color: none; "
             "border: 1px solid transparent; "
             "background: rgba(0,0,0,0); "
-            "margin-left: 440px; "
-            "margin-top: 330px;"
+            "margin-left: 370px; "
+            "margin-top: 276px;"
             "}" +
-            "QProgressBar::chunk{ background: #04211a; }")
+            "QProgressBar::chunk{ background: #ffffff; }")
+
         # Creating the progress text
         self.splash_text = QLabel('Making a PhD thesis...')
-        self.splash_text.setStyleSheet("color: #04211a; "
+        self.splash_text.setStyleSheet("color: #ffffff; "
                                        "font-size: 8pt; "
                                        "font-weight: bold; "
                                        "margin-top: 360px; "
@@ -1316,6 +1381,19 @@ class SplashScreen:
         splash_layout.addWidget(self.splash_progbar, 0, 0)
         splash_layout.addWidget(self.splash_text, 0, 0)
         self.splash_screen.setLayout(splash_layout)
+
+        # Show in the corresponding screen if available
+        # if 'screen_idx' in gui_config:
+        #     screen_geometry = QApplication.desktop().screenGeometry(
+        #         gui_config['screen_idx'])
+        #     splash_width = splash_image.width()
+        #     splash_height = splash_image.height()
+        #     splash_x = int(screen_geometry.x() + screen_geometry.width() / 2 -
+        #                    splash_width / 2)
+        #     splash_y = int(screen_geometry.y() + screen_geometry.height() / 2 -
+        #                    splash_height / 2)
+        #     self.splash_screen.setGeometry(
+        #         splash_x, splash_y, splash_width, splash_height)
 
         # Displaying the splash screen
         self.splash_screen.show()

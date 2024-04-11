@@ -1,20 +1,14 @@
-# PYTHON MODULES
-import sys
-import json
-import importlib
-import multiprocessing as mp
 # EXTERNAL MODULES
-from PyQt5 import uic
-from PyQt5.QtWidgets import *
-from PyQt5.QtCore import *
-from PyQt5.QtGui import *
+from PySide6.QtUiTools import loadUiType
+from PySide6.QtWidgets import *
+from PySide6.QtCore import *
+from PySide6.QtGui import *
 # MEDUSA MODULES
 from gui import gui_utils as gu
 import constants, exceptions
 
 
-ui_plots_panel_widget = \
-    uic.loadUiType('gui/ui_files/log_panel_widget.ui')[0]
+ui_plots_panel_widget = loadUiType('gui/ui_files/log_panel_widget.ui')[0]
 
 
 class LogPanelWidget(QWidget, ui_plots_panel_widget):
@@ -46,21 +40,25 @@ class LogPanelWidget(QWidget, ui_plots_panel_widget):
 
     def reset_tool_bar_log_buttons(self):
         try:
-            # Creates QIcons for the app tool bar
-            log_save_icon = gu.get_icon("save_as.svg", self.theme_colors)
-            log_clean_icon = gu.get_icon("delete_sweep.svg", self.theme_colors)
-            log_config_icon = gu.get_icon("settings.svg", self.theme_colors)
-            log_undock_icon = gu.get_icon("open_in_new.svg", self.theme_colors)
-
             # Set icons in buttons
-            self.toolButton_log_save.setIcon(log_save_icon)
+            self.toolButton_log_save.setIcon(
+                gu.get_icon("save_as.svg", self.theme_colors))
             self.toolButton_log_save.setToolTip('Save to file')
-            self.toolButton_log_clean.setIcon(log_clean_icon)
+            self.toolButton_log_clean.setIcon(
+                gu.get_icon("delete_sweep.svg", self.theme_colors))
             self.toolButton_log_clean.setToolTip('Clear log')
-            self.toolButton_log_config.setIcon(log_config_icon)
+            self.toolButton_log_config.setIcon(
+                gu.get_icon("settings.svg", self.theme_colors))
             self.toolButton_log_config.setToolTip('Log settings')
-            self.toolButton_log_undock.setIcon(log_undock_icon)
-            self.toolButton_log_undock.setToolTip('Undock')
+            if self.undocked:
+                self.toolButton_log_undock.setIcon(
+                    gu.get_icon("open_in_new_down.svg", self.theme_colors))
+                self.toolButton_log_undock.setToolTip(
+                    'Redock in main window')
+            else:
+                self.toolButton_log_undock.setIcon(
+                    gu.get_icon("open_in_new.svg", self.theme_colors))
+                self.toolButton_log_undock.setToolTip('Undock')
         except Exception as e:
             self.handle_exception(e)
 
@@ -184,7 +182,7 @@ class LogPanelWidget(QWidget, ui_plots_panel_widget):
 
 class LogPanelWindow(QMainWindow):
 
-    close_signal = pyqtSignal()
+    close_signal = Signal()
 
     def __init__(self, log_panel_widget, theme_colors,
                  width=400, height=650):
@@ -193,6 +191,10 @@ class LogPanelWindow(QMainWindow):
         self.theme_colors = theme_colors
         self.setCentralWidget(log_panel_widget)
         gu.set_css_and_theme(self, self.theme_colors)
+        # Window title and icon
+        self.setWindowIcon(QIcon('%s/medusa_task_icon.png' %
+                                 constants.IMG_FOLDER))
+        self.setWindowTitle('Log panel')
         # Resize plots window
         self.resize(width, height)
         self.show()

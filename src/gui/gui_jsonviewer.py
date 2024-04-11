@@ -6,9 +6,8 @@ import json
 import sys
 
 # External
-from PyQt5 import QtCore
-from PyQt5 import QtGui
-from PyQt5 import QtWidgets
+from PySide6 import QtCore
+from PySide6 import QtWidgets
 
 
 class TextToTreeItem:

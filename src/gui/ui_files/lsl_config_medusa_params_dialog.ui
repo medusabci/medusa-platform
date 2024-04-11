@@ -67,6 +67,9 @@
           </property>
          </widget>
         </item>
+        <item row="0" column="1">
+         <widget class="QComboBox" name="comboBox_desc_channels_field"/>
+        </item>
         <item row="1" column="0">
          <widget class="QLabel" name="label_channels_label_field">
           <property name="toolTip">
@@ -80,8 +83,12 @@
         <item row="1" column="1">
          <widget class="QComboBox" name="comboBox_channel_label_field"/>
         </item>
-        <item row="0" column="1">
-         <widget class="QComboBox" name="comboBox_desc_channels_field"/>
+        <item row="2" column="1">
+         <widget class="QPushButton" name="pushButton_read_channels_info">
+          <property name="text">
+           <string>Read channels info</string>
+          </property>
+         </widget>
         </item>
        </layout>
       </item>
@@ -161,8 +168,8 @@
    <slot>accept()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>248</x>
-     <y>254</y>
+     <x>257</x>
+     <y>429</y>
     </hint>
     <hint type="destinationlabel">
      <x>157</x>
@@ -177,8 +184,8 @@
    <slot>reject()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>316</x>
-     <y>260</y>
+     <x>325</x>
+     <y>429</y>
     </hint>
     <hint type="destinationlabel">
      <x>286</x>

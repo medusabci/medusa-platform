@@ -1,14 +1,12 @@
 # Python modules
-from abc import ABC, abstractmethod
+from abc import abstractmethod, ABC
 import multiprocessing as mp
 import threading as th
-import os, time, json
-import zipfile
+import os, time, json, math
 # External modules
-from PyQt5.QtCore import *
-from PyQt5.QtGui import *
-from PyQt5.QtWidgets import *
-from PyQt5 import uic
+from PySide6.QtCore import *
+from PySide6.QtGui import *
+from PySide6.QtWidgets import *
 import numpy as np
 # Medusa modules
 import constants, exceptions
@@ -34,7 +32,7 @@ class AppSkeleton(mp.Process):
     """
 
     def __init__(self, app_info, app_settings, medusa_interface,
-                 app_state, run_state, working_lsl_streams_info):
+                 app_state, run_state, working_lsl_streams_info, rec_info):
         """Class constructor
 
         Parameters
@@ -51,6 +49,9 @@ class AppSkeleton(mp.Process):
             Run state
         working_lsl_streams_info: dict
             Dictionary with the working LSL streams as serializable objects
+        rec_info: None or dict
+            Dictionary with information that can be used to save files
+            automatically
         """
         # Calling superclass constructor
         app_process_name = '%s-process' % app_info['id']
@@ -60,6 +61,7 @@ class AppSkeleton(mp.Process):
         self.check_settings_config(app_settings)
         self.app_info = app_info
         self.app_settings = app_settings
+        self.rec_info = rec_info
         # --------------------- COMMUNICATION GUI-MANAGER -------------------- #
         # Interface
         self.medusa_interface = medusa_interface
@@ -79,7 +81,7 @@ class AppSkeleton(mp.Process):
 
     @exceptions.error_handler(def_importance='critical', scope='app')
     def run(self):
-        """Setup the working threads and the app. Any unhandled exception will
+        """Sets up the working threads and the app. Any unhandled exception will
         kill the process.
         """
         # Working threads
@@ -109,7 +111,9 @@ class AppSkeleton(mp.Process):
             if info.lsl_uid in self.lsl_workers:
                 raise ValueError('Duplicated lsl stream uid %s' %
                                  info.lsl_uid)
+            # Set receiver
             receiver = lsl_utils.LSLStreamReceiver(info)
+            # receiver = lsl_utils.LSLStreamReceiver(info)
             self.lsl_workers[info.medusa_uid] = \
                 LSLStreamAppWorker(receiver, self.app_state,
                                    self.run_state,
@@ -147,6 +151,32 @@ class AppSkeleton(mp.Process):
         """
         self.stop = True
         self.lsl_workers_stop()
+
+    def get_file_path_from_rec_info(self):
+        """This function builds a path to save the recording using the rec_info
+        dict. It can be overwritten to implement custom behaviour.
+        """
+        # Check recording info attributes
+        if self.rec_info is None:
+            return None
+        if self.rec_info['path'] is None or \
+                not os.path.isdir(self.rec_info['path']):
+            return None
+        if self.rec_info['file_ext'] is None or \
+                not self.rec_info['file_ext'] in ['bson', 'mat', 'json']:
+            return None
+        if self.rec_info['rec_id'] is None or \
+                len(self.rec_info['rec_id']) == 0:
+            return None
+        # Get rec path
+        file_path = '%s/%s.%s.%s' % (os.path.abspath(self.rec_info['path']),
+                                     self.rec_info['rec_id'],
+                                     self.app_info['extension'],
+                                     self.rec_info['file_ext'])
+        # Check if already exists
+        if os.path.exists(file_path):
+            return None
+        return file_path
 
     @abstractmethod
     def handle_exception(self, ex):
@@ -241,8 +271,9 @@ class AppSkeleton(mp.Process):
             # 5 - Change app state to powering off
             self.medusa_interface.app_state_changed(
                 constants.APP_STATE_POWERING_OFF)
-            # 6 - Save recording
-            # 7 - Change app state to power off
+            # 6 - Stop working threads
+            # 7 - Save recording
+            # 8 - Change app state to power off
             self.medusa_interface.app_state_changed(
                 constants.APP_STATE_OFF)
         """
@@ -269,28 +300,9 @@ class AppSkeleton(mp.Process):
         """
         print("Override this method!! Event: " + str(event))
 
-    @abstractmethod
-    def close_app(self, force=False):
-        """This function has to terminate the app and working threads,
-        returning control to the main process. Take into account that,
-        once the working threads are stopped, the app will not be able to
-        receive events signal. Thus, make sure the app gui is correctly
-        closed before calling self.stop_working_threads().
-
-        Basic scheme:
-
-        try:
-            # Close app gui, returning control to main process
-            # Close working threads
-            self.stop_working_threads()
-        except Exception as e:
-            self.handle_exception(e)
-        """
-        raise NotImplementedError
-
 
 class LSLStreamAppWorker(th.Thread):
-    """Thread that receives samples from a LSL stream and saves them.
+    """Thread that receives samples from an LSL stream and saves them.
 
     To read and process the data in a thread-safe way, use function get_data.
     """
@@ -309,14 +321,11 @@ class LSLStreamAppWorker(th.Thread):
             Medusa run state
         medusa_interface: resources.Medusa_interface
             Interface to the main gui of medusa
-        preprocessor: Preprocessor
-            Preprocessor class that implements a preprocessing algorithm
-            applied in real time to the signal. For most applications set to
-            None.
-        preprocessor: str {}
-            Preprocessor class that implements a preprocessing algorithm
-            applied in real time to the signal. For most applications set to
-            None.
+        preprocessor: Preprocessor or None
+            Instance of class Preprocessor that implements a preprocessing
+            algorithm applied in real time to the signal. For most
+            applications set to None in order to save raw data. The
+            preprocessing can be done when processing app events.
         """
         super().__init__()
         # Check errors
@@ -333,9 +342,10 @@ class LSLStreamAppWorker(th.Thread):
         self.lock = th.Lock()
         self.data = np.zeros((0, self.receiver.n_cha))
         self.timestamps = np.zeros((0,))
+        self.lsl_timestamps = np.zeros((0,))
 
     def handle_exception(self, ex):
-        pass
+        self.medusa_interface.error(ex)
 
     @exceptions.error_handler(def_importance='important', scope='app')
     def run(self):
@@ -344,10 +354,12 @@ class LSLStreamAppWorker(th.Thread):
         stop controls when the thread must finish.
         """
         error_counter = 0
+        self.receiver.flush_stream()
         while not self.stop:
             # Get data
             try:
-                chunk_data, chunk_times = self.receiver.get_chunk()
+                chunk_data, chunk_times, chunk_lsl_times = \
+                    self.receiver.get_chunk()
             except exceptions.LSLStreamTimeout as e:
                 error_counter += 1
                 if error_counter > 5:
@@ -357,6 +369,10 @@ class LSLStreamAppWorker(th.Thread):
                             '%s. Is the device connected?' % self.receiver.name,
                         scope='app', origin='LSLStreamAppWorker.run')
                 else:
+                    self.medusa_interface.log(
+                        msg='LSLStreamAppWorker is not receiving signal from '
+                            '%s. Trying to reconnect.' % self.receiver.name,
+                        style='warning')
                     continue
             # If the app is ON and the run is running, stack data
             if self.app_state.value == constants.APP_STATE_ON:
@@ -368,6 +384,8 @@ class LSLStreamAppWorker(th.Thread):
                         self.data = np.vstack((self.data, chunk_data))
                         self.timestamps = np.append(self.timestamps,
                                                     chunk_times)
+                        self.lsl_timestamps = np.append(self.lsl_timestamps,
+                                                        chunk_lsl_times)
 
     def get_data(self):
         with self.lock:
@@ -375,10 +393,39 @@ class LSLStreamAppWorker(th.Thread):
             data = self.data.copy()
         return timestamps, data
 
+    def get_lsl_timestamps(self):
+        with self.lock:
+            lsl_timestamps = self.lsl_timestamps.copy()
+        return lsl_timestamps
+
+    def get_historic_offsets(self):
+        return self.receiver.get_historic_offsets()
+
     def reset_data(self):
         with self.lock:
             self.data = np.zeros((0, self.receiver.n_cha))
             self.timestamps = np.zeros((0,))
+
+
+class Preprocessor(ABC):
+
+    """Class to implement a real time preprocessing algorithm. It can be
+    used to preprocess chunks of data that are received in the LSLStreamWorker.
+    However, for most use cases, it's better to implement this functionality
+    when processing app events and leave the raw data in the LSLStreamWorker.
+    Use only in apps where processing time must be optimized.
+    """
+
+    @abstractmethod
+    def fit(self):
+        """Fits the preprocessor"""
+        pass
+
+    @abstractmethod
+    def transform(self, chunk_data):
+        """Applies the preprocessing pipeline"""
+        transformed_chunk_data = chunk_data
+        return transformed_chunk_data
 
 
 class MedusaInterface:
@@ -432,20 +479,26 @@ class MedusaInterface:
                                   'style': style,
                                   'mode': mode})
 
-    def error(self, ex):
+    def error(self, ex, mode='log'):
         """Notifies to medusa that an error has occurred in a plot
 
         Parameters
         ----------
         ex : exceptions.MedusaException or Exception
-             Exception triggered in the app. This notification will shut down
-             all plots.
+             Exception that has to be notified. If it is a MEDUSA expcetion,
+             different actions will be taken depending on the scope and
+             importance.
+        mode: str {'log', 'dialog}
+            Way to show the exception. If 'log', a summary will be displayed
+            in the log panel. If dialog, the exception message will be
+            displayed in a dialog.
         """
-        # traceback.print_exc()
         if not isinstance(ex, exceptions.MedusaException):
             ex = exceptions.MedusaException(ex)
         self.queue_to_medusa.put(
-            {'info_type': self.INFO_EXCEPTION, 'info': ex})
+            {'info_type': self.INFO_EXCEPTION,
+             'info': ex,
+             'mode': mode})
 
     def plot_state_changed(self, value):
         """Notifies to medusa that the plot state has changed. It has to be
@@ -501,7 +554,7 @@ class SaveFileDialog(dialogs.MedusaDialog):
     a custom dialog.
     """
 
-    def __init__(self, app_ext, theme_colors=None):
+    def __init__(self, rec_info, app_ext, theme_colors=None):
         """Class constructor
 
         Parameters
@@ -513,25 +566,21 @@ class SaveFileDialog(dialogs.MedusaDialog):
         """
         super().__init__(window_title='Save recording file',
                          theme_colors=theme_colors)
-        # Paths
-        folder = os.path.abspath(os.getcwd() + '/../data/')
-        if not os.path.exists(folder):
-            # Create a new directory because it does not exist
-            os.makedirs(folder)
-            print('Created directory %s!' % folder)
-
-        name = '%s.%s.bson' % \
-               (time.strftime("%d-%m-%Y_%H%M%S", time.localtime()), app_ext)
-        default_path = os.path.join(folder, name)
-
-        # Default path
-        self.folder = folder
-        self.name = name
+        self.rec_info = rec_info
         self.app_ext = app_ext
-        self.path = default_path
-
-        # Default file name
-        self.file_path_lineEdit.setText(name)
+        # Check path
+        if not os.path.exists(self.rec_info['path']):
+            self.rec_info['path'] = os.path.abspath('../data')
+        # Check recording id
+        if self.rec_info['rec_id'] is None or \
+                len(self.rec_info['rec_id']) == 0:
+            self.rec_info['rec_id'] = self.get_default_date_format()
+        # File name
+        self.file_name = '%s.%s.%s' % (self.rec_info['rec_id'], app_ext,
+                                       self.rec_info['file_ext'])
+        # Set path
+        self.path = os.path.join(self.rec_info['path'], self.file_name)
+        self.file_path_lineEdit.setText(self.path)
 
         # Show
         self.setWindowFlags(self.windowFlags() | Qt.WindowStaysOnTopHint)
@@ -539,26 +588,26 @@ class SaveFileDialog(dialogs.MedusaDialog):
 
     def create_layout(self):
         # Fields
+        self.study_id_lineEdit = QLineEdit()
+        self.study_id_lineEdit.setPlaceholderText('Study id')
         self.subj_id_lineEdit = QLineEdit()
-        self.subj_id_lineEdit.setProperty('class', 'file_dialog')
-        self.subj_id_lineEdit.setPlaceholderText('Subject identifier')
-        self.file_id_lineEdit = QLineEdit()
-        self.file_id_lineEdit.setProperty('class', 'file_dialog')
-        self.file_id_lineEdit.setPlaceholderText('Recording identifier')
-        self.file_description_textEdit = QTextEdit()
-        self.file_description_textEdit.setProperty(
-            'class', 'file_dialog')
-        self.file_description_textEdit.setPlaceholderText(
-            'Recording description')
+        self.subj_id_lineEdit.setPlaceholderText('Subject id')
+        self.session_id_lineEdit = QLineEdit()
+        self.session_id_lineEdit.setPlaceholderText('Session id')
+        self.description_textEdit = QTextEdit()
+        self.description_textEdit.setProperty('class', 'file_dialog')
+        self.description_textEdit.setPlaceholderText(
+            'Description of the recording')
 
         # File path
         self.file_path_lineEdit = QLineEdit()
-        self.file_path_lineEdit.setProperty('class', 'file_dialog')
-        self.file_path_lineEdit.setEnabled(False)
+        # self.file_path_lineEdit.setProperty('class', 'file_dialog')
+        self.file_path_lineEdit.setReadOnly(True)
         self.browse_button = QToolButton()
-        self.browse_button.setText('...')
-        self.browse_button.setProperty('class', 'file_dialog')
-        self.browse_button.setCursor(QCursor(Qt.PointingHandCursor))
+        self.browse_button.setIcon(gui_utils.get_icon(
+            'search.svg', theme_colors=self.theme_colors))
+        # self.browse_button.setProperty('class', 'file_dialog')
+        # self.browse_button.setCursor(QCursor(Qt.PointingHandCursor))
         self.browse_button.clicked.connect(self.on_browse_button_clicked)
 
         # Buttons
@@ -572,56 +621,80 @@ class SaveFileDialog(dialogs.MedusaDialog):
         path_layout.addWidget(self.file_path_lineEdit)
         path_layout.addWidget(self.browse_button)
 
-        layout = QVBoxLayout()
-        layout.addWidget(self.subj_id_lineEdit)
-        layout.addWidget(self.file_id_lineEdit)
-        layout.addWidget(self.file_description_textEdit)
-        layout.addLayout(path_layout)
+        layout = QFormLayout()
+        layout.addRow(QLabel('Study id'), self.study_id_lineEdit)
+        layout.addRow(QLabel('Subject id'), self.subj_id_lineEdit)
+        layout.addRow(QLabel('Session id'), self.session_id_lineEdit)
+        layout.addRow(QLabel('Description'), self.description_textEdit)
+        layout.addRow(QLabel('Save path'), path_layout)
         layout.addItem(QSpacerItem(40, 20, QSizePolicy.Minimum,
                                    QSizePolicy.Expanding))
         layout.addWidget(self.buttonBox)
         return layout
 
-    def get_file_info(self):
+    @staticmethod
+    def get_default_date_format() -> str:
+        return time.strftime("%d-%m-%Y_%H%M%S", time.localtime())
+
+    def get_rec_info(self):
+        study_id = self.study_id_lineEdit.text()
         subj_id = self.subj_id_lineEdit.text()
-        recording_id = self.file_id_lineEdit.text()
-        file_description = self.file_description_textEdit.toPlainText()
-        file_ext = self.name.split('.')[-1]
-        return {'subject_id': subj_id,
-                'recording_id': recording_id,
-                'description': file_description,
-                'path': self.path, 'extension': file_ext}
+        session_id = self.session_id_lineEdit.text()
+        file_description = self.description_textEdit.toPlainText()
+        path = os.path.dirname(self.path)
+        split_path = os.path.basename(self.path).split('.')
+        rec_id = ''.join(split_path[:-2])
+        app_ext = split_path[-2]
+        file_ext = split_path[-1]
+        # Update rec info dict
+        self.rec_info['rec_id'] = rec_id
+        self.rec_info['file_ext'] = file_ext
+        self.rec_info['path'] = path
+        self.rec_info['study_id'] = study_id
+        self.rec_info['subject_id'] = subj_id
+        self.rec_info['session_id'] = session_id
+        self.rec_info['description'] = file_description
+        return self.path, self.rec_info
 
     def on_browse_button_clicked(self):
         # Delete the extension
-        fdialog = QFileDialog()
         filter = 'Binary (*.bson);; Binary (*.mat);; Text (*.json)'
-        path = fdialog.getSaveFileName(fdialog, 'Save recording file',
-                                       self.path, filter=filter)[0]
+        path = QFileDialog.getSaveFileName(caption='Save recording file',
+                                           dir=self.path,
+                                           filter=filter)[0]
+        # Check that the user selected a file name
+        if len(path) == 0:
+            return
+        # Check format errors
         split_name = os.path.basename(path).split('.')
-        if len(split_name) == 1:
-            dialogs.error_dialog('Incorrect file name: %s. '
-                                'The extension must be *.%s.%s' %
-                                (os.path.basename(path),
-                                 self.app_ext, split_name[-1]),
-                                'Error')
-        elif split_name[-2] != self.app_ext:
+        if len(split_name) < 3:
             dialogs.error_dialog('Incorrect file name: %s. '
                                  'The extension must be *.%s.%s' %
                                  (os.path.basename(path),
                                   self.app_ext, split_name[-1]),
                                  'Error')
-        else:
-            self.path = path
-            self.name = os.path.basename(path)
-            self.file_path_lineEdit.setText(os.path.basename(path))
+            return
+        if split_name[-2] != self.app_ext:
+            dialogs.error_dialog('Incorrect file name: %s. '
+                                 'The extension must be *.%s.%s' %
+                                 (os.path.basename(path),
+                                  self.app_ext, split_name[-1]),
+                                 'Error')
+            return
+        if split_name[-1] not in ['bson', 'mat', 'json']:
+            dialogs.error_dialog('Current supported formats are bson, mat and '
+                                 'json', 'Error')
+            return
+        # Save info
+        self.path = path
+        self.file_path_lineEdit.setText(path)
 
 
 class BasicConfigWindow(QDialog):
     """ This class provides a basic graphical configuration for an app
     """
 
-    close_signal = pyqtSignal(object)
+    close_signal = Signal(object)
 
     def __init__(self, sett, medusa_interface, working_lsl_streams_info,
                  theme_colors=None):

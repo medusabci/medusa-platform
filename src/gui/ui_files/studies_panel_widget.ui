@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>400</width>
+    <width>527</width>
     <height>300</height>
    </rect>
   </property>
@@ -17,10 +17,7 @@
    <item>
     <layout class="QHBoxLayout" name="log_toolbar">
      <item>
-      <widget class="QToolButton" name="toolButton_studies_config">
-       <property name="toolTip">
-        <string extracomment="Log settings"/>
-       </property>
+      <widget class="QToolButton" name="toolButton_studies_refresh">
        <property name="text">
         <string>...</string>
        </property>
@@ -33,17 +30,20 @@
       </widget>
      </item>
      <item>
-      <spacer name="horizontalSpacer_3">
-       <property name="orientation">
-        <enum>Qt::Horizontal</enum>
+      <widget class="QLineEdit" name="lineEdit_studies_path"/>
+     </item>
+     <item>
+      <widget class="QToolButton" name="toolButton_studies_set_path">
+       <property name="text">
+        <string>...</string>
        </property>
-       <property name="sizeHint" stdset="0">
+       <property name="iconSize">
         <size>
-         <width>40</width>
+         <width>20</width>
          <height>20</height>
         </size>
        </property>
-      </spacer>
+      </widget>
      </item>
      <item>
       <widget class="QToolButton" name="toolButton_studies_undock">
@@ -64,7 +64,17 @@
     </layout>
    </item>
    <item>
-    <widget class="QTreeView" name="treeView_studies"/>
+    <widget class="QSplitter" name="splitter">
+     <property name="orientation">
+      <enum>Qt::Horizontal</enum>
+     </property>
+     <widget class="QTreeView" name="treeView_studies"/>
+     <widget class="QTabWidget" name="tabWidget_studies">
+      <property name="currentIndex">
+       <number>-1</number>
+      </property>
+     </widget>
+    </widget>
    </item>
   </layout>
  </widget>

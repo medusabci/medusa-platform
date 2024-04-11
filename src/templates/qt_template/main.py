@@ -2,7 +2,7 @@
 import multiprocessing as mp
 import time
 # EXTERNAL MODULES
-from PyQt5.QtWidgets import QApplication
+from PySide6.QtWidgets import QApplication
 # MEDUSA-KERNEL MODULES
 from medusa import components
 # MEDUSA MODULES
@@ -16,10 +16,10 @@ from . import app_gui
 class App(resources.AppSkeleton):
 
     def __init__(self, app_info, app_settings, medusa_interface,
-                 app_state, run_state, working_lsl_streams_info):
+                 app_state, run_state, working_lsl_streams_info, rec_info):
         # Call superclass constructor
-        super().__init__(app_info, app_settings, medusa_interface,
-                         app_state, run_state, working_lsl_streams_info)
+        super().__init__(app_info, app_settings, medusa_interface, app_state,
+                         run_state, working_lsl_streams_info, rec_info)
         # Set attributes
         self.app_gui = None
         # Queues to communicate with the AppGui class
@@ -32,7 +32,8 @@ class App(resources.AppSkeleton):
         if isinstance(ex, exceptions.MedusaException):
             # Take actions
             if ex.importance == 'critical':
-                self.close_app(force=True)
+                self.app_gui.force_close = True
+                self.app_gui.working_thread.close_app()
                 ex.set_handled(True)
 
     def check_lsl_config(self, working_lsl_streams_info):
@@ -54,16 +55,13 @@ class App(resources.AppSkeleton):
             # Get event. Check if the queue is empty to avoid blocking calls
             if not self.queue_from_gui.empty():
                 self.process_event(self.queue_from_gui.get())
-            # Check run state
-            if self.run_state.value == mds_constants.RUN_STATE_STOP:
-                self.close_app()
 
     def main(self):
         # 1 - Change app state to powering on
         self.medusa_interface.app_state_changed(
             mds_constants.APP_STATE_POWERING_ON)
         # 2 - Prepare app
-        qt_app = QApplication([])
+        qt_app = QApplication()
         self.app_gui = app_gui.AppGui(self.app_settings, self.run_state,
                                       self.queue_to_gui, self.queue_from_gui)
         # 3 - Change app state to power on
@@ -74,13 +72,22 @@ class App(resources.AppSkeleton):
         # 5 - Change app state to powering off
         self.medusa_interface.app_state_changed(
             mds_constants.APP_STATE_POWERING_OFF)
-        # 6 - Save recording
-        self.save_file_dialog = resources.SaveFileDialog(
-            self.app_info['extension'])
-        self.save_file_dialog.accepted.connect(self.on_save_rec_accepted)
-        self.save_file_dialog.rejected.connect(self.on_save_rec_rejected)
-        qt_app.exec()
-        # 7 - Change app state to power off
+        # 6 - Stop working threads
+        self.stop_working_threads()
+        # 7 - Save recording
+        file_path = self.get_file_path_from_rec_info()
+        if file_path is None:
+            # Display save dialog to retrieve file_info
+            self.save_file_dialog = resources.SaveFileDialog(
+                self.rec_info,
+                self.app_info['extension'])
+            self.save_file_dialog.accepted.connect(self.on_save_rec_accepted)
+            self.save_file_dialog.rejected.connect(self.on_save_rec_rejected)
+            qt_app.exec()
+        else:
+            # Save file automatically
+            self.save_recording(file_path)
+        # 8 - Change app state to power off
         self.medusa_interface.app_state_changed(
             mds_constants.APP_STATE_OFF)
 
@@ -99,18 +106,19 @@ class App(resources.AppSkeleton):
             raise ValueError('Unknown event: %s' % str(event))
 
     def close_app(self, force=False):
-        # Trigger the close event in the Qt app. Returns True if it was
-        # closed correctly, and False otherwise. If everything was
-        # correct, stop the working threads
-        if self.app_gui is not None:
-            if force:
-                self.app_gui.is_close_forced = True
-            if self.app_gui.close():
-                self.stop_working_threads()
+        pass
 
     @exceptions.error_handler(scope='app')
     def on_save_rec_accepted(self):
-        file_info = self.save_file_dialog.get_file_info()
+        file_path, self.rec_info = self.save_file_dialog.get_rec_info()
+        self.save_recording(file_path)
+
+    @exceptions.error_handler(scope='app')
+    def on_save_rec_rejected(self):
+        pass
+
+    @exceptions.error_handler(scope='app')
+    def save_recording(self, file_path):
         # Experiment data
         exp_data = components.CustomExperimentData(
             **self.app_settings.to_serializable_obj()
@@ -124,17 +132,12 @@ class App(resources.AppSkeleton):
             equipement=lsl_worker.receiver.name)
         # Recording
         rec = components.Recording(
-            subject_id=file_info['subject_id'],
-            recording_id=file_info['recording_id'],
-            description=file_info['description'],
-            date=time.strftime("%d-%m-%Y %H:%M", time.localtime())
-        )
+            subject_id=self.rec_info.pop('subject_id'),
+            recording_id=self.rec_info.pop('rec_id'),
+            date=time.strftime("%d-%m-%Y %H:%M", time.localtime()),
+            **self.rec_info)
         rec.add_biosignal(signal)
         rec.add_experiment_data(exp_data)
-        rec.save(file_info['path'])
+        rec.save(file_path)
         # Print a message
         self.medusa_interface.log('Recording saved successfully')
-
-    @exceptions.error_handler(scope='app')
-    def on_save_rec_rejected(self):
-        pass

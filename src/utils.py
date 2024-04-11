@@ -121,7 +121,7 @@ def decode_github_release_info(release_body):
 
 
 def get_medusa_repo_releases_info(depth, repo='medusa-platform',
-                                  exclude_non_final=True):
+                                  exclude_prereleases=True):
     """Function to get the medusa versions from github with different depths.
 
     Parameters
@@ -129,18 +129,21 @@ def get_medusa_repo_releases_info(depth, repo='medusa-platform',
     depth: int
         Detail of the versions that should be retrieved:
 
-            - Depth = 0 returns the yearly versions (e.g., v2022, v2023)
-            - Depth = 1 returns the major versions updated to the last minor
+            - Depth=0 returns the yearly versions (e.g., v2022, v2023)
+            - Depth=1 returns the major versions updated to the last minor
                 patch (e.g., v2022.1, 2022.2)
             - Depth=2 returns all versions (e.g., v2022.1.0, v2022.1.1)
     repo: string
         Repository name in GitHub
-    exclude_non_final: bool
-        If True, the returned dict excludes non-final versions (e.g.,
-        v2023-beta, v2023.1-alpha)
+    exclude_prereleases: bool
+        If True, the returned dict excludes pre-releases (e.g., v2023-beta,
+        v2023.1-alpha)
     """
-    # TODO: If you change this function, update also in MEDUSA Installer and
+    # TODO: If you change this function, update also in MEDUSA Platform and
     #   MEDUSA Web!
+    # Define essential info
+    essential_info = ('tag_name', 'name', 'target_commitish', 'draft',
+                      'prerelease', 'html_url', 'zipball_url', 'html_url')
     # Get MEDUSA releases
     uri = "https://api.github.com/repos/medusabci/%s/releases" % repo
     # Token
@@ -152,64 +155,68 @@ def get_medusa_repo_releases_info(depth, repo='medusa-platform',
     # Extract params
     releases_info = dict()
     for i in range(len(github_releases_info)):
+        # Check if it's a pre-release
+        if exclude_prereleases and github_releases_info[i]['prerelease']:
+            continue
+        release_info = dict()
+        # Keep only the essential info
+        for key in essential_info:
+            release_info[key] = github_releases_info[i][key]
         body = github_releases_info[i]['body']
         descr, params = decode_github_release_info(body)
-        github_releases_info[i]['description'] = descr
-        github_releases_info[i]['params'] = params
+        release_info['description'] = descr
+        release_info['params'] = params
         # Get publishing date
         d = datetime.datetime.strptime(github_releases_info[i]["published_at"],
                                        "%Y-%m-%dT%H:%M:%SZ")
-        github_releases_info[i]['date'] = d.strftime("%Y-%m-%d")
+        release_info['date'] = d.strftime("%Y-%m-%d")
         # Split version
         tag_version = github_releases_info[i]['tag_name'].split('-')
         tag_version_stage = '' if len(tag_version) == 1 else tag_version[1]
         tag_version_split = tag_version[0].split('.')
-        github_releases_info[i]['stage'] = tag_version_stage
-        github_releases_info[i]['version'] = tag_version_split[0]
-        github_releases_info[i]['major_patch'] = \
+        release_info['version'] = tag_version_split[0]
+        release_info['major_patch'] = \
             int(tag_version_split[1] if len(tag_version_split) >= 2 else 0)
-        github_releases_info[i]['minor_patch'] = \
+        release_info['minor_patch'] = \
             int(tag_version_split[2] if len(tag_version_split) >= 3 else 0)
+        release_info['stage'] = tag_version_stage
         # 3 different tags depending on the required depth of the version
-        depth_0_tag = '%s' % github_releases_info[i]['version']
-        github_releases_info[i]['depth_0_tag'] = depth_0_tag
-        depth_1_tag = '%s.%s' % (github_releases_info[i]['version'],
-                                 github_releases_info[i]['major_patch'])
-        github_releases_info[i]['depth_1_tag'] = depth_1_tag
-        depth_2_tag = '%s.%s.%s' % (github_releases_info[i]['version'],
-                                    github_releases_info[i]['major_patch'],
-                                    github_releases_info[i]['minor_patch'])
-        github_releases_info[i]['depth_2_tag'] = depth_2_tag
-        # Check if the release is final
-        if exclude_non_final and tag_version_stage != '':
-            continue
+        depth_0_tag = '%s' % release_info['version']
+        release_info['depth_0_tag'] = depth_0_tag
+        depth_1_tag = '%s.%s' % (release_info['version'],
+                                 release_info['major_patch'])
+        release_info['depth_1_tag'] = depth_1_tag
+        depth_2_tag = '%s.%s.%s' % (release_info['version'],
+                                    release_info['major_patch'],
+                                    release_info['minor_patch'])
+        release_info['depth_2_tag'] = depth_2_tag
         # Add release. Only the most updated versions are added taking into
         # account the depth
         if depth == 0:
             if depth_0_tag in releases_info:
                 # Check depth 0 release version and only save if it is more
                 # recent
-                if github_releases_info[i]['major_patch'] > \
+                if release_info['major_patch'] > \
                         releases_info[depth_0_tag]['major_patch']:
-                    releases_info[depth_0_tag] = github_releases_info[i]
-                elif github_releases_info[i]['major_patch'] == \
+                    releases_info[depth_0_tag] = release_info
+                elif release_info['major_patch'] == \
                         releases_info[depth_0_tag]['major_patch']:
-                    if github_releases_info[i]['minor_patch'] > \
+                    if release_info['minor_patch'] > \
                             releases_info[depth_0_tag]['minor_patch']:
-                        releases_info[depth_0_tag] = github_releases_info[i]
+                        releases_info[depth_0_tag] = release_info
             else:
-                releases_info[depth_0_tag] = github_releases_info[i]
+                releases_info[depth_0_tag] = release_info
         elif depth == 1:
             if depth_1_tag in releases_info:
                 # Check minor release version and only save if it is more recent
-                if github_releases_info[i]['minor_patch'] > \
+                if release_info['minor_patch'] > \
                         releases_info[depth_1_tag]['minor_patch']:
-                    releases_info[depth_1_tag] = github_releases_info[i]
+                    releases_info[depth_1_tag] = release_info
             else:
-                releases_info[depth_1_tag] = github_releases_info[i]
+                releases_info[depth_1_tag] = release_info
         else:
             # All versions are added
-            releases_info[depth_2_tag] = github_releases_info[i]
+            releases_info[depth_2_tag] = release_info
     return releases_info
 
 

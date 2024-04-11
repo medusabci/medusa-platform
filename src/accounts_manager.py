@@ -3,15 +3,16 @@ import os, re
 import exceptions
 from user_session import UserSession
 from gui.qt_widgets import dialogs
+from constants import ACCOUNTS_DIR
 
 
 class AccountsManager:
 
-    ACCOUNTS_DIR = 'accounts'
     ACCOUNTS_PATH = '%s/accounts' % ACCOUNTS_DIR
     CURRENT_SESSION_PATH = '%s/session' % ACCOUNTS_DIR
 
     def __init__(self):
+        self.ACCOUNTS_DIR = ACCOUNTS_DIR
         if not os.path.isdir(self.ACCOUNTS_DIR):
             os.mkdir(self.ACCOUNTS_DIR)
         if os.path.isfile(self.ACCOUNTS_PATH):
@@ -24,7 +25,7 @@ class AccountsManager:
             self.current_session = UserSession()
 
     def wrap_path(self, path):
-        """This function wraps the given path for the current session foler
+        """This function wraps the given path for the current session folder
         """
         if self.check_session():
             alias = self.current_session.user_info['alias']

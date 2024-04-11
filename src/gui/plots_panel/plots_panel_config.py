@@ -3,10 +3,10 @@ import sys, os, json, traceback
 from math import floor
 
 # EXTERNAL MODULES
-from PyQt5 import uic
-from PyQt5.QtWidgets import *
-from PyQt5.QtCore import *
-from PyQt5.QtGui import *
+from PySide6.QtUiTools import loadUiType
+from PySide6.QtWidgets import *
+from PySide6.QtCore import *
+from PySide6.QtGui import *
 
 # MEDUSA COMPONENTS
 from medusa import components
@@ -19,15 +19,13 @@ from gui import gui_utils as gu
 from gui.plots_panel import real_time_plots
 
 # Load the .ui files
-ui_plots_panel_config = uic.loadUiType(
-    "gui/ui_files/plots_panel_config_dialog.ui")[0]
-ui_plot_config_dialog = uic.loadUiType(
-    "gui/ui_files/plot_config_dialog.ui")[0]
+ui_plots_panel_config = loadUiType("gui/ui_files/plots_panel_config_dialog.ui")[0]
+ui_plot_config_dialog = loadUiType("gui/ui_files/plot_config_dialog.ui")[0]
 
 
 class DropToolButton(QToolButton):
 
-    delete_plot_frame = pyqtSignal(dict)
+    delete_plot_frame = Signal(dict)
 
     def __init__(self, parent):
         super().__init__(parent)
@@ -55,7 +53,7 @@ class DropToolButton(QToolButton):
 
 class GridCell(QFrame):
 
-    drop_signal = pyqtSignal(dict)
+    drop_signal = Signal(dict)
 
     def __init__(self, uid, coordinates):
         super().__init__()
@@ -109,8 +107,8 @@ class GridCell(QFrame):
 
 class PlotFrame(QLabel):
 
-    drop_signal = pyqtSignal(dict)
-    double_click_signal = pyqtSignal(dict)
+    drop_signal = Signal(dict)
+    double_click_signal = Signal(dict)
 
     def __init__(self, uid, coordinates, span, configured=False):
         super().__init__()
@@ -228,9 +226,9 @@ class PlotFrame(QLabel):
 
 class QSizeGripPlotFrame(QSizeGrip):
 
-    init_grip_signal = pyqtSignal(dict)
-    move_grip_signal = pyqtSignal(dict)
-    release_grip_signal = pyqtSignal(dict)
+    init_grip_signal = Signal(dict)
+    move_grip_signal = Signal(dict)
+    release_grip_signal = Signal(dict)
 
     def __init__(self, parent, uid, coordinates, span):
         super().__init__(parent)
@@ -283,7 +281,7 @@ class QSizeGripPlotFrame(QSizeGrip):
 
 class QToolButtonConfigPlotFrame(QToolButton):
 
-    plot_frame_config_button_clicked = pyqtSignal(dict)
+    plot_frame_config_button_clicked = Signal(dict)
 
     def __init__(self, parent, uid, coordinates, span):
         super().__init__(parent)

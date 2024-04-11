@@ -13,6 +13,7 @@ This css sheet contains the style of Medusa Qt elements. Index:
          1.10 QToolButton
          1.11 QToolAction
          1.12 QProgressBar
+         1.13 QAction
     2.  APPLICATIONS WIDGET
     3.  LOG WIDGET
     4.  PLOTS WIDGET
@@ -23,6 +24,9 @@ This css sheet contains the style of Medusa Qt elements. Index:
     9.  DASHBOARD DESIGN
     10. APPS PANEL
     11. USER PROFILE
+    12. STUDIES WIDGET
+    13. ABOUT DIALOG
+    14. ABOUT APP DIALOG
 ============================================================================= */
 
 
@@ -436,6 +440,8 @@ QProgressBar::chunk{
     background: @THEME_TEXT_ACCENT;
 }
 
+/*1.13 QAction -------------------------------------------------------------- */
+
 /* =============================================================================
 2. APPLICATIONS WIDGET
 
@@ -449,11 +455,8 @@ QToolButton#toolButton_app_search{
 
 QLineEdit#lineEdit_app_search{
     background-color: @THEME_BG_SELECTED;
-    border: 0;
-    border-radius: 5px;
-    border-bottom-right-radius: 0;
-    border-top-right-radius: 0;
     color: @THEME_TEXT_LIGHT;
+    border: 0;
     margin: 0;
     padding: 2px;
 }
@@ -461,6 +464,17 @@ QLineEdit#lineEdit_app_search{
 QListWidget#listWidget_app{
     background-color: @THEME_BG_DARK;
     padding: 5px;
+}
+
+QLineEdit#lineEdit_session_file{
+    background-color: @THEME_BG_SELECTED;
+    border: 0;
+    border-radius: 5px;
+    border-bottom-right-radius: 0;
+    border-top-right-radius: 0;
+    color: @THEME_TEXT_LIGHT;
+    margin: 0;
+    padding: 2px;
 }
 
 /* =============================================================================
@@ -530,21 +544,14 @@ Style of the save recording dialog.
 ============================================================================= */
 
 QLineEdit[class='file_dialog'] {
-    color: @THEME_TEXT_LIGHT;
+    color: @THEME_TEXT_DARK;
     background-color: @THEME_BG_DARK;
     font-size: 12px;
 }
 
 QTextEdit[class='file_dialog'] {
-    color: @THEME_TEXT_LIGHT;
-    background-color: @THEME_BG_DARK;
-    border: 0;
-    font-size: 12px;
-}
-
-QToolButton[class='file_dialog']{
-    color: @THEME_TEXT_LIGHT;
-    background-color: @THEME_BG_DARK;
+    color: black;
+    background-color: @THEME_BG_FORM_FIELDS;
     border: 0;
     font-size: 12px;
 }
@@ -620,13 +627,11 @@ Style of the apps panel
 
 }
 
-.app-widget:hover
-{
+.app-widget:hover{
     background-color: @THEME_BG_MID;
 }
 
-.app-widget:focus
-{
+.app-widget:focus{
     background-color: @THEME_MENU_SELECTED;
 }
 
@@ -648,7 +653,7 @@ Style of the user login and profile
 ============================================================================= */
 
 #qdialog_login {
-    border-image: url("gui/images/medusa_v2023_login.png");
+    border-image: url("gui/images/medusa_login.png");
 }
 
 #login_container {
@@ -656,7 +661,7 @@ Style of the user login and profile
 }
 
 #login_container a {
-    color: #55aa00;
+    color: #bb22b3;
 }
 
 #login_container {
@@ -681,8 +686,118 @@ Style of the user login and profile
 }
 
 .profile-link {
-    color: #55aa00 !important;
+    color: #bb22b3 !important;
     font-family: "Roboto Mono";
     font-size: 9pt;
     text-decoration: underline;
 }
+
+
+/* =============================================================================
+12. STUDIES WIDGET
+
+Style of studies management widget.
+============================================================================= */
+
+QLineEdit#lineEdit_studies_path{
+    background-color: @THEME_BG_SELECTED;
+    border: 0;
+    border-radius: 5px;
+    border-bottom-right-radius: 0;
+    border-top-right-radius: 0;
+    color: @THEME_TEXT_LIGHT;
+    margin: 0;
+    padding: 2px;
+}
+
+QTreeView#treeView_studies{
+    background-color: @THEME_BG_DARK;
+    border: 0;
+    padding: 2px;
+}
+
+QTreeView#treeView_studies::branch::closed::has-children {
+    image: url(gui/images/icons/svg/chevron_right_grey.svg);
+}
+
+QTreeView::branch::open::has-children {
+    image: url(gui/images/icons/svg/expand_more_grey.svg);
+}
+
+QTextBrowser#textBrowser_subject
+{
+    background-color: @THEME_BG_DARK;
+    border: 0px;
+    padding: 2px;
+}
+
+.studies-tab-widget{
+    padding:0;
+}
+
+/* =============================================================================
+13. ABOUT DIALOG
+
+Style of studies management widget.
+============================================================================= */
+
+QDialog#qdialog_about{
+    border-image: url("gui/images/medusa_about.png");
+
+}
+
+QDialog#qdialog_about QLabel {
+    background-color: transparent;
+    color: white;
+}
+
+QDialog#qdialog_about QWidget {
+    background-color: transparent;
+}
+
+QDialog#qdialog_about QTextBrowser {
+    background-color: transparent;
+    font-size: 8pt;
+    font-family:'Roboto Mono';
+    border: none;
+    color: white;
+}
+
+#about_details a {
+    color: #bb22b3;
+    text-decoration: none;
+}
+
+
+/* =============================================================================
+14. ABOUT APP DIALOG
+
+Style of studies management widget.
+============================================================================= */
+
+QDialog#qdialog_about_app{
+
+}
+
+QDialog#qdialog_about_app QLabel {
+    background-color: transparent;
+    color: white;
+}
+
+QDialog#qdialog_about_app QWidget {
+    background-color: transparent;
+}
+
+QDialog#qdialog_about_app QTextBrowser {
+    background-color: transparent;
+    font-size: 8pt;
+    font-family:'Roboto Mono';
+    border: none;
+    color: white;
+}
+
+#about_details a {
+    color: #bb22b3;
+    text-decoration: none;
+}
+
