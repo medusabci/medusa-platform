@@ -510,14 +510,18 @@ class LSLStreamReceiver:
         # Timeout cannot be None in order to avoid blocking processes
         self.timeout = 1.5 * self.max_chunk_size / self.fs \
             if timeout is None else timeout
-        self.aliasing_correction = True
         # print('LSL stream: %s\nmin_chunk_size: %i\nmax_chunk_size: '
         #       '%i\ntimeout: %.2f' % (self.lsl_stream.lsl_name,
         #                              self.min_chunk_size,
         #                              self.max_chunk_size, self.timeout))
-        # Calculate LSL time offset
-        # self.unix_clock_offset = \
-        #     np.mean([time.time() - pylsl.local_clock() for _ in range(10)])
+        # Calculate Unix clock offset
+        self.unix_clock_offset = \
+            np.mean([time.time() - pylsl.local_clock() for _ in range(10)])
+        # Calculate LSL clock offset
+        self.lsl_clock_offset = \
+            np.mean([self.lsl_stream.lsl_stream_inlet.time_correction() for _ in range(10)])
+        # Aliasing correction
+        self.aliasing_correction = True
 
         # Initialize auxiliary and debugging variables
         self.chunk_counter = 0
@@ -526,9 +530,10 @@ class LSLStreamReceiver:
         self.last_t_lsl = -1
         self.init_time = None
         self.last_time = None
-        self.hist_unix_lock_offsets = list()
-        self.hist_lsl_lock_offsets = list()
-        self.transmission_times = list()
+        self.hist_unix_clock_offsets = list()
+        self.hist_lsl_clock_offsets = list()
+        self.hist_local_timestamps = list()
+        self.hist_lsl_timestamps = list()
 
     def get_chunk(self):
         """Get signal chunk. Throws an error if the reception time exceeds
@@ -546,8 +551,6 @@ class LSLStreamReceiver:
         lsl_clock_offset = 0
         if not self.lsl_stream.local_stream:
             lsl_clock_offset = self.lsl_stream.lsl_stream_inlet.time_correction()
-        self.hist_unix_lock_offsets.append(unix_clock_offset)
-        self.hist_lsl_lock_offsets.append(lsl_clock_offset)
 
         # Get data
         while True:
@@ -568,12 +571,6 @@ class LSLStreamReceiver:
                 max_samples=self.max_chunk_size)
             samples += chunk
             times += timestamps
-            # if len(times) > 0:
-            #     self.lsl_chunk_counter += 1
-            #     self.lsl_mean_chunk_size += \
-            #         (len(times) - self.lsl_mean_chunk_size) / \
-            #         self.lsl_chunk_counter
-            #     print(self.lsl_mean_chunk_size)
             if len(times) >= self.min_chunk_size:
                 # Increment chunk counter
                 self.chunk_counter += 1
@@ -582,29 +579,8 @@ class LSLStreamReceiver:
                 lsl_times = np.array(times) + lsl_clock_offset
                 local_times = lsl_times + unix_clock_offset
                 samples = np.array(samples)
-                # ============================================================ #
-                # UNCOMMENT FOR DEBUGGING
-                # if self.chunk_counter == 1:
-                #     print('diff respect old offset: %.4f ms' % (1000*(
-                #             self.lsl_clock_offset - (time.time() -
-                #                                      timestamps[0]))))
-                #
-                # for i in range(len(times)):
-                #     print('#%i, LSL time: %s; Local time: %s; LSL offset: %s, '
-                #           'Transmission time: %s; Sample %s' %
-                #           (self.chunk_counter, lsl_times[i], local_times[i],
-                #            unix_clock_offset, time.time() - local_times[i],
-                #            samples[i]))
-                # ============================================================ #
                 # Aliasing detection and correction
                 if self.aliasing_correction:
-                    # ======================================================== #
-                    # UNCOMMENT FOR DEBUGGING
-                    # dt_aliasing = (times[-1] - (
-                    #         len(times) - 1) * 1 / self.fs) - self.last_t
-                    # print('dt: %.4f \t time[0]: %.4f' %
-                    #       (dt_aliasing, times[0] - self.last_t))
-                    # ======================================================== #
                     dt_aliasing = local_times[0] - self.last_t_local
                     if dt_aliasing < 0 and self.last_t_local != -1:
                         print('%sCorrecting an aliasing of %.4f ms...' %
@@ -621,14 +597,14 @@ class LSLStreamReceiver:
                 self.last_t_local = local_times[-1]
                 self.last_t_lsl = lsl_times[-1]
 
-                # Debugging info
-                transmission_time = np.mean(time.time() - local_times)
-                self.transmission_times.append(transmission_time)
-                self.last_time = time.time()
-                print('#%i, Elapsed time: %s; Average transmission time: %s' %
-                      (self.chunk_counter, (self.last_time - self.init_time),
-                       transmission_time))
-
+                # ============================================================ #
+                # Debugging synchronization
+                # ============================================================ #
+                # self.hist_unix_clock_offsets.append(unix_clock_offset)
+                # self.hist_lsl_clock_offsets.append(lsl_clock_offset)
+                # self.hist_local_timestamps += local_times.tolist()
+                # self.hist_lsl_timestamps += lsl_times.tolist()
+                # ============================================================ #
                 return samples[:, self.idx_cha], local_times, lsl_times
 
             if timer.get_s() > self.timeout:
@@ -673,7 +649,7 @@ class LSLStreamReceiver:
                         return idx
 
     def get_historic_offsets(self):
-        return self.hist_unix_lock_offsets, self.hist_lsl_lock_offsets
+        return self.hist_unix_clock_offsets, self.hist_lsl_clock_offsets
 
     class Timer(object):
         """ Represents a watchdog timer. The watchdog timer is used to detect

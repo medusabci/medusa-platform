@@ -1060,13 +1060,17 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
             self.log_panel_widget.print_log(msg, style, mode)
 
     # ====================== EXCEPTION HANDLER, CLOSE ======================== #
-    def handle_exception(self, ex):
+    def handle_exception(self, ex, mode='log'):
         """ This function handles all the exceptions in MEDUSA
 
         Parameters
         ----------
         ex: Exception or subclass
             Exception raised in medusa
+        mode: str {'log', 'dialog}
+            Mode to show the exception. If 'log', a summary will be displayed
+            in the log panel. If dialog, the exception message will be
+            displayed in a dialog.
         """
         try:
             # Check exception
@@ -1092,7 +1096,15 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
             print('\tException msg: %s\n' % ex.exception_msg, file=sys.stderr)
             print(ex.traceback, file=sys.stderr)
             # Print exception in log panel
-            self.print_log(ex.get_msg(verbose=True), style='error')
+            if mode == 'log':
+                self.print_log(ex.get_msg(verbose=True), style='error')
+            elif mode == 'dialog':
+                error_dialog(message=ex.get_msg(verbose=True),
+                             title='ERROR!',
+                             theme_colors=self.theme_colors)
+            else:
+                raise ValueError('Unknown display mode %s for exception.' %
+                                 mode)
             # Take actions
             if ex.importance == 'critical' and not ex.handled:
                 if ex.scope == 'app':
@@ -1242,7 +1254,7 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
 
         # Basic info types
         msg_signal = Signal(str, object, str)
-        exception_signal = Signal(exceptions.MedusaException)
+        exception_signal = Signal(exceptions.MedusaException, str)
         # Plot info types
         plot_state_changed_signal = Signal(int)
         undocked_plots_closed = Signal()
@@ -1282,7 +1294,8 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
                         self.msg_signal.emit(info['info'], info['style'], mode)
                     elif info['info_type'] == \
                             resources.MedusaInterface.INFO_EXCEPTION:
-                        self.exception_signal.emit(info['info'])
+                        mode = info['mode'] if 'mode' in info else 'log'
+                        self.exception_signal.emit(info['info'], mode)
                     elif info['info_type'] == \
                             resources.MedusaInterface.INFO_APP_STATE_CHANGED:
                         self.app_state_changed_signal.emit(info['info'])
@@ -1304,7 +1317,7 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
                             'communication queue',
                         scope='general',
                         origin='MedusaInterfaceListener.run')
-                    self.exception_signal.emit(ex)
+                    self.exception_signal.emit(ex, 'log')
                 except Exception as e:
                     ex = exceptions.MedusaException(
                         e, uid='MedusaInterfaceError',
@@ -1312,13 +1325,14 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
                         msg='Catastrophic error in MedusaInterfaceListener',
                         scope='general',
                         origin='MedusaInterfaceListener.run')
-                    self.exception_signal.emit(ex)
+                    self.exception_signal.emit(ex, 'log')
 
         def terminate(self):
             self.stop = True
             if not self.medusa_interface_queue.is_closed():
                 self.medusa_interface_queue.flush()
             self.wait()
+
 
 class SplashScreen:
 

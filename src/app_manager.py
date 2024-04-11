@@ -1,17 +1,25 @@
 # BUILT-IN MODULES
-import shutil, json, os, glob, re, time
+import glob
+import json
+import os
+import re
+import shutil
+import tempfile
 import threading
+import time
+import zipfile
 from datetime import datetime
-import zipfile, tempfile
 from io import BytesIO
+
 import pkg_resources
-# EXTERNAL MODULES
-import requests
-from jinja2 import Template
 from cryptography.fernet import Fernet
+# EXTERNAL MODULES
+from jinja2 import Template
+
 # INTERNAL MODULES
-import constants, exceptions, utils
-from gui.qt_widgets import dialogs
+import constants
+import exceptions
+import utils
 
 
 class AppManager:
@@ -139,12 +147,18 @@ class AppManager:
                             raise Exception('App %s is already installed' %
                                             info['name'])
                         # Check target version of the platform
-                        if info['target'] != self.release_info['version']:
-                            # todo: convert to dialog
-                            self.medusa_interface.log(
-                                'This app has been designed for MEDUSA Platform'
-                                ' %s. Correct operation is not guaranteed' %
-                                info['target'], style='warning')
+                        if self.release_info['version'] != 'Dev' and \
+                            info['target'] != self.release_info['version']:
+                        # if info['target'] != self.release_info['version']:
+                            ex = exceptions.IncorrectAppVersionTarget()
+                            self.medusa_interface.error(ex=ex, mode='dialog')
+                            progress_dialog.update_action(
+                                'Error!')
+                            progress_dialog.update_log(
+                                'Installation aborted',
+                                style='error')
+                            progress_dialog.finish()
+                            return
                         # Move files from temp dir to final dir
                         progress_dialog.update_action(
                             'Moving to destination folder...')

@@ -479,20 +479,26 @@ class MedusaInterface:
                                   'style': style,
                                   'mode': mode})
 
-    def error(self, ex):
+    def error(self, ex, mode='log'):
         """Notifies to medusa that an error has occurred in a plot
 
         Parameters
         ----------
         ex : exceptions.MedusaException or Exception
-             Exception triggered in the app. This notification will shut down
-             all plots.
+             Exception that has to be notified. If it is a MEDUSA expcetion,
+             different actions will be taken depending on the scope and
+             importance.
+        mode: str {'log', 'dialog}
+            Way to show the exception. If 'log', a summary will be displayed
+            in the log panel. If dialog, the exception message will be
+            displayed in a dialog.
         """
-        # traceback.print_exc()
         if not isinstance(ex, exceptions.MedusaException):
             ex = exceptions.MedusaException(ex)
         self.queue_to_medusa.put(
-            {'info_type': self.INFO_EXCEPTION, 'info': ex})
+            {'info_type': self.INFO_EXCEPTION,
+             'info': ex,
+             'mode': mode})
 
     def plot_state_changed(self, value):
         """Notifies to medusa that the plot state has changed. It has to be

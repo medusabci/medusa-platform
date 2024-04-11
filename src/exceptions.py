@@ -397,3 +397,15 @@ class RealTimeComputationOverload(Exception):
 
     def __init__(self, msg=None):
         super().__init__(msg)
+
+
+class IncorrectAppVersionTarget(Exception):
+
+    """Raise this exception when an app has different target version of the
+    current version of the platform"""
+
+    def __init__(self, msg=None):
+        if msg is None:
+            msg = 'This app has been developed for another version MEDUSA ' \
+                  'Platform. Please, install a compatible version'
+        super().__init__(msg)

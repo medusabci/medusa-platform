@@ -498,8 +498,7 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
             app_name = app_info['name']
             current_version = app_info['version']
             latest_version = app_info['update-version']['version']
-            info_text = '%s %s is out! Do you want to update? ' \
-                        'Download the latest version from the market' % \
+            info_text = '%s %s is out! Do you want to update? ' % \
                         (app_name, latest_version)
             title_text = 'Update for %s %s available' % \
                          (app_name, current_version)
