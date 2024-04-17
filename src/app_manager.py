@@ -202,7 +202,9 @@ class AppManager:
             'extension': app_extension,
             'version': '0.0.0',
             'compilation-date': 'development',
-            'installation-date': self.get_date_today()
+            'installation-date': self.get_date_today(),
+            'update': False,
+            'update-version':None
         }
         # Render jinja2 templates
         jinja2_files_path = glob.glob('%s/*.jinja2' % app_path)
