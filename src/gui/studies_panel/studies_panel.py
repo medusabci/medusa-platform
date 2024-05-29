@@ -139,20 +139,22 @@ class StudiesPanelWidget(QWidget, ui_plots_panel_widget):
 
     @exceptions.error_handler(scope='studies')
     def custom_sort_key(self, element_path):
-        """This function provides custom short keys for the tree model. For
-        instance, it will sort ['S1', 'S10', 'S2', 'S100', 'AB200', 'A1'] as
-        ['A1', 'S1', 'S2', 'S10', 'S100', 'AB200']
-         """
+        """This function provides custom keys to sort the elements of the tree
+        model. For instance, it will sort ['S1', 'S10', 'S2', 'S100',
+        'AB200', 'A1'] as ['A1', 'S1', 'S2', 'S10', 'S100', 'AB200']
+        """
         # Split the section into alphabetical and numerical parts
         element_path = os.path.basename(os.path.normpath(element_path))
-        re_match = re.match(r'([A-Za-z]+)(\d*)', element_path)
-        if re_match is not None:
-            alpha_part, num_part = re_match.groups()
-        else:
-            alpha_part, num_part = element_path, 0
-        # Convert the numerical part to an integer (treat empty string as 0)
-        num_value = int(num_part) if num_part else 0
-        return alpha_part, num_value
+        path_split = re.findall(r'[A-Za-z]+|\d+', element_path)
+        path_split = [int(s) if str.isdigit(s) else s for s in path_split]
+        return path_split
+
+    def sort_improved(self, array):
+        """More logical sort function for the tree models of the panel """
+        try:
+            array.sort(key=self.custom_sort_key)
+        except:
+            array.sort()
 
     @exceptions.error_handler(scope='studies')
     def update_studies_panel(self, checked=None):
@@ -181,17 +183,17 @@ class StudiesPanelWidget(QWidget, ui_plots_panel_widget):
                 self.studies_panel_config['root_path']), self.theme_colors)
             studies = glob.glob(
                 '%s/*/' % self.studies_panel_config['root_path'])
-            studies.sort(key=self.custom_sort_key)
+            self.sort_improved(studies)
             # Append studies
             for study in studies:
                 subjects = glob.glob('%s/*/' % study)
-                subjects.sort(key=self.custom_sort_key)
+                self.sort_improved(subjects)
                 study_item = StudyItem(os.path.basename(study[0:-1]),
                                        self.theme_colors)
                 # Append subjects
                 for subject in subjects:
                     sessions = glob.glob('%s/*/' % subject)
-                    sessions.sort(key=self.custom_sort_key)
+                    self.sort_improved(sessions)
                     subject_item = SubjectItem(
                         os.path.basename(subject[0:-1]), self.theme_colors)
                     for session in sessions:
