@@ -80,10 +80,11 @@ class UpdatesManager:
             for line in f:
                 if line.find('medusa-kernel') == 0:
                     requirement = line.replace('medusa-kernel', '')
+                    requirement = requirement.replace('\n', '')
                     # It must have this format >=min_version<max_version
-                    requirement = requirement.split('<')
+                    requirement = requirement.split(',')
                     min_version = requirement[0].replace('>=', '')
-                    max_version = requirement[1]
+                    max_version = requirement[1].replace('<', '')
                     break
             if requirement is None:
                 print('The file requirements.txt has been corrupted. '
