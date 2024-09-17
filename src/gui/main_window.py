@@ -178,7 +178,6 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
             screen_size = screen.geometry().size()
             self.display_size[0] += screen_size.width()
             self.display_size[1] += screen_size.height()
-
         # Load gui config
         gui_config_file_path = self.accounts_manager.wrap_path(
             constants.GUI_CONFIG_FILE)
@@ -187,9 +186,10 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
                 self.gui_config = json.load(f)
                 # todo: check config file , it can be corrupted (e.g., missing
                 #  keys, incorrect values, etc)
-                gui_config_fielfs = ['width', 'height', 'position',
-                                     'splitter_ratio', 'splitter_2_ratio',
-                                     'maximized', 'study_mode', 'theme']
+                gui_config_fielfs = [
+                    'width', 'height', 'position', 'splitter_ratio',
+                    'splitter_2_ratio', 'maximized', 'study_mode', 'dev_mode',
+                    'theme']
                 if not all(name in self.gui_config
                            for name in gui_config_fielfs):
                     # Corrupted gui_config.json file
@@ -213,8 +213,9 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         self.gui_config['splitter_2_ratio'] = [0.28, 0.72]
         self.gui_config['maximized'] = False
         self.gui_config['screen_idx'] = 0
-        # Study mode
+        # Modes
         self.gui_config['study_mode'] = False
+        self.gui_config['dev_mode'] = False
         # Default theme
         self.gui_config['theme'] = 'dark'
 
@@ -442,6 +443,7 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
                                 lsl_stream_info_dict,
                                 weak_search=self.lsl_config['weak_search'])
                         # Check uid
+                        # Check uid
                         if not lsl_utils.check_if_medusa_uid_is_available(
                                 working_lsl_streams, lsl_stream.medusa_uid):
                             error_dialog(
@@ -495,6 +497,7 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
             self.medusa_interface,
             self.accounts_manager.wrap_path('apps'),
             self.gui_config['study_mode'],
+            self.gui_config['dev_mode'],
             self.theme_colors)
         # Connect signals
         self.apps_panel_widget.error_signal.connect(
@@ -597,6 +600,9 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         # Developer tools
         self.menuAction_dev_tutorial.triggered.connect(
             self.open_dev_tutorial)
+        self.menuAction_dev_mode.triggered.connect(
+            self.change_dev_mode)
+        self.update_menu_action_dev_mode()
         self.menuAction_dev_create_app.triggered.connect(
             self.create_app_config_window)
         # Help
@@ -633,6 +639,21 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
             self.menuAction_study_mode.setText('Disable study mode')
         else:
             self.menuAction_study_mode.setText('Activate study mode')
+
+    @exceptions.error_handler(scope='general')
+    def change_dev_mode(self, checked=None):
+        self.gui_config['dev_mode'] = not self.gui_config['dev_mode']
+        # Insert studies box and update apps panel
+        self.set_up_studies_panel()
+        self.apps_panel_widget.dev_mode = self.gui_config['dev_mode']
+        self.update_menu_action_dev_mode()
+
+    @exceptions.error_handler(scope='general')
+    def update_menu_action_dev_mode(self):
+        if self.gui_config['dev_mode']:
+            self.menuAction_dev_mode.setText('Disable developer mode')
+        else:
+            self.menuAction_dev_mode.setText('Activate developer mode')
 
     # =============================== TOOL BAR =============================== #
     @exceptions.error_handler(scope='general')

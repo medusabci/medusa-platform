@@ -32,7 +32,8 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
     error_signal = Signal(Exception)
 
     def __init__(self, apps_manager, working_lsl_streams, app_state, run_state,
-                 medusa_interface, apps_folder, study_mode, theme_colors):
+                 medusa_interface, apps_folder, study_mode, dev_mode,
+                 theme_colors):
         super().__init__()
         self.setupUi(self)
         # Attributes
@@ -44,6 +45,7 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
         self.medusa_interface = medusa_interface
         self.apps_folder = apps_folder
         self.study_mode = study_mode
+        self.dev_mode = dev_mode
         self.theme_colors = theme_colors
         self.undocked = False
         self.apps_panel_grid_widget = None
@@ -314,6 +316,9 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
                 self.get_app_module(current_app_key, 'main'))
             app_settings_mdl = importlib.import_module(
                 self.get_app_module(current_app_key, 'settings'))
+            if self.dev_mode:
+                importlib.reload(app_process_mdl)
+                importlib.reload(app_settings_mdl)
             # Get app settings
             if self.app_settings is None or \
                     not isinstance(self.app_settings,
@@ -405,9 +410,13 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
                                  theme_colors=self.theme_colors)
         app_settings_mdl = importlib.import_module(
             self.get_app_module(current_app_key, 'settings'))
+        if self.dev_mode:
+            importlib.reload(app_settings_mdl)
         try:
             app_config_mdl = importlib.import_module(
                 self.get_app_module(current_app_key, 'config'))
+            if self.dev_mode:
+                importlib.reload(app_config_mdl)
             conf_window = app_config_mdl.Config
         except ModuleNotFoundError as e:
             if str(e).find('config') == -1:
@@ -1230,17 +1239,7 @@ class ConfigSessionDialog(dialogs.MedusaDialog):
     def create_layout(self):
         # Main layout
         main_layout = QVBoxLayout()
-        # General configurations
-        # session_config_box = QGroupBox('Config')
-        # session_config_box_layout = QVBoxLayout()
-        # self.session_autoplay_checkbox = QCheckBox('Play runs automatically')
-        # self.session_autoplay_checkbox.setChecked(
-        #     self.session_config['autoplay'])
-        # session_config_box_layout.addWidget(self.session_autoplay_checkbox)
-        # session_config_box.setLayout(session_config_box_layout)
-        # main_layout.addWidget(session_config_box)
         # Session plan table
-        # session_plan_box = QGroupBox('Plan')
         plan_layout = QHBoxLayout()
         self.session_plan_table = self.TableWidget(self.apps_manager,
                                                    self.theme_colors)
