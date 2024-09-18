@@ -316,13 +316,21 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
                 self.get_app_module(current_app_key, 'main'))
             app_settings_mdl = importlib.import_module(
                 self.get_app_module(current_app_key, 'settings'))
+            same_sett_type = isinstance(
+                self.app_settings, app_settings_mdl.Settings)
             if self.dev_mode:
                 importlib.reload(app_process_mdl)
                 importlib.reload(app_settings_mdl)
+                if same_sett_type:
+                    try:
+                        self.app_settings = \
+                            app_settings_mdl.Settings.from_serializable_obj(
+                                self.app_settings.to_serializable_obj())
+                    except Exception as e:
+                        # The settings module might have changed
+                        self.app_settings = None
             # Get app settings
-            if self.app_settings is None or \
-                    not isinstance(self.app_settings,
-                                   app_settings_mdl.Settings):
+            if self.app_settings is None or not same_sett_type:
                 self.app_settings = app_settings_mdl.Settings()
             # Serialize working_lsl_streams
             ser_lsl_streams = [lsl_str.to_serializable_obj() for
@@ -410,8 +418,18 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
                                  theme_colors=self.theme_colors)
         app_settings_mdl = importlib.import_module(
             self.get_app_module(current_app_key, 'settings'))
+        same_sett_type = isinstance(
+            self.app_settings, app_settings_mdl.Settings)
         if self.dev_mode:
             importlib.reload(app_settings_mdl)
+            if same_sett_type:
+                try:
+                    self.app_settings = \
+                        app_settings_mdl.Settings.from_serializable_obj(
+                            self.app_settings.to_serializable_obj())
+                except Exception as e:
+                    # The settings module might have changed
+                    self.app_settings = None
         try:
             app_config_mdl = importlib.import_module(
                 self.get_app_module(current_app_key, 'config'))
@@ -422,15 +440,13 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
             if str(e).find('config') == -1:
                 self.error_signal.emit(exceptions.MedusaException(e))
             conf_window = resources.BasicConfigWindow
-        if self.app_settings is None or not isinstance(
-                self.app_settings, app_settings_mdl.Settings):
+        if self.app_settings is None or not same_sett_type:
             self.app_settings = app_settings_mdl.Settings()
         self.app_config_window = conf_window(
             self.app_settings,
             medusa_interface=self.medusa_interface,
             working_lsl_streams_info=self.working_lsl_streams,
-            theme_colors=self.theme_colors
-        )
+            theme_colors=self.theme_colors)
         self.app_config_window.close_signal.connect(
             self.on_config_window_close_event)
 

@@ -60,7 +60,7 @@ class ProcessTableWidget(QWidget):
         """
         raise NotImplementedError
 
-    def insert_row(self, widgets=None, checked=None):
+    def insert_row(self, checked=None, widgets=None,  emmit_signal=True):
         # Get insertion position
         row_position = self.table_widget.currentRow()
         if row_position < 0:
@@ -73,12 +73,14 @@ class ProcessTableWidget(QWidget):
             else self.create_row_widgets(row_position=row_position)
         for i, widget in enumerate(widgets):
             self.table_widget.setCellWidget(row_position, i, widget)
-        self.row_created_sig.emit(row_position)
+        if emmit_signal:
+            self.row_created_sig.emit(row_position)
         return row_position
 
-    def remove_row(self, row_position):
+    def remove_row(self, row_position, emmit_signal=True):
         self.table_widget.removeRow(row_position)
-        self.row_removed_sig.emit()
+        if emmit_signal:
+            self.row_removed_sig.emit()
 
     def remove_selected_row(self, update_rec_ids=False):
         row_position = self.table_widget.currentRow()

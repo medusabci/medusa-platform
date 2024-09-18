@@ -242,8 +242,12 @@ class TopographyPlot(RealTimePlot):
         self.topo_plot = head_plots.TopographicPlot(
             axes=self.widget.figure.axes[0],
             channel_set=self.channel_set,
-            **self.visualization_settings
-        )
+            head_skin_color=self.visualization_settings['head_skin_color'],
+            plot_channel_labels=self.visualization_settings['plot_channel_labels'],
+            plot_channel_points=self.visualization_settings['plot_channel_points'],
+            extra_radius=self.visualization_settings['extra_radius'],
+            interp_points=self.visualization_settings['interp_points'],
+            cmap=self.visualization_settings['cmap'])
         # Signal processing
         self.win_s = int(self.signal_settings['PSD']['time-window'] * self.fs)
         # Update view box menu
@@ -269,7 +273,7 @@ class TopographyPlot(RealTimePlot):
                 nperseg=welch_seg_len, noverlap=welch_overlap,
                 nfft=welch_ndft, axis=0)
             # Compute power
-            power_values = spectral_parameteres.absolute_band_power(
+            power_values = spectral_parameteres.band_power(
                 psd=psd[np.newaxis, :, :], fs=self.fs,
                 target_band=self.signal_settings['PSD']['power-range'])
             # Plot topography

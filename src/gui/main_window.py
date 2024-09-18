@@ -1115,6 +1115,7 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
             print('\tException type: %s' % ex.exception_type.__name__,
                   file=sys.stderr)
             print('\tException msg: %s\n' % ex.exception_msg, file=sys.stderr)
+            print('\tException handled: %s\n' % ex.handled, file=sys.stderr)
             print(ex.traceback, file=sys.stderr)
             # Print exception in log panel
             if mode == 'log':
