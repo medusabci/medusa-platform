@@ -192,6 +192,11 @@ class PlotsPanelWidget(QWidget, ui_plots_panel_widget):
                     # for several plots
                     lsl_stream = lsl_utils.LSLStreamWrapper(
                         working_lsl_stream.lsl_stream)
+                    lsl_stream.set_inlet(
+                        proc_clocksync=working_lsl_stream.lsl_proc_clocksync,
+                        proc_dejitter=working_lsl_stream.lsl_proc_dejitter,
+                        proc_monotonize=working_lsl_stream.lsl_proc_monotonize,
+                        proc_threadsafe=working_lsl_stream.lsl_proc_threadsafe)
                     lsl_stream.update_medusa_parameters_from_lslwrapper(
                                     working_lsl_stream)
                     # self.check_and_update_lsl_stream(lsl_stream)

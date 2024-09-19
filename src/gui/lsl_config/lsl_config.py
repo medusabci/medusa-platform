@@ -137,6 +137,9 @@ class LSLConfigDialog(QtWidgets.QDialog, ui_main_dialog):
             self.available_streams = []
             for s, lsl_stream in enumerate(streams):
                 lsl_stream_wrapper = lsl_utils.LSLStreamWrapper(lsl_stream)
+                lsl_stream_wrapper.set_inlet(
+                    proc_clocksync=False, proc_dejitter=False,
+                    proc_monotonize=False, proc_threadsafe=True)
                 self.insert_available_stream_in_table(lsl_stream_wrapper)
                 self.available_streams.append(lsl_stream_wrapper)
         except exceptions.LSLStreamNotFound as e:
@@ -328,6 +331,11 @@ class EditStreamDialog(QtWidgets.QDialog, ui_stream_config_dialog):
             # problems with working_lsl_streams
             self.lsl_stream_info = lsl_utils.LSLStreamWrapper(
                 lsl_stream_info.lsl_stream)
+            self.lsl_stream_info.set_inlet(
+                proc_clocksync=lsl_stream_info.lsl_proc_clocksync,
+                proc_dejitter=lsl_stream_info.lsl_proc_dejitter,
+                proc_monotonize=lsl_stream_info.lsl_proc_monotonize,
+                proc_threadsafe=lsl_stream_info.lsl_proc_threadsafe)
             if self.editing:
                 self.lsl_stream_info.update_medusa_parameters_from_lslwrapper(
                     lsl_stream_info)
@@ -347,6 +355,23 @@ class EditStreamDialog(QtWidgets.QDialog, ui_stream_config_dialog):
             self.on_medusa_stream_type_changed)
         for key, val in constants.MEDUSA_LSL_TYPES.items():
             self.comboBox_medusa_type.addItem(key, val)
+        # LSL parameters
+        self.checkBox_lsl_clocksync.setChecked(
+            self.lsl_stream_info.lsl_proc_clocksync)
+        self.checkBox_lsl_monotonize.setChecked(
+            self.lsl_stream_info.lsl_proc_monotonize)
+        self.checkBox_lsl_dejitter.setChecked(
+            self.lsl_stream_info.lsl_proc_dejitter)
+        self.checkBox_lsl_threadsafe.setChecked(
+            self.lsl_stream_info.lsl_proc_threadsafe)
+        self.checkBox_lsl_clocksync.toggled.connect(
+            self.lsl_processing_flags_changed)
+        self.checkBox_lsl_monotonize.toggled.connect(
+            self.lsl_processing_flags_changed)
+        self.checkBox_lsl_dejitter.toggled.connect(
+            self.lsl_processing_flags_changed)
+        self.checkBox_lsl_threadsafe.toggled.connect(
+            self.lsl_processing_flags_changed)
         # Initialize comboboxes
         self.update_desc_fields()
         self.update_channel_fields()
@@ -407,6 +432,15 @@ class EditStreamDialog(QtWidgets.QDialog, ui_stream_config_dialog):
             pass
         except Exception as e:
             self.handle_exception(e)
+
+    def lsl_processing_flags_changed(self):
+        clocksync = self.checkBox_lsl_clocksync.isChecked()
+        monotonize = self.checkBox_lsl_monotonize.isChecked()
+        dejitter = self.checkBox_lsl_dejitter.isChecked()
+        threadsafe = self.checkBox_lsl_threadsafe.isChecked()
+        self.lsl_stream_info.set_inlet(
+            proc_clocksync=clocksync, proc_monotonize=monotonize,
+            proc_dejitter=dejitter, proc_threadsafe=threadsafe)
 
     def update_desc_fields(self):
         """Updates the values of the combobox to select the channels description

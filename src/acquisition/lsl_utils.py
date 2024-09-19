@@ -171,6 +171,11 @@ class LSLStreamWrapper(components.SerializableComponent):
         # LSL parameters
         self.lsl_stream_inlet = None
         self.lsl_stream_info = None
+        self.lsl_proc_clocksync = None
+        self.lsl_proc_dejitter = None
+        self.lsl_proc_monotonize = None
+        self.lsl_proc_threadsafe = None
+        self.processing_flags = None
         self.lsl_name = None
         self.lsl_type = None
         self.lsl_n_cha = None
@@ -194,16 +199,29 @@ class LSLStreamWrapper(components.SerializableComponent):
         self.n_cha = None
         self.l_cha = None
         # Set inlet and lsl info
-        self.set_inlet()
+        # self.set_inlet(clocksync=self.lsl_proc_clocksync,
+        #                dejitter=self.lsl_proc_dejitter,
+        #                monotonize=self.lsl_proc_monotonize,
+        #                threadsafe=self.lsl_proc_threadsafe)
 
-    def set_inlet(self):
+    def set_inlet(self, proc_clocksync=False, proc_dejitter=False,
+                  proc_monotonize=False, proc_threadsafe=True):
         # Possible LSL flags {proc_none, proc_clocksync , proc_dejitter,
-        # proc_monotonize, proc_threadsafe, proc_ALL}.
-        # See https://labstreaminglayer.readthedocs.io/projects/liblsl/ref/enums.html?
-
-        # processing_flags = pylsl.proc_dejitter | pylsl.proc_monotonize | \
-        #                    pylsl.proc_threadsafe
-        processing_flags = pylsl.proc_threadsafe
+        processing_flags = 0
+        # Conditionally add each flag based on the variables
+        if proc_clocksync:
+            processing_flags |= pylsl.proc_clocksync
+        if proc_dejitter:
+            processing_flags |= pylsl.proc_dejitter
+        if proc_monotonize:
+            processing_flags |= pylsl.proc_monotonize
+        if proc_threadsafe:
+            processing_flags |= pylsl.proc_threadsafe
+        self.lsl_proc_clocksync = proc_clocksync
+        self.lsl_proc_dejitter = proc_dejitter
+        self.lsl_proc_monotonize = proc_monotonize
+        self.lsl_proc_threadsafe = proc_threadsafe
+        self.processing_flags = processing_flags
         self.lsl_stream_inlet = pylsl.StreamInlet(
             self.lsl_stream, processing_flags=processing_flags)
         self.lsl_stream_info = self.lsl_stream_inlet.info()
@@ -405,6 +423,10 @@ class LSLStreamWrapper(components.SerializableComponent):
         #  better way!
         # LSL parameters
         class_dict = dict()
+        class_dict['lsl_proc_clocksync'] = self.lsl_proc_clocksync
+        class_dict['lsl_proc_dejitter'] = self.lsl_proc_dejitter
+        class_dict['lsl_proc_monotonize'] = self.lsl_proc_monotonize
+        class_dict['lsl_proc_threadsafe'] = self.lsl_proc_threadsafe
         class_dict['lsl_name'] = self.lsl_name
         class_dict['lsl_type'] = self.lsl_type
         class_dict['lsl_n_cha'] = self.lsl_n_cha
@@ -449,7 +471,15 @@ class LSLStreamWrapper(components.SerializableComponent):
                 nominal_srate=dict_data['fs']
             )
         # Create LSLWrapper
+        clocksync = dict_data['lsl_proc_clocksync']
+        dejitter = dict_data['lsl_proc_dejitter']
+        monotonize = dict_data['lsl_proc_monotonize']
+        threadsafe = dict_data['lsl_proc_threadsafe']
         instance = cls(lsl_stream)
+        instance.set_inlet(proc_clocksync=clocksync,
+                           proc_dejitter=dejitter,
+                           proc_monotonize=monotonize,
+                           proc_threadsafe=threadsafe)
         # Update medusa params (don't use set_medusa_parameters)
         instance.update_medusa_parameters(
             medusa_params_initialized=dict_data['medusa_params_initialized'],

@@ -87,6 +87,9 @@
           <property name="text">
            <string>Threadsafe</string>
           </property>
+          <property name="checked">
+           <bool>false</bool>
+          </property>
          </widget>
         </item>
        </layout>
