@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>651</width>
-    <height>439</height>
+    <height>607</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -50,6 +50,51 @@
     </widget>
    </item>
    <item>
+    <widget class="QGroupBox" name="groupBox_2">
+     <property name="title">
+      <string>LSL parameters</string>
+     </property>
+     <layout class="QVBoxLayout" name="verticalLayout_3">
+      <item>
+       <layout class="QHBoxLayout" name="horizontalLayout_2">
+        <item>
+         <widget class="QCheckBox" name="checkBox_lsl_clocksync">
+          <property name="text">
+           <string>Clocksync</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QCheckBox" name="checkBox_lsl_dejitter">
+          <property name="text">
+           <string>Dejitter</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <layout class="QHBoxLayout" name="horizontalLayout_3">
+        <item>
+         <widget class="QCheckBox" name="checkBox_lsl_monotonize">
+          <property name="text">
+           <string>Monotonize</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QCheckBox" name="checkBox_lsl_threadsafe">
+          <property name="text">
+           <string>Threadsafe</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
     <widget class="QGroupBox" name="groupBox_3">
      <property name="title">
       <string>Channels parameters</string>
@@ -86,7 +131,32 @@
         <item row="2" column="1">
          <widget class="QPushButton" name="pushButton_read_channels_info">
           <property name="text">
-           <string>Read channels info</string>
+           <string>Read LSL info</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <layout class="QHBoxLayout" name="horizontalLayout">
+        <item>
+         <widget class="QPushButton" name="pushButton_cha_load">
+          <property name="text">
+           <string>Load custom labels</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QPushButton" name="pushButton_cha_select">
+          <property name="text">
+           <string>Select all</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QPushButton" name="pushButton_cha_diselect">
+          <property name="text">
+           <string>Deselect all</string>
           </property>
          </widget>
         </item>

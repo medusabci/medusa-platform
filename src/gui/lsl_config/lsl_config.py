@@ -321,7 +321,7 @@ class EditStreamDialog(QtWidgets.QDialog, ui_stream_config_dialog):
             self.setWindowIcon(QtGui.QIcon('%s/medusa_task_icon.png' %
                                            constants.IMG_FOLDER))
             self.setWindowTitle('Stream settings')
-            self.resize(400, 400)
+            self.resize(600, 400)
             # Params
             self.editing = editing
             # Create a new lsl wrapper object to avoid reference passing
@@ -359,9 +359,15 @@ class EditStreamDialog(QtWidgets.QDialog, ui_stream_config_dialog):
             self.update_channel_fields)
         self.pushButton_read_channels_info.clicked.connect(
             self.on_read_channels_info)
+        # Channels buttons
+        self.pushButton_cha_load.clicked.connect(self.load_custom_labels)
+        self.pushButton_cha_select.clicked.connect(self.select_all_channels)
+        self.pushButton_cha_diselect.clicked.connect(self.deselect_all_channels)
         # Table
         self.tableWidget_channels.setSizePolicy(
-            QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
+            QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Preferred)
+        self.tableWidget_channels.setMinimumHeight(100)
+        self.tableWidget_channels.setMaximumHeight(300)
         self.tableWidget_channels.horizontalHeader().setSectionResizeMode(
             QtWidgets.QHeaderView.Stretch)
         self.tableWidget_channels.horizontalHeader().hide()
@@ -454,6 +460,64 @@ class EditStreamDialog(QtWidgets.QDialog, ui_stream_config_dialog):
         self.cha_info = \
             self.lsl_stream_info.get_desc_field_value(current_desc_field)
         self.update_channels_table()
+
+    def load_custom_labels(self):
+        # Save json to test
+        # -------------------------------------------------------------------
+        # desc_channels_field = self.comboBox_desc_channels_field.currentText()
+        # channel_label_field = self.comboBox_channel_label_field.currentText()
+        # # Get selected channels and update cha info
+        # selected_channels_idx = self.get_checked_channels_idx()
+        # sel_cha_info = [self.cha_info[i] for i in selected_channels_idx]
+        # n_cha = len(selected_channels_idx)
+        # l_cha = [info[channel_label_field] for info in sel_cha_info] \
+        #     if channel_label_field is not None else list(range(n_cha))
+        # new_l_cha = dict(zip(l_cha, [str(c) for c in range(n_cha)]))
+        # with open('../config/custom_cha.json', 'w') as f:
+        #     json.dump(new_l_cha, f, indent=4)
+        # -------------------------------------------------------------------
+        # Show file dialog
+        fdialog = QtWidgets.QFileDialog()
+        fname = fdialog.getOpenFileName(
+            parent=self,
+            caption='Custom labels file',
+            dir='../config/',
+            filter='Settings (*.json)')[0]
+        if fname:
+            with open(fname, 'r') as f:
+                custom_labels = json.load(f)
+        # Set labels in channels
+        for i in range(self.tableWidget_channels.rowCount()):
+            for j in range(self.tableWidget_channels.columnCount()):
+                cell_widget = self.tableWidget_channels.cellWidget(i, j)
+                if cell_widget is not None:
+                    # Get widgets
+                    cha_line_edit = cell_widget.findChild(QtWidgets.QLineEdit,
+                                                          'cha_line_edit')
+                    curr_label = cha_line_edit.text()
+                    if curr_label in custom_labels:
+                        new_label = custom_labels[curr_label]
+                        cha_line_edit.setText(new_label)
+
+    def select_all_channels(self):
+        for i in range(self.tableWidget_channels.rowCount()):
+            for j in range(self.tableWidget_channels.columnCount()):
+                # Get widgets
+                cell_widget = self.tableWidget_channels.cellWidget(i, j)
+                if cell_widget is not None:
+                    cha_checkbox = cell_widget.findChild(QtWidgets.QCheckBox,
+                                                         'cha_checkbox')
+                    cha_checkbox.setChecked(True)
+
+    def deselect_all_channels(self):
+        for i in range(self.tableWidget_channels.rowCount()):
+            for j in range(self.tableWidget_channels.columnCount()):
+                # Get widgets
+                cell_widget = self.tableWidget_channels.cellWidget(i, j)
+                if cell_widget is not None:
+                    cha_checkbox = cell_widget.findChild(QtWidgets.QCheckBox,
+                                                         'cha_checkbox')
+                    cha_checkbox.setChecked(False)
 
     def update_channels_table(self):
         self.tableWidget_channels.clear()
