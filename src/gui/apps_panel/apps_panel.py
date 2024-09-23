@@ -406,6 +406,9 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
             self.toolButton_app_stop.setIcon(
                 gu.get_icon("stop.svg", custom_color=self.theme_colors[
                     'THEME_RED']))
+            # Avoid problems for some apps
+            if self.fake_user is not None:
+                self.fake_user.continue_to_next_run = True
 
     @exceptions.error_handler(scope='general')
     def app_config(self, checked=None):
