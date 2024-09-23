@@ -641,7 +641,7 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
         self.rec_info['rec_id'] = run['rec_id']
         self.rec_info['file_ext'] = run['file_ext']
         # Select app
-        self.apps_panel_grid_widget.find_app(run['app_id'])
+        self.apps_panel_grid_widget.find_app_id(run['app_id'])
         # Load settings
         current_app_key = self.apps_panel_grid_widget.get_selected_app()
         # Check app
@@ -731,15 +731,14 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
     @exceptions.error_handler(scope='general')
     def set_rec_info(self, rec_info):
         self.rec_info = rec_info
-        session_config_available = True if len(glob.glob(
-            '%s/*.session' % rec_info['path'])) == 1 else False
-        if session_config_available:
+        available_session_files = glob.glob(
+            '%s/*.session' % rec_info['path'])
+        if len(available_session_files) == 1:
             if dialogs.confirmation_dialog(
                     'There is a session plan available for '
                     'this subject, do you want to load it?',
                     title='Session plan available'):
-
-                with open(session_config_available[0], 'r') as f:
+                with open(available_session_files[0], 'r') as f:
                     self.session_config = json.load(f)
                     # Enable session buttons
                     self.toolButton_session_play.setDisabled(False)
@@ -879,6 +878,18 @@ class AppsPanelGridWidget(QWidget):
         for item in self.items:
             if text in item.app_params['name'].lower() or \
                     text in item.app_params['id'].lower():
+                found_items.append(item)
+        if len(found_items) == 1:
+            found_items[0].select()
+
+    def find_app_id(self, text):
+        """ Finds an application based on a provided text. If a single application
+        is found, it is selected.
+        """
+        text = text.lower()
+        found_items = list()
+        for item in self.items:
+            if text == item.app_params['id'].lower():
                 found_items.append(item)
         if len(found_items) == 1:
             found_items[0].select()
