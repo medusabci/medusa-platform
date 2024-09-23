@@ -14,7 +14,8 @@ from . import app_gui
 
 
 class App(resources.AppSkeleton):
-
+    """ Main class of the application. For detailed comments about all
+        functions, see the superclass code in resources module."""
     def __init__(self, app_info, app_settings, medusa_interface,
                  app_state, run_state, working_lsl_streams_info, rec_info):
         # Call superclass constructor
@@ -48,9 +49,6 @@ class App(resources.AppSkeleton):
         return list(self.lsl_workers.values())[0]
 
     def manager_thread_worker(self):
-        """If this thread raises an unhandled exception and is terminated,
-        the app cannot recover from the error. Thus the importance of unhandled
-        exceptions in this method is CRITICAL"""
         while not self.stop:
             # Get event. Check if the queue is empty to avoid blocking calls
             if not self.queue_from_gui.empty():

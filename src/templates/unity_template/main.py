@@ -16,39 +16,8 @@ from . import app_constants
 
 
 class App(resources.AppSkeleton):
-    """ Class that runs in a separate process to set up the app.
-
-        This class will run in a separate process to represent the MEDUSA server
-        side of the application. Its aim is to control the life cycle of the
-        developed application, as well as to communicate with the main GUI of
-        MEDUSA to print logs. The main() function is going to control life cycle
-        by setting up the ``AppController`` (server for communicating with Unity
-        clients): initializing the TCP server, opening up the Unity's .exe, and
-        communicating with it. As here we do not have a GUI, the Manager thread
-        via `manager_thread_worker()` will use the ``AppController`` to send and
-        receive messages to and from Unity. This thread will be also devoted to
-        process EEG signals, as it has access to all LSL workers.
-
-        In this example, this App will start an Unity application that shows us
-        the amount of EEG samples recorded by the LSL. The first thing the
-        Unity app will do whenever is ready will be to wait for parameters.
-        MEDUSA will send them immediately, according to the `settings.py` file.
-        After an acknowledgment from Unity, the application starts by pressing
-        the START button. Unity will request us an update with a rate according
-        to the parameter `updates_per_min`. Whenever we receive a request,
-        MEDUSA is going to answer it by sending the current number of recorded
-        samples. Unity will listen for that and update its GUI.
-
-        Attributes
-        ----------
-        app_controller : AppController
-            Controller that helps us to communicate with Unity.
-        queue_to_controller : queue.Queue
-            Queue used to send messages to ``AppController``.
-        queue_from_controller : queue.Queue
-            Queue used to receive messages from ``AppController``.
-    """
-
+    """ Main class of the application. For detailed comments about all
+        functions, see the superclass code in resources module."""
     def __init__(self, app_info, app_settings, medusa_interface,
                  app_state, run_state, working_lsl_streams_info, rec_info):
         # Call superclass constructor
@@ -74,43 +43,29 @@ class App(resources.AppSkeleton):
                 ex.set_handled(True)
 
     def check_lsl_config(self, working_lsl_streams_info):
+        # This code is just for demonstration purposes, remove for app
+        # development.
         if len(working_lsl_streams_info) != 1:
             raise exceptions.IncorrectLSLConfig()
 
     def check_settings_config(self, app_settings):
-        """Check settings config.
-        By default, this function check if unity path exits."""
-
-        if not os.path.exists(app_settings.connection_settings.path_to_exe):
+        # This code is just for demonstration purposes, remove for app
+        # development. The IP address could have any value.
+        if app_settings.connection_settings.ip != '127.0.0.1':
             raise exceptions.IncorrectSettingsConfig(
-                f"Incorrect path of Unity file: "
-                f"{app_settings.connection_settings.path_to_exe}")
+                f"Incorrect IP address: "
+                f"{app_settings.connection_settings.ip}")
 
     def get_lsl_worker(self):
         """Returns the LSL worker"""
         return list(self.lsl_workers.values())[0]
 
     def send_to_log(self, msg):
-        """ Styles a message to be sent to the main MEDUSA log. """
+        """ Styles a message to be sent to the main MEDUSA log."""
         self.medusa_interface.log(
             msg, {'color': self.log_color, 'font-style': 'italic'})
 
     def manager_thread_worker(self):
-        """Manager thread worker that controls the application flow.
-
-        To set up correctly the communication between MEDUSA and Unity, it
-        is required to initialize things correctly. First, it waits MEDUSA
-        to be ready by checking `run_state`. Then, it waits until the main()
-        function instantiates the ``AppController``, and afterward initiates
-        the server by calling `app_controller.start_server()`. In parallel,
-        the main() function is opening up the Unity's application, so this
-        thread waits until it is up. When it is up, then it sends the
-        required parameters to Unity via the ``AppController`` and waits
-        until Unity confirms us that everything is ready. When user presses
-        the START button, it sends a `play` command to Unity via the
-        ``AppController``. The rest of the code is intended to listen for
-        pause and stop events to notify Unity about them.
-        """
         TAG = '[apps/dev_app_unity/App/manager_thread_worker]'
         # Function to close everything
         def close_everything():
@@ -171,18 +126,6 @@ class App(resources.AppSkeleton):
         print(TAG, 'Terminated')
 
     def main(self):
-        """Controls the main life cycle of the ``App`` class.
-
-        First, changes the app state to powering on and sets up the
-        ``AppController`` instance. Then, changes the app state to on. It
-        waits until the TCP Server instantiated by the ``AppController`` is
-        up, and afterward tells the ``AppController`` to open the Unity's
-        .exe application, which is a blocking process. When the application
-        is closed, this function changes the app state to poweing off and
-        shows a dialog to save the file (only if we have data available).
-        Finally, it changes the app state to off and dies.
-        """
-
         # 1 - Change app state to powering on
         self.medusa_interface.app_state_changed(
             mds_constants.APP_STATE_POWERING_ON)
@@ -228,19 +171,6 @@ class App(resources.AppSkeleton):
 
     @exceptions.error_handler(scope='app')
     def process_event(self, event):
-        """Process any interesting event.
-
-        These events may be called by the `manager_thread_worker` whenever
-        Unity requests any kind-of processing. As we do not have any MEDUSA
-        GUI, this function can be also directly called by the instance of
-        ``AppController`` if necessary.
-
-        In this case, the possible events, encoded in 'event_type' are:
-            - 'request_samples': Unity requires us to send the current
-            registered samples of the LSL stream.
-            - 'close': Unity said it has been closed, so we need to close
-            everything.
-        """
         # self.send_to_log('Message from Unity: %s' % str(event))
         if event["event_type"] == 'request_samples':
             # Get the current number of samples of the first LSL stream

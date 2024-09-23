@@ -13,10 +13,10 @@ class Config(QtWidgets.QMainWindow):
 
     """ This class provides graphical configuration for the app """
 
-    close_signal = QtCore.pyqtSignal(object)
+    close_signal = QtCore.Signal(object)
 
-    def __init__(self, sett, medusa_interface,
-                 working_lsl_streams_info, theme_colors=None):
+    def __init__(self, sett, medusa_interface, working_lsl_streams_info,
+                 theme_colors=None):
         """
         Config constructor.
 
