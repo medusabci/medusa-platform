@@ -554,7 +554,7 @@ class LSLStreamReceiver:
         self.lsl_clock_offset = \
             np.mean([self.lsl_stream.lsl_stream_inlet.time_correction() for _ in range(10)])
         # Aliasing correction
-        self.aliasing_correction = True
+        self.aliasing_correction = False
 
         # Initialize auxiliary and debugging variables
         self.chunk_counter = 0
