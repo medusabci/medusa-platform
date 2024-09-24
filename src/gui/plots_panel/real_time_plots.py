@@ -489,6 +489,24 @@ class RealTimePlotPyQtGraph(RealTimePlot, ABC):
         self.widget.getAxis("bottom").setTickFont(fn)
         self.widget.getAxis("left").setTickFont(fn)
 
+    @staticmethod
+    def parse_cha_idx(s):
+        # Remove brackets and spaces
+        s = s.strip('[] ')
+        # Split by commas
+        parts = s.split(',')
+        result = []
+        for part in parts:
+            part = part.strip()
+            # Check for ranges (e.g., "1:3")
+            if ':' in part:
+                start, end = map(int, part.split(':'))
+                result.extend(range(start, end + 1))
+            else:
+                # Otherwise, it's a single number
+                result.append(int(part))
+        return result
+
 
 class TimePlotMultichannel(RealTimePlotPyQtGraph):
 
@@ -615,35 +633,20 @@ class TimePlotMultichannel(RealTimePlotPyQtGraph):
                              (visualization_settings['mode'], possible_modes))
         # Channels idx
         if not isinstance(visualization_settings['cha_idx'], str):
-            raise ValueError('Parameter cha_idx must be an string')
-        if visualization_settings['cha_idx'] != 'all' and \
-            not isinstance(TimePlotMultichannel.parse_number_string(
-                visualization_settings['cha_idx']), list):
-            raise ValueError('Parameter cha_idx must be either "all" or a list'
-                             'of the channels index that should be displayed '
-                             'using this format: "[1:3, 19, 21, 22:24]"')
+            raise ValueError('Parameter cha_idx must be a string')
+        if visualization_settings['cha_idx'] != 'all':
+            try:
+                RealTimePlotPyQtGraph.parse_cha_idx(
+                    visualization_settings['cha_idx'])
+            except Exception as e:
+                raise ValueError(
+                    'Parameter cha_idx must be either "all" or a list '
+                    'of the channels index that should be displayed '
+                    'using this format: "[1:3, 19, 21, 22:24]"')
 
     @staticmethod
     def check_signal(signal_type):
         return True
-
-    @staticmethod
-    def parse_number_string(s):
-        # Remove brackets and spaces
-        s = s.strip('[] ')
-        # Split by commas
-        parts = s.split(',')
-        result = []
-        for part in parts:
-            part = part.strip()
-            # Check for ranges (e.g., "1:3")
-            if ':' in part:
-                start, end = map(int, part.split(':'))
-                result.extend(range(start, end + 1))
-            else:
-                # Otherwise, it's a single number
-                result.append(int(part))
-        return result
 
     def init_plot(self):
         """ This function changes the time of signal plotted in the graph. It
@@ -657,7 +660,7 @@ class TimePlotMultichannel(RealTimePlotPyQtGraph):
             self.n_cha = len(self.cha_idx)
             self.l_cha = [self.lsl_stream_info.l_cha[i] for i in self.cha_idx]
         else:
-            self.cha_idx = self.parse_number_string(
+            self.cha_idx = self.parse_cha_idx(
                 self.visualization_settings['cha_idx'])
             self.n_cha = len(self.cha_idx)
             self.l_cha = [self.lsl_stream_info.l_cha[i] for i in self.cha_idx]
@@ -1231,6 +1234,10 @@ class PSDPlotMultichannel(RealTimePlotPyQtGraph):
 
     def __init__(self, uid, plot_state, medusa_interface, theme_colors):
         super().__init__(uid, plot_state, medusa_interface, theme_colors)
+        # Channels idx
+        self.cha_idx = None
+        self.n_cha = None
+        self.l_cha = None
         # Graph variables
         self.win_t = None
         self.win_s = None
@@ -1313,6 +1320,7 @@ class PSDPlotMultichannel(RealTimePlotPyQtGraph):
             },
         }
         visualization_settings = {
+            'cha_idx': 'all',
             'x_axis': {
                 'range': [0.1, 30],
                 'display_grid': False,
@@ -1343,9 +1351,22 @@ class PSDPlotMultichannel(RealTimePlotPyQtGraph):
 
     @staticmethod
     def check_settings(signal_settings, visualization_settings):
+        # Channel separation
         if isinstance(visualization_settings['y_axis']['cha_separation'], list):
             raise ValueError('Incorrect configuration. The channel separation'
                              'must be a number.')
+        # Channels idx
+        if not isinstance(visualization_settings['cha_idx'], str):
+            raise ValueError('Parameter cha_idx must be a string')
+        if visualization_settings['cha_idx'] != 'all':
+            try:
+                RealTimePlotPyQtGraph.parse_cha_idx(
+                    visualization_settings['cha_idx'])
+            except Exception as e:
+                raise ValueError(
+                    'Parameter cha_idx must be either "all" or a list '
+                    'of the channels index that should be displayed '
+                    'using this format: "[1:3, 19, 21, 22:24]"')
 
     @staticmethod
     def check_signal(signal_type):
@@ -1357,9 +1378,19 @@ class PSDPlotMultichannel(RealTimePlotPyQtGraph):
         """
         # Set custom menu
         self.set_custom_menu()
+        # Get channels
+        if self.visualization_settings['cha_idx'] == 'all':
+            self.cha_idx = np.arange(self.lsl_stream_info.n_cha).astype(int)
+            self.n_cha = len(self.cha_idx)
+            self.l_cha = [self.lsl_stream_info.l_cha[i] for i in self.cha_idx]
+        else:
+            self.cha_idx = self.parse_cha_idx(
+                self.visualization_settings['cha_idx'])
+            self.n_cha = len(self.cha_idx)
+            self.l_cha = [self.lsl_stream_info.l_cha[i] for i in self.cha_idx]
         # Update variables
         self.time_in_graph = np.zeros([0])
-        self.sig_in_graph = np.zeros([0, self.lsl_stream_info.n_cha])
+        self.sig_in_graph = np.zeros([0, self.n_cha])
         self.cha_separation = \
             self.visualization_settings['y_axis']['cha_separation']
         self.win_t = self.visualization_settings['psd']['time_window_seconds']
@@ -1378,7 +1409,7 @@ class PSDPlotMultichannel(RealTimePlotPyQtGraph):
                             width=self.grid_width,
                             style=Qt.SolidLine)
         # Curve
-        for i in range(self.lsl_stream_info.n_cha):
+        for i in range(self.n_cha):
             self.curves.append(self.widget.plot(pen=curve_pen))
         # X-axis
         if self.visualization_settings['x_axis']['display_grid']:
@@ -1399,16 +1430,16 @@ class PSDPlotMultichannel(RealTimePlotPyQtGraph):
     def draw_y_axis_ticks(self):
         ticks = list()
         if self.lsl_stream_info.l_cha is not None:
-            for i in range(self.lsl_stream_info.n_cha):
+            for i in range(self.n_cha):
                 offset = self.cha_separation * i
-                label = self.lsl_stream_info.l_cha[-i - 1]
+                label = self.l_cha[-i - 1]
                 ticks.append((offset, label))
         ticks = [ticks]  # Two levels for ticks
         self.y_axis.setTicks(ticks)
         # Set y axis range
         y_min = - self.cha_separation
-        y_max = self.lsl_stream_info.n_cha * self.cha_separation
-        if self.lsl_stream_info.n_cha > 1:
+        y_max = self.n_cha * self.cha_separation
+        if self.n_cha > 1:
             self.plot_item.setYRange(y_min, y_max, padding=0)
 
     def draw_x_axis_ticks(self):
@@ -1429,8 +1460,8 @@ class PSDPlotMultichannel(RealTimePlotPyQtGraph):
 
     def set_data(self, x_in_graph, y_in_graph):
         x = np.arange(x_in_graph.shape[0])
-        for i in range(self.lsl_stream_info.n_cha):
-            temp = y_in_graph[:, self.lsl_stream_info.n_cha - i - 1]
+        for i in range(self.n_cha):
+            temp = y_in_graph[:, self.n_cha - i - 1]
             temp = (temp + self.cha_separation * i)
             self.curves[i].setData(x=x, y=temp)
 
@@ -1452,7 +1483,7 @@ class PSDPlotMultichannel(RealTimePlotPyQtGraph):
         """
         try:
             # Append new data and get safe copy
-            self.append_data(chunk_times, chunk_signal)
+            self.append_data(chunk_times, chunk_signal[:, self.cha_idx])
             # Compute PSD
             welch_seg_len = np.round(
                 self.visualization_settings['psd']['welch_seg_len_pct'] /
