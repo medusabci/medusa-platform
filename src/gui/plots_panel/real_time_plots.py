@@ -494,6 +494,10 @@ class TimePlotMultichannel(RealTimePlotPyQtGraph):
 
     def __init__(self, uid, plot_state, medusa_interface, theme_colors):
         super().__init__(uid, plot_state, medusa_interface, theme_colors)
+        # Channels idx
+        self.cha_idx = None
+        self.n_cha = None
+        self.l_cha = None
         # Graph variables
         self.win_t = None
         self.win_s = None
@@ -578,6 +582,7 @@ class TimePlotMultichannel(RealTimePlotPyQtGraph):
         }
         visualization_settings = {
             'mode': 'clinical',
+            'cha_idx': 'all',
             'x_axis': {
                 'seconds_displayed': 10,
                 'display_grid': True,
@@ -603,14 +608,42 @@ class TimePlotMultichannel(RealTimePlotPyQtGraph):
 
     @staticmethod
     def check_settings(signal_settings, visualization_settings):
+        # Visualization modes
         possible_modes = ['geek', 'clinical']
         if visualization_settings['mode'] not in possible_modes:
             raise ValueError('Unknown plot mode %s. Possible options: %s' %
                              (visualization_settings['mode'], possible_modes))
+        # Channels idx
+        if not isinstance(visualization_settings['cha_idx'], str):
+            raise ValueError('Parameter cha_idx must be an string')
+        if visualization_settings['cha_idx'] != 'all' and \
+            not isinstance(TimePlotMultichannel.parse_number_string(
+                visualization_settings['cha_idx']), list):
+            raise ValueError('Parameter cha_idx must be either "all" or a list'
+                             'of the channels index that should be displayed '
+                             'using this format: "[1:3, 19, 21, 22:24]"')
 
     @staticmethod
     def check_signal(signal_type):
         return True
+
+    @staticmethod
+    def parse_number_string(s):
+        # Remove brackets and spaces
+        s = s.strip('[] ')
+        # Split by commas
+        parts = s.split(',')
+        result = []
+        for part in parts:
+            part = part.strip()
+            # Check for ranges (e.g., "1:3")
+            if ':' in part:
+                start, end = map(int, part.split(':'))
+                result.extend(range(start, end + 1))
+            else:
+                # Otherwise, it's a single number
+                result.append(int(part))
+        return result
 
     def init_plot(self):
         """ This function changes the time of signal plotted in the graph. It
@@ -618,9 +651,19 @@ class TimePlotMultichannel(RealTimePlotPyQtGraph):
         """
         # Set custom menu
         self.set_custom_menu()
+        # Get channels
+        if self.visualization_settings['cha_idx'] == 'all':
+            self.cha_idx = np.arange(self.lsl_stream_info.n_cha).astype(int)
+            self.n_cha = len(self.cha_idx)
+            self.l_cha = [self.lsl_stream_info.l_cha[i] for i in self.cha_idx]
+        else:
+            self.cha_idx = self.parse_number_string(
+                self.visualization_settings['cha_idx'])
+            self.n_cha = len(self.cha_idx)
+            self.l_cha = [self.lsl_stream_info.l_cha[i] for i in self.cha_idx]
         # Update variables
         self.time_in_graph = np.zeros([0])
-        self.sig_in_graph = np.zeros([0, self.lsl_stream_info.n_cha])
+        self.sig_in_graph = np.zeros([0, len(self.cha_idx)])
         self.cha_separation = \
             self.visualization_settings['y_axis']['cha_separation']
         self.win_t = self.visualization_settings['x_axis']['seconds_displayed']
@@ -638,7 +681,7 @@ class TimePlotMultichannel(RealTimePlotPyQtGraph):
                             style=Qt.SolidLine)
         # Place curves in plot
         self.curves = []
-        for i in range(self.lsl_stream_info.n_cha):
+        for i in range(self.n_cha):
             self.curves.append(self.widget.plot(pen=curve_pen))
         # Place marker for clinical mode
         if self.visualization_settings['mode'] == 'clinical':
@@ -667,17 +710,17 @@ class TimePlotMultichannel(RealTimePlotPyQtGraph):
     def draw_y_axis_ticks(self):
         # Draw y axis ticks (channel labels)
         ticks = list()
-        if self.lsl_stream_info.l_cha is not None:
-            for i in range(self.lsl_stream_info.n_cha):
+        if self.l_cha is not None:
+            for i in range(self.n_cha):
                 offset = self.cha_separation * i
-                label = self.lsl_stream_info.l_cha[-i - 1]
+                label = self.l_cha[-i - 1]
                 ticks.append((offset, label))
         ticks = [ticks]   # Two levels for ticks
         self.y_axis.setTicks(ticks)
         # Set y axis range
         y_min = - self.cha_separation
-        y_max = self.lsl_stream_info.n_cha * self.cha_separation
-        if self.lsl_stream_info.n_cha > 1:
+        y_max = self.n_cha * self.cha_separation
+        if self.n_cha > 1:
             self.plot_item.setYRange(y_min, y_max, padding=0)
 
     def draw_x_axis_ticks(self):
@@ -788,8 +831,8 @@ class TimePlotMultichannel(RealTimePlotPyQtGraph):
         else:
             raise ValueError
         # Set data
-        for i in range(self.lsl_stream_info.n_cha):
-            temp = self.sig_in_graph[:, self.lsl_stream_info.n_cha - i - 1]
+        for i in range(self.n_cha):
+            temp = self.sig_in_graph[:, self.n_cha - i - 1]
             temp = (temp + self.cha_separation * i)
             self.curves[i].setData(x=x, y=temp)
 
@@ -818,7 +861,7 @@ class TimePlotMultichannel(RealTimePlotPyQtGraph):
             # Temporal series are always plotted from zero.
             chunk_times = chunk_times - self.init_time
             # Append new data and get safe copy
-            self.append_data(chunk_times, chunk_signal)
+            self.append_data(chunk_times, chunk_signal[:, self.cha_idx])
             # Set data
             self.set_data()
             # Update y range (only if autoscale is activated)
