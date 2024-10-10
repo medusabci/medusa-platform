@@ -627,9 +627,10 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
                 ex, importance='critical', scope='app')
         app_settings_mdl = importlib.import_module(
             self.get_app_module(current_app_key, 'settings'))
-        if run['settings'] is not None:
-            self.app_settings = app_settings_mdl.Settings.from_serializable_obj(
-                run['settings']['settings'])
+        sett = run['settings']['settings']
+        if sett is not None:
+            self.app_settings = \
+                app_settings_mdl.Settings.from_serializable_obj(sett)
         # App power
         self.app_power()
 
