@@ -16,7 +16,7 @@ import constants
 ui_main_dialog = loadUiType(
     'gui/ui_files/lsl_config_dialog.ui')[0]
 ui_stream_config_dialog = loadUiType(
-    'gui/ui_files/lsl_config_medusa_params_dialog.ui')[0]
+    'gui/ui_files/lsl_config_medusa_params_dialog_new.ui')[0]
 
 
 class LSLConfigDialog(QtWidgets.QDialog, ui_main_dialog):
@@ -382,21 +382,21 @@ class EditStreamDialog(QtWidgets.QDialog, ui_stream_config_dialog):
         # Connect events
         self.comboBox_desc_channels_field.currentIndexChanged.connect(
             self.update_channel_fields)
-        self.pushButton_read_channels_info.clicked.connect(
-            self.on_read_channels_info)
+        # self.pushButton_read_channels_info.clicked.connect(
+        #     self.on_read_channels_info)
         # Channels buttons
-        self.pushButton_cha_load.clicked.connect(self.load_custom_labels)
-        self.pushButton_cha_select.clicked.connect(self.select_all_channels)
-        self.pushButton_cha_diselect.clicked.connect(self.deselect_all_channels)
+        # self.pushButton_cha_load.clicked.connect(self.load_custom_labels)
+        # self.pushButton_cha_select.clicked.connect(self.select_all_channels)
+        # self.pushButton_cha_diselect.clicked.connect(self.deselect_all_channels)
         # Table
-        self.tableWidget_channels.setSizePolicy(
+        self.tableView_ch_summary.setSizePolicy(
             QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Preferred)
-        self.tableWidget_channels.setMinimumHeight(100)
-        self.tableWidget_channels.setMaximumHeight(300)
-        self.tableWidget_channels.horizontalHeader().setSectionResizeMode(
+        self.tableView_ch_summary.setMinimumHeight(100)
+        self.tableView_ch_summary.setMaximumHeight(300)
+        self.tableView_ch_summary.horizontalHeader().setSectionResizeMode(
             QtWidgets.QHeaderView.Stretch)
-        self.tableWidget_channels.horizontalHeader().hide()
-        self.tableWidget_channels.verticalHeader().hide()
+        # self.tableView_ch_summary.horizontalHeader().hide()
+        self.tableView_ch_summary.verticalHeader().hide()
         # Init params
         if self.lsl_stream_info.medusa_params_initialized:
             self.lineEdit_medusa_uid.setText(self.lsl_stream_info.medusa_uid)
@@ -411,8 +411,8 @@ class EditStreamDialog(QtWidgets.QDialog, ui_stream_config_dialog):
             gu.select_entry_combobox_with_data(
                 self.comboBox_channel_label_field,
                 self.lsl_stream_info.channel_label_field)
-            self.set_checked_channels(
-                self.lsl_stream_info.selected_channels_idx)
+            # self.set_checked_channels(
+            #     self.lsl_stream_info.selected_channels_idx)
         else:
             self.lineEdit_medusa_uid.setText(self.lsl_stream_info.lsl_name)
             gu.select_entry_combobox_with_data(
@@ -473,20 +473,20 @@ class EditStreamDialog(QtWidgets.QDialog, ui_stream_config_dialog):
                 title='Error',
                 theme_colors=self.theme_colors)
             dec_cha_info = list()
-            self.comboBox_channel_label_field.setVisible(False)
+            # self.comboBox_channel_label_field.setVisible(False)
             self.label_channels_label_field.setVisible(False)
             for i in range(self.lsl_stream_info.lsl_n_cha):
                 dec_cha_info.append({'label': str(i)})
-        else:
-            self.comboBox_channel_label_field.setVisible(True)
-            self.label_channels_label_field.setVisible(True)
+        # else:
+            # self.comboBox_channel_label_field.setVisible(True)
+            # self.label_channels_label_field.setVisible(True)
         # Update combobox
-        self.comboBox_channel_label_field.clear()
+        # self.comboBox_channel_label_field.clear()
         cha_fields = list(dec_cha_info[0].keys())
-        for field in cha_fields:
-            self.comboBox_channel_label_field.addItem(field)
-        gu.select_entry_combobox_with_text(
-            self.comboBox_channel_label_field, 'label')
+        # for field in cha_fields:
+            # self.comboBox_channel_label_field.addItem(field)
+        # gu.select_entry_combobox_with_text(
+        #     self.comboBox_channel_label_field, 'label')
 
     def on_read_channels_info(self):
         current_desc_field = \
@@ -554,42 +554,79 @@ class EditStreamDialog(QtWidgets.QDialog, ui_stream_config_dialog):
                     cha_checkbox.setChecked(False)
 
     def update_channels_table(self):
-        self.tableWidget_channels.clear()
-        curr_label_field = self.comboBox_channel_label_field.currentText()
-        max_n_cols = 4  # Max number of columns of the table
+        self.tableView_ch_summary.clearSpans()
+
+        # Crear el modelo
+        model = QtGui.QStandardItemModel()
+
         if isinstance(self.cha_info, list) and \
-            len(self.cha_info) > 0 and \
-            curr_label_field in self.cha_info[0]:
-            row_idx = 0
-            col_idx = 0
-            for cha in self.cha_info:
-                # Insert column and row if necessary
-                if self.tableWidget_channels.rowCount() < row_idx + 1:
-                    self.tableWidget_channels.insertRow(
-                        self.tableWidget_channels.rowCount())
-                if self.tableWidget_channels.columnCount() < col_idx + 1:
-                    self.tableWidget_channels.insertColumn(
-                        self.tableWidget_channels.columnCount())
-                # Set widget
-                cha_checkbox = QtWidgets.QCheckBox()
-                cha_checkbox.setChecked(True)
-                cha_checkbox.setObjectName('cha_checkbox')
-                cha_line_edit = QtWidgets.QLineEdit(cha[curr_label_field])
-                cha_line_edit.setObjectName('cha_line_edit')
-                cell_layout = QtWidgets.QHBoxLayout()
-                cell_layout.addWidget(cha_checkbox)
-                cell_layout.addWidget(cha_line_edit)
-                cell_widget = QtWidgets.QWidget()
-                cell_layout.setContentsMargins(0, 0, 0, 0)
-                cell_widget.setLayout(cell_layout)
-                self.tableWidget_channels.setCellWidget(
-                    row_idx, col_idx, cell_widget)
-                col_idx += 1
-                if col_idx > max_n_cols - 1:
-                    col_idx = 0
-                    row_idx += 1
+                len(self.cha_info) > 0:
+
+            # Obtener las keys del primer diccionario para las columnas, excluyendo la columna extra "Medusa Labels"
+            keys = list(self.cha_info[0].keys())
+
+            # Añadir la columna extra "Medusa Labels"
+            model.setColumnCount(len(keys) + 1)
+            model.setHorizontalHeaderItem(0, QtGui.QStandardItem("Medusa Labels"))
+
+            # Configurar los encabezados para las keys del diccionario
+            for col, key in enumerate(keys, start=1):
+                model.setHorizontalHeaderItem(col, QtGui.QStandardItem(key))
+
+            # Añadir los datos fila por fila
+            for row_data in self.cha_info:
+                row_items = [QtGui.QStandardItem(
+                    str(row_data.get("label", "")))]  # Primera columna como "Medusa Labels"
+
+                for key in keys:
+                    value = row_data.get(key, "")
+                    item = QtGui.QStandardItem(
+                        str(value))  # Convertimos a string cada valor
+                    row_items.append(item)
+
+                model.appendRow(row_items)
+
+            # Asignar el modelo al QTableView
+            self.tableView_ch_summary.setModel(model)
         else:
-            self.tableWidget_channels.clear()
+            self.tableView_ch_summary.clearSpans()
+
+    # self.tableWidget_channels.clear()
+    #     curr_label_field = self.comboBox_channel_label_field.currentText()
+    #     max_n_cols = 4  # Max number of columns of the table
+    #     if isinstance(self.cha_info, list) and \
+    #         len(self.cha_info) > 0 and \
+    #         curr_label_field in self.cha_info[0]:
+    #         row_idx = 0
+    #         col_idx = 0
+    #         for cha in self.cha_info:
+    #             # Insert column and row if necessary
+    #             if self.tableWidget_channels.rowCount() < row_idx + 1:
+    #                 self.tableWidget_channels.insertRow(
+    #                     self.tableWidget_channels.rowCount())
+    #             if self.tableWidget_channels.columnCount() < col_idx + 1:
+    #                 self.tableWidget_channels.insertColumn(
+    #                     self.tableWidget_channels.columnCount())
+    #             # Set widget
+    #             cha_checkbox = QtWidgets.QCheckBox()
+    #             cha_checkbox.setChecked(True)
+    #             cha_checkbox.setObjectName('cha_checkbox')
+    #             cha_line_edit = QtWidgets.QLineEdit(cha[curr_label_field])
+    #             cha_line_edit.setObjectName('cha_line_edit')
+    #             cell_layout = QtWidgets.QHBoxLayout()
+    #             cell_layout.addWidget(cha_checkbox)
+    #             cell_layout.addWidget(cha_line_edit)
+    #             cell_widget = QtWidgets.QWidget()
+    #             cell_layout.setContentsMargins(0, 0, 0, 0)
+    #             cell_widget.setLayout(cell_layout)
+    #             self.tableWidget_channels.setCellWidget(
+    #                 row_idx, col_idx, cell_widget)
+    #             col_idx += 1
+    #             if col_idx > max_n_cols - 1:
+    #                 col_idx = 0
+    #                 row_idx += 1
+    #     else:
+    #         self.tableWidget_channels.clear()
 
     def set_checked_channels(self, cha_idx):
         idx = 0
