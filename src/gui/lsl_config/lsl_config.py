@@ -382,8 +382,8 @@ class EditStreamDialog(QtWidgets.QDialog, ui_stream_config_dialog):
         # Connect events
         self.comboBox_desc_channels_field.currentIndexChanged.connect(
             self.update_channel_fields)
-        # self.pushButton_read_channels_info.clicked.connect(
-        #     self.on_read_channels_info)
+        self.comboBox_channel_label_field.currentIndexChanged.connect(
+            self.update_channels_table)
         # Channels buttons
         # self.pushButton_cha_load.clicked.connect(self.load_custom_labels)
         # self.pushButton_cha_select.clicked.connect(self.select_all_channels)
@@ -473,20 +473,20 @@ class EditStreamDialog(QtWidgets.QDialog, ui_stream_config_dialog):
                 title='Error',
                 theme_colors=self.theme_colors)
             dec_cha_info = list()
-            # self.label_channels_label_field.setVisible(False)
+            self.comboBox_channel_label_field.setVisible(False)
+            self.label_channels_label_field.setVisible(False)
             for i in range(self.lsl_stream_info.lsl_n_cha):
                 dec_cha_info.append({'label': str(i)})
         else:
-            self.tableView_ch_summary.setVisible(True)
+            self.comboBox_channel_label_field.setVisible(True)
 
-        # NOT NECESSARY BECAUSE ALL FIELDS ARE INCLUDED IN THE TABLE
         # Update combobox
-        # self.comboBox_channel_label_field.clear()
-        # cha_fields = list(dec_cha_info[0].keys())
-        # for field in cha_fields:
-            # self.comboBox_channel_label_field.addItem(field)
-        # gu.select_entry_combobox_with_text(
-        #     self.comboBox_channel_label_field, 'label')
+        self.comboBox_channel_label_field.clear()
+        cha_fields = list(dec_cha_info[0].keys())
+        for field in cha_fields:
+            self.comboBox_channel_label_field.addItem(field)
+        gu.select_entry_combobox_with_text(
+            self.comboBox_channel_label_field, 'label')
 
     def on_read_channels_info(self):
         current_desc_field = \
@@ -573,7 +573,7 @@ class EditStreamDialog(QtWidgets.QDialog, ui_stream_config_dialog):
 
             for row_data in self.cha_info:
                 row_items = [QtGui.QStandardItem(
-                    str(row_data.get("label", "")))]
+                    str(row_data.get(self.comboBox_channel_label_field.currentText(), "")))]
 
                 for key in keys:
                     value = row_data.get(key, "")

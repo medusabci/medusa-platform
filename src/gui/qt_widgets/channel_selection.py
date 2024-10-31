@@ -34,7 +34,7 @@ class ChannelSelectionWidget(QDialog, ui_main_file):
     def __init__(self, montage='10-20', ch_labels=None):
         QDialog.__init__(self)
         self.setupUi(self)
-        self.TAG = '[widget/EEG Channel Selection]'
+        self.TAG = '[widget/EEG Channel Selection for Medusa App]'
 
         # Initialize control
         self.finished = False
@@ -50,6 +50,8 @@ class ChannelSelectionWidget(QDialog, ui_main_file):
         self.ground_btn.setStyleSheet('QPushButton {background-color: #fff44f; color: #000000;}')
         self.reference_btn.setStyleSheet('QPushButton {background-color: #00bdfe; color: #000000;}')
         self.notifications = NotificationStack(parent=self, timer_ms=500)
+        self.ground_btn.setVisible(False)
+        self.reference_btn.setVisible(False)
         self.changes_made = False
 
         # Initialize the plot
@@ -208,8 +210,12 @@ class EEGChannelSelectionPlot(SerializableComponent):
 
         # Initialize Variables
         self.channel_set = meeg.EEGChannelSet()
-        self.channel_set.set_standard_montage(l_cha=self.ch_labels, montage=self.montage, )
+        self.channel_set.set_standard_montage(l_cha=self.ch_labels,
+                                              montage=self.montage,
+                                              allow_unlocated_channels=True)
         self.l_cha = self.channel_set.l_cha
+        self.unlocated_channels = []
+        self.located_channel_set = meeg.EEGChannelSet()
         self.channels_selected = channels_selected
         self.channel_location = None
         self.fig = None
@@ -227,13 +233,14 @@ class EEGChannelSelectionPlot(SerializableComponent):
             'Reference': None
         }
         # Plot Channel Plot
+        self.check_unlocated_channels()
         self.set_tolerance_radius()
         self.fig = plt.figure()
         self.fig.patch.set_alpha(False)
         self.axes = self.fig.add_subplot(111)
         plot_head(axes=self.axes,
-                  channel_set=self.channel_set,
-                  plot_channel_labels=True, plot_contour_ch=True,
+                  channel_set=self.located_channel_set,
+                  plot_channel_labels=True,
                   channel_radius_size=self.tolerance_radius,
                   head_skin_color='#E8BEAC',
                   plot_channel_points=True)
@@ -251,6 +258,14 @@ class EEGChannelSelectionPlot(SerializableComponent):
 
         # Uncomment to debug
         # self.fig.show()
+    def check_unlocated_channels(self):
+        """Separates located from unlocated channels"""
+        for ch in self.channel_set.channels:
+            if 'r' in ch.keys():
+                self.located_channel_set.add_channel(ch,reference=None)
+            else:
+                self.unlocated_channels.append(ch)
+
 
     def set_channel_location(self):
         """For an easy treat of channel coordinates"""
