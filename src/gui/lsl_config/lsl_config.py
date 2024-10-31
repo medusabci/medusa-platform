@@ -473,16 +473,17 @@ class EditStreamDialog(QtWidgets.QDialog, ui_stream_config_dialog):
                 title='Error',
                 theme_colors=self.theme_colors)
             dec_cha_info = list()
-            # self.comboBox_channel_label_field.setVisible(False)
-            self.label_channels_label_field.setVisible(False)
+            self.tableView_ch_summary.setVisible(False)
+            # self.label_channels_label_field.setVisible(False)
             for i in range(self.lsl_stream_info.lsl_n_cha):
                 dec_cha_info.append({'label': str(i)})
-        # else:
-            # self.comboBox_channel_label_field.setVisible(True)
-            # self.label_channels_label_field.setVisible(True)
+        else:
+            self.tableView_ch_summary.setVisible(True)
+
+        # NOT NECESSARY BECAUSE ALL FIELDS ARE INCLUDED IN THE TABLE
         # Update combobox
         # self.comboBox_channel_label_field.clear()
-        cha_fields = list(dec_cha_info[0].keys())
+        # cha_fields = list(dec_cha_info[0].keys())
         # for field in cha_fields:
             # self.comboBox_channel_label_field.addItem(field)
         # gu.select_entry_combobox_with_text(
@@ -562,31 +563,41 @@ class EditStreamDialog(QtWidgets.QDialog, ui_stream_config_dialog):
         if isinstance(self.cha_info, list) and \
                 len(self.cha_info) > 0:
 
-            # Obtener las keys del primer diccionario para las columnas, excluyendo la columna extra "Medusa Labels"
             keys = list(self.cha_info[0].keys())
 
-            # Añadir la columna extra "Medusa Labels"
-            model.setColumnCount(len(keys) + 1)
-            model.setHorizontalHeaderItem(0, QtGui.QStandardItem("Medusa Labels"))
+            if "label" in keys:
+                model.setColumnCount(len(keys) + 1)
+                model.setHorizontalHeaderItem(0, QtGui.QStandardItem("Medusa Labels"))
 
-            # Configurar los encabezados para las keys del diccionario
-            for col, key in enumerate(keys, start=1):
-                model.setHorizontalHeaderItem(col, QtGui.QStandardItem(key))
+                for col, key in enumerate(keys, start=1):
+                    model.setHorizontalHeaderItem(col, QtGui.QStandardItem(key))
 
-            # Añadir los datos fila por fila
-            for row_data in self.cha_info:
-                row_items = [QtGui.QStandardItem(
-                    str(row_data.get("label", "")))]  # Primera columna como "Medusa Labels"
+                for row_data in self.cha_info:
+                    row_items = [QtGui.QStandardItem(
+                        str(row_data.get("label", "")))]
 
-                for key in keys:
-                    value = row_data.get(key, "")
-                    item = QtGui.QStandardItem(
-                        str(value))  # Convertimos a string cada valor
-                    row_items.append(item)
+                    for key in keys:
+                        value = row_data.get(key, "")
+                        item = QtGui.QStandardItem(
+                            str(value))
+                        row_items.append(item)
 
-                model.appendRow(row_items)
+                    model.appendRow(row_items)
+            else:
+                model.setColumnCount(len(keys))
+                for col, key in enumerate(keys):
+                    model.setHorizontalHeaderItem(col, QtGui.QStandardItem(key))
 
-            # Asignar el modelo al QTableView
+                for row_data in self.cha_info:
+                    row_items = []
+                    for key in keys:
+                        value = row_data.get(key, "")
+                        item = QtGui.QStandardItem(
+                            str(value))
+                        row_items.append(item)
+
+                    model.appendRow(row_items)
+
             self.tableView_ch_summary.setModel(model)
         else:
             self.tableView_ch_summary.clearSpans()
