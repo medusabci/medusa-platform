@@ -233,7 +233,7 @@ class EEGChannelSelectionPlot(SerializableComponent):
         self.axes = self.fig.add_subplot(111)
         plot_head(axes=self.axes,
                   channel_set=self.channel_set,
-                  plot_channel_labels=True, plot_contour_ch=True,
+                  plot_channel_labels=True,
                   channel_radius_size=self.tolerance_radius,
                   head_skin_color='#E8BEAC',
                   plot_channel_points=True)
@@ -255,7 +255,7 @@ class EEGChannelSelectionPlot(SerializableComponent):
     def set_channel_location(self):
         """For an easy treat of channel coordinates"""
         self.channel_location = dict()
-
+        # TODO AQUI SI ESTÁ YA EN CARTESIANAS ASIGNARLO ASÍ
         self.channel_location['radius'] = [c['r'] for c in self.channel_set.channels]
         self.channel_location['theta'] = [c['theta'] for c in self.channel_set.channels]
 
