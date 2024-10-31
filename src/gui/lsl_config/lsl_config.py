@@ -473,7 +473,6 @@ class EditStreamDialog(QtWidgets.QDialog, ui_stream_config_dialog):
                 title='Error',
                 theme_colors=self.theme_colors)
             dec_cha_info = list()
-            self.tableView_ch_summary.setVisible(False)
             # self.label_channels_label_field.setVisible(False)
             for i in range(self.lsl_stream_info.lsl_n_cha):
                 dec_cha_info.append({'label': str(i)})
@@ -565,39 +564,24 @@ class EditStreamDialog(QtWidgets.QDialog, ui_stream_config_dialog):
 
             keys = list(self.cha_info[0].keys())
 
-            if "label" in keys:
-                model.setColumnCount(len(keys) + 1)
-                model.setHorizontalHeaderItem(0, QtGui.QStandardItem("Medusa Labels"))
 
-                for col, key in enumerate(keys, start=1):
-                    model.setHorizontalHeaderItem(col, QtGui.QStandardItem(key))
+            model.setColumnCount(len(keys) + 1)
+            model.setHorizontalHeaderItem(0, QtGui.QStandardItem("Medusa Labels"))
 
-                for row_data in self.cha_info:
-                    row_items = [QtGui.QStandardItem(
-                        str(row_data.get("label", "")))]
+            for col, key in enumerate(keys, start=1):
+                model.setHorizontalHeaderItem(col, QtGui.QStandardItem(key))
 
-                    for key in keys:
-                        value = row_data.get(key, "")
-                        item = QtGui.QStandardItem(
-                            str(value))
-                        row_items.append(item)
+            for row_data in self.cha_info:
+                row_items = [QtGui.QStandardItem(
+                    str(row_data.get("label", "")))]
 
-                    model.appendRow(row_items)
-            else:
-                model.setColumnCount(len(keys))
-                for col, key in enumerate(keys):
-                    model.setHorizontalHeaderItem(col, QtGui.QStandardItem(key))
+                for key in keys:
+                    value = row_data.get(key, "")
+                    item = QtGui.QStandardItem(
+                        str(value))
+                    row_items.append(item)
 
-                for row_data in self.cha_info:
-                    row_items = []
-                    for key in keys:
-                        value = row_data.get(key, "")
-                        item = QtGui.QStandardItem(
-                            str(value))
-                        row_items.append(item)
-
-                    model.appendRow(row_items)
-
+                model.appendRow(row_items)
             self.tableView_ch_summary.setModel(model)
         else:
             self.tableView_ch_summary.clearSpans()
@@ -716,3 +700,5 @@ class EditStreamDialog(QtWidgets.QDialog, ui_stream_config_dialog):
     def handle_exception(self, ex):
         traceback.print_exc()
         dialogs.error_dialog(str(ex), 'Error', self.theme_colors)
+
+# class EditChannelsDialog(QtWidgets.QDialog, ui_channels_config_dialog):
