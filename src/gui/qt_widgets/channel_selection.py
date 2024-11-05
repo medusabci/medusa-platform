@@ -212,6 +212,8 @@ class LSLChannelSelection(ChannelSelectionWidget):
         self.ch_labels = self.get_channel_labels()
         super().__init__(ch_labels=self.ch_labels)
 
+        self.refresh_btn.clicked.connect(self.on_refresh)
+
     def get_channel_labels(self):
         return [cha_dict[self.cha_field] for cha_dict in self.lsl_cha_info]
     def init_table(self):
@@ -237,6 +239,7 @@ class LSLChannelSelection(ChannelSelectionWidget):
             self.ch_checkboxs.append(checkbox)
 
             cha_line_edit = QLineEdit(channel['label'])
+            cha_line_edit.setObjectName('cha_name')
             cell_layout = QHBoxLayout()
             cell_layout.addWidget(checkbox)
             cell_layout.addWidget(cha_line_edit)
@@ -267,6 +270,46 @@ class LSLChannelSelection(ChannelSelectionWidget):
                 value = row_data.get(key, "")
                 item = QLineEdit(str(value))
                 self.channels_table.setCellWidget(i_r,i_k+3, item)
+
+    def on_refresh(self):
+        for i in range(len(self.ch_checkboxs)):
+            if self.ch_checkboxs[i].isChecked():
+                label = self.channels_table.cellWidget(i,0).findChild(
+                    QLineEdit, 'cha_name').text()
+                xpos = self.channels_table.cellWidget(i,1).value()
+                ypos = self.channels_table.cellWidget(i,2).value()
+                r = np.sqrt(xpos**2 + ypos**2)
+                theta = np.arctan2(ypos,xpos)
+                self.interactive_selection.channel_set.channels[i]['label'] = label
+                self.interactive_selection.channel_set.l_cha[i] = label
+                self.interactive_selection.channel_set.channels[i]['r'] = r
+                self.interactive_selection.channel_set.channels[i]['theta'] = theta
+                self.interactive_selection.channels_selected['Labels'][i] = label
+        self.interactive_selection.l_cha = self.interactive_selection.channel_set.l_cha
+        self.interactive_selection.unlocated_channels = []
+        self.interactive_selection.located_channel_set = meeg.EEGChannelSet()
+        self.interactive_selection.fig_unlocated.clf()
+        self.interactive_selection.fig_head.clf()
+        # self.interactive_selection.fig_head.canvas.draw()
+        # self.interactive_selection.fig_unlocated.canvas.draw()
+        self.plotLayout.removeWidget(self.interactive_selection.fig_head.canvas)
+        self.interactive_selection.fig_head.canvas.deleteLater()
+        self.interactive_selection.fig_head.canvas = None
+        self.unlocatedChannelsLayout.removeWidget(
+            self.interactive_selection.fig_unlocated.canvas)
+        self.interactive_selection.fig_unlocated.canvas.deleteLater()
+        self.interactive_selection.fig_unlocated.canvas = None
+
+        plt.close(self.interactive_selection.fig_head)
+        self.interactive_selection.fig_head = None
+        plt.close(self.interactive_selection.fig_unlocated)
+        self.interactive_selection.fig_unlocated = None
+        self.interactive_selection.init_plots()
+        self.interactive_selection.load_channel_selection_settings()
+        self.plotLayout.addWidget(self.interactive_selection.fig_head.canvas)
+        self.unlocatedChannelsLayout.addWidget(
+            self.interactive_selection.fig_unlocated.canvas)
+
 
 
 
@@ -305,6 +348,30 @@ class EEGChannelSelectionPlot(SerializableComponent):
             'Ground': None,
             'Reference': None
         }
+
+        self.init_plots()
+
+        if self.channels_selected is None:
+            self.set_channel_selection_dict()
+        else:
+            self.load_channel_selection_settings()
+
+
+
+
+
+
+        # Uncomment to debug
+        # self.fig_head.show()
+
+    def check_unlocated_channels(self):
+        """Separates located from unlocated channels"""
+        for ch in self.channel_set.channels:
+            if 'r' in ch.keys():
+                self.located_channel_set.add_channel(ch,reference=None)
+            else:
+                self.unlocated_channels.append(ch)
+    def init_plots(self):
         # Plot Channel Plot
         self.check_unlocated_channels()
         self.set_tolerance_radius()
@@ -320,11 +387,6 @@ class EEGChannelSelectionPlot(SerializableComponent):
 
         # Set channel coordinates
         self.set_channel_location()
-
-        if self.channels_selected is None:
-            self.set_channel_selection_dict()
-        else:
-            self.load_channel_selection_settings()
 
         # Add interactive functionality to the figure
         self.fig_head.canvas.mpl_connect('button_press_event', self.onclick)
@@ -352,22 +414,8 @@ class EEGChannelSelectionPlot(SerializableComponent):
         self.button_down.on_clicked(self.scroll_down)
 
         # Add interactive functionality to the figure
-        self.fig_unlocated.canvas.mpl_connect('button_press_event', self.onclick)
-
-
-
-
-        # Uncomment to debug
-        # self.fig_head.show()
-
-    def check_unlocated_channels(self):
-        """Separates located from unlocated channels"""
-        for ch in self.channel_set.channels:
-            if 'r' in ch.keys():
-                self.located_channel_set.add_channel(ch,reference=None)
-            else:
-                self.unlocated_channels.append(ch)
-
+        self.fig_unlocated.canvas.mpl_connect('button_press_event',
+                                              self.onclick)
     def plot_unlocated(self):
         # Limpia el eje antes de dibujar
         # self.axes_unlocated.clear()
@@ -646,17 +694,22 @@ class EEGChannelSelectionPlot(SerializableComponent):
         if len(used_channels_idx) != 0:
             for idx in used_channels_idx:
                 self.channels_selected['Selected'][idx] = False
-                self.select_action(idx)
-        if len(ground_channel_idx) != 0:
-            self.channels_selected['Selected'][int(ground_channel_idx)] = False
-            self.channels_selected['Ground'][int(ground_channel_idx)] = False
-            self.selection_mode = 'Ground'
-            self.select_action(int(ground_channel_idx))
-        if len(reference_channel_idx) != 0:
-            self.channels_selected['Selected'][int(reference_channel_idx)] = False
-            self.channels_selected['Reference'][int(reference_channel_idx)] = False
-            self.selection_mode = 'Reference'
-            self.select_action(int(reference_channel_idx))
+                if self.channels_selected['Labels'][idx] in self.unlocated_ch_labels:
+                    self.select_action(self.channels_selected['Labels'][idx],
+                                       'unlocated')
+                else:
+                    self.select_action(self.channels_selected['Labels'][idx],
+                                       'head')
+        # if len(ground_channel_idx) != 0:
+        #     self.channels_selected['Selected'][int(ground_channel_idx)] = False
+        #     self.channels_selected['Ground'][int(ground_channel_idx)] = False
+        #     self.selection_mode = 'Ground'
+        #     self.select_action(int(ground_channel_idx))
+        # if len(reference_channel_idx) != 0:
+        #     self.channels_selected['Selected'][int(reference_channel_idx)] = False
+        #     self.channels_selected['Reference'][int(reference_channel_idx)] = False
+        #     self.selection_mode = 'Reference'
+        #     self.select_action(int(reference_channel_idx))
 
     def get_channels_selection_from_gui(self):
         """Updates the final_channel_selection dict. It makes possible to get from widget
