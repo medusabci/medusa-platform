@@ -26,16 +26,17 @@ from matplotlib.widgets import Slider, Button
 ui_main_file = loadUiType(os.path.dirname(__file__) + "/channel_selection_new.ui")[0]
 
 
-class AppChannelSelectionWidget(QDialog, ui_main_file):
+class ChannelSelectionWidget(QDialog, ui_main_file):
     """This class allows you to control the GUI of the EEG channel
        selection widget."""
 
     close_signal = Signal(object)
 
-    def __init__(self, ch_labels=None, table_keys=[]):
+    def __init__(self, ch_labels):
         QDialog.__init__(self)
         self.setupUi(self)
-        self.TAG = '[widget/EEG Channel Selection for Medusa App]'
+        # self.TAG = '[widget/EEG Channel Selection for Medusa App]'
+        self.ch_labels = ch_labels
 
         # Initialize control
         self.finished = False
@@ -57,43 +58,35 @@ class AppChannelSelectionWidget(QDialog, ui_main_file):
         self.changes_made = False
 
         # Initialize the plot
-        self.interactive_selection = EEGChannelSelectionPlot(ch_labels=ch_labels)
+        self.interactive_selection = EEGChannelSelectionPlot(ch_labels=self.ch_labels)
         self.plotLayout.addWidget(self.interactive_selection.fig_head.canvas)
         self.unlocatedChannelsLayout.addWidget(
             self.interactive_selection.fig_unlocated.canvas)
 
         # Initialize the table
-        self.table_keys = table_keys
+        self.table_keys = []
+        self.ch_checkboxs = []
         self.init_table()
 
         # Button connections
-        self.used_btn.clicked.connect(self.activate_mode_used)
-        self.ground_btn.clicked.connect(self.activate_mode_ground)
-        self.reference_btn.clicked.connect(self.activate_mode_reference)
+        # self.used_btn.clicked.connect(self.activate_mode_used)
+        # self.ground_btn.clicked.connect(self.activate_mode_ground)
+        # self.reference_btn.clicked.connect(self.activate_mode_reference)
         self.selectall_btn.clicked.connect(self.activate_select_all)
         self.unselectall_btn.clicked.connect(self.activate_unselect_all)
         self.save_btn.clicked.connect(self.save)
         self.load_btn.clicked.connect(self.load)
         self.done_btn.clicked.connect(self.done)
 
-        # # Set Channel Labels
-        # self.working_threads = list()
-        # Th1 = threading.Thread(target=self.set_labels_as_text)
-        # Th1.start()
-        # self.working_threads.append(Th1)
+        # Connect channels in plot with channels in table
+        self.working_threads = list()
+        Th1 = threading.Thread(target=self.watch_ch_clicked)
+        Th1.start()
+        self.working_threads.append(Th1)
 
         # Uncomment to debug
         self.setModal(True)
-        self.show()
-
-    def activate_mode_used(self):
-        self.interactive_selection.selection_mode = 'Used'
-
-    def activate_mode_ground(self):
-        self.interactive_selection.selection_mode = 'Ground'
-
-    def activate_mode_reference(self):
-        self.interactive_selection.selection_mode = 'Reference'
+        # self.show()
 
     def activate_select_all(self):
         self.interactive_selection.select_all()
@@ -115,81 +108,30 @@ class AppChannelSelectionWidget(QDialog, ui_main_file):
     #         ch_pos.append(
     #             item.text() if item else None)  # Almacena el texto o None si no hay ítem
     #     visible_items.append(row_data)
-
+    def on_checked(self,state, label):
+        ch_index = self.interactive_selection.l_cha.index(label)
+        if state == 0:
+            state = False
+        else:
+            state = True
+        if self.interactive_selection.channels_selected["Selected"][ch_index] != state:
+            if label in self.interactive_selection.located_channel_set.l_cha:
+                fig = 'head'
+            else:
+                fig = 'unlocated'
+            self.interactive_selection.select_action(label,fig)
 
     def init_table(self):
-        channel_set = self.interactive_selection.channel_set
-        self.channels_table.setColumnCount(len(self.table_keys)+3)
-        self.channels_table.setRowCount(len(channel_set.channels))
-        table_keys = ["Label","X pos", "Y pos"]
-        for key in self.table_keys:
-            table_keys.append(key)
-        self.channels_table.setHorizontalHeaderLabels(table_keys)
-        for col, key in enumerate(self.table_keys):
-            self.channels_table.setHorizontalHeaderLabels(key)
-        header = self.channels_table.horizontalHeader()
-        header.setSectionResizeMode(QHeaderView.Stretch)
+        raise NotImplementedError
 
-        for i, ch in enumerate(channel_set.channels):
-            checkbox = QCheckBox(ch['label'])  # Añade el texto como etiqueta
-            checkbox.setCheckable(True)  # Hacer el ítem checkable
-            checkbox.setCheckState(
-                Qt.Unchecked)  # Inicializar en estado "no marcado"
-            self.channels_table.setCellWidget(i,0,checkbox)
+    def watch_ch_clicked(self):
+        while not self.finished:
+            time.sleep(0.1)
+            for i_ch, checkbox in enumerate(self.ch_checkboxs):
+                state = self.interactive_selection.channels_selected['Selected'][i_ch]
+                checkbox.setChecked(state)
 
-            x_spinbox = CustomDoubleSpinBox()
-            x_spinbox.setMinimum(-10)
-            x_spinbox.setMaximum(10)
-            y_spinbox = CustomDoubleSpinBox()
-            y_spinbox.setMinimum(-10)
-            y_spinbox.setMaximum(10)
-            if 'r' in ch.keys():
-                x_spinbox .setValue(ch['r']*np.cos(ch['theta']))
-                self.channels_table.setCellWidget(i, 1, x_spinbox )
-                y_spinbox.setValue(ch['r']*np.sin(ch['theta']))
-                self.channels_table.setCellWidget(i, 2, y_spinbox)
-            else:
-                x_spinbox .setValue(-10)
-                self.channels_table.setCellWidget(i, 1, x_spinbox )
-                y_spinbox.setValue(-10)
-                self.channels_table.setCellWidget(i, 2, y_spinbox)
 
-            # for key in self.table_keys:
-            #     value = row_data.get(key, "")
-            #     item = QStandardItem(
-            #         str(value))
-            #     row_items.append(item)
-            # model.appendRow(row_items)
-        # self.channels_table.setModel(model)
-    # def set_labels_as_text(self):
-    #     """ Reads continuously the channels selected and prints it in Line text edit object"""
-    #     while not self.finished:
-    #         time.sleep(0.1)
-    #         # Set Ground Label
-    #         ground_idx = np.where(self.interactive_selection.channels_selected['Ground'])[0]
-    #         if len(ground_idx) != 0:
-    #             self.groundText.setText(self.interactive_selection.l_cha[int(ground_idx)])
-    #             self.changes_made = True
-    #         else:
-    #             self.groundText.setText('')
-    #         # Set Reference Label
-    #         reference_idx = np.where(self.interactive_selection.channels_selected['Reference'])[0]
-    #         if len(reference_idx) != 0:
-    #             self.referenceText.setText(self.interactive_selection.l_cha[int(reference_idx)])
-    #             self.changes_made = True
-    #         else:
-    #             self.referenceText.setText('')
-    #         # Set Used Channels Labels
-    #         self.usedText.setReadOnly(True)
-    #         used_idx = np.where(self.interactive_selection.channels_selected['Used'])[0]
-    #         if len(used_idx) != 0:
-    #             labels = list(self.interactive_selection.channels_selected['Labels'][self.interactive_selection.
-    #                           channels_selected['Used']])
-    #             # labels = [self.interactive_selection.l_cha[idx] for idx in used_idx]
-    #             self.usedText.setText(",".join(labels))
-    #             self.changes_made = True
-    #         else:
-    #             self.usedText.setText("")
     # ------------------- BASIC BUTTONS --------------------------------------
 
     def save(self):
@@ -261,6 +203,70 @@ class AppChannelSelectionWidget(QDialog, ui_main_file):
             self.interactive_selection.get_channels_selection_from_gui()
             self.close_signal.emit(None)
             event.accept()
+
+class LSLChannelSelection(ChannelSelectionWidget):
+    def __init__(self,cha_field,lsl_cha_info):
+        self.cha_field = cha_field
+        self.lsl_cha_info = lsl_cha_info
+        self.lsl_cha_keys = lsl_cha_info[0].keys()
+        self.ch_labels = self.get_channel_labels()
+        super().__init__(ch_labels=self.ch_labels)
+
+    def get_channel_labels(self):
+        return [cha_dict[self.cha_field] for cha_dict in self.lsl_cha_info]
+    def init_table(self):
+        channel_set = self.interactive_selection.channel_set
+        self.channels_table.setColumnCount(len(self.lsl_cha_keys)+3)
+        self.channels_table.setRowCount(len(channel_set.channels))
+        table_keys = ["Medusa label","X pos", "Y pos"]
+        for key in self.lsl_cha_keys:
+            table_keys.append(key)
+        self.channels_table.setHorizontalHeaderLabels(table_keys)
+        header = self.channels_table.horizontalHeader()
+        header.setSectionResizeMode(QHeaderView.Stretch)
+        self.channels_table.verticalHeader().hide()
+
+        for i_r, row_data in enumerate(self.lsl_cha_info):
+            channel = self.interactive_selection.channel_set.channels[i_r]
+            checkbox = QCheckBox() # Añade el texto como etiqueta
+            checkbox.setCheckable(True)  # Hacer el ítem checkable
+            checkbox.setCheckState(
+                Qt.Unchecked)  # Inicializar en estado "no marcado"
+            checkbox.stateChanged.connect(
+                lambda state, label=channel['label']: self.on_checked(state,label))
+            self.ch_checkboxs.append(checkbox)
+
+            cha_line_edit = QLineEdit(channel['label'])
+            cell_layout = QHBoxLayout()
+            cell_layout.addWidget(checkbox)
+            cell_layout.addWidget(cha_line_edit)
+            cell_widget = QWidget()
+            cell_layout.setContentsMargins(0, 0, 0, 0)
+            cell_widget.setLayout(cell_layout)
+            self.channels_table.setCellWidget(
+                i_r, 0, cell_widget)
+
+            x_spinbox = CustomDoubleSpinBox()
+            x_spinbox.setMinimum(-10)
+            x_spinbox.setMaximum(10)
+            y_spinbox = CustomDoubleSpinBox()
+            y_spinbox.setMinimum(-10)
+            y_spinbox.setMaximum(10)
+            if 'r' in channel.keys():
+                x_spinbox .setValue(channel['r']*np.cos(channel['theta']))
+                self.channels_table.setCellWidget(i_r, 1, x_spinbox )
+                y_spinbox.setValue(channel['r']*np.sin(channel['theta']))
+                self.channels_table.setCellWidget(i_r, 2, y_spinbox)
+            else:
+                x_spinbox .setValue(-10)
+                self.channels_table.setCellWidget(i_r, 1, x_spinbox )
+                y_spinbox.setValue(-10)
+                self.channels_table.setCellWidget(i_r, 2, y_spinbox)
+            # Add rest of data
+            for i_k, key in enumerate(self.lsl_cha_keys):
+                value = row_data.get(key, "")
+                item = QLineEdit(str(value))
+                self.channels_table.setCellWidget(i_r,i_k+3, item)
 
 
 
@@ -690,6 +696,6 @@ class CustomDoubleSpinBox(QDoubleSpinBox):
 if __name__ == '__main__':
     # self.show must be uncommented
     app = QApplication([])
-    mw = AppChannelSelectionWidget(ch_labels=['C3','Cz','C4',
+    mw = LSLChannelSelection(ch_labels=['C3','Cz','C4',
                                                               'Cbz','Cb1','Cb2','CH1','CH2','CH3','CH4'])
     app.exec_()
