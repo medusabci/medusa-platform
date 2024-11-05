@@ -11,6 +11,7 @@ from gui.qt_widgets.notifications import NotificationStack
 from acquisition import lsl_utils
 import exceptions
 import constants
+from gui.qt_widgets.channel_selection import LSLChannelSelection
 
 # Load the .ui files
 ui_main_dialog = loadUiType(
@@ -385,6 +386,7 @@ class EditStreamDialog(QtWidgets.QDialog, ui_stream_config_dialog):
         self.comboBox_channel_label_field.currentIndexChanged.connect(
             self.update_channels_table)
         # Channels buttons
+        self.pushButton_ch_config.clicked.connect(self.on_configure_channels)
         # self.pushButton_cha_load.clicked.connect(self.load_custom_labels)
         # self.pushButton_cha_select.clicked.connect(self.select_all_channels)
         # self.pushButton_cha_diselect.clicked.connect(self.deselect_all_channels)
@@ -487,6 +489,13 @@ class EditStreamDialog(QtWidgets.QDialog, ui_stream_config_dialog):
             self.comboBox_channel_label_field.addItem(field)
         gu.select_entry_combobox_with_text(
             self.comboBox_channel_label_field, 'label')
+
+    def on_configure_channels(self):
+        self.channel_selection = LSLChannelSelection(
+            cha_field=self.comboBox_channel_label_field.currentText(),
+        lsl_cha_info=self.cha_info)
+        self.channel_selection.show()
+        # self.channel_selection.raise_()
 
     def on_read_channels_info(self):
         current_desc_field = \
