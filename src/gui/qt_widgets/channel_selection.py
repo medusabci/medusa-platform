@@ -108,14 +108,15 @@ class ChannelSelectionWidget(QDialog, ui_main_file):
     #         ch_pos.append(
     #             item.text() if item else None)  # Almacena el texto o None si no hay ítem
     #     visible_items.append(row_data)
-    def on_checked(self,state, label):
-        ch_index = self.interactive_selection.l_cha.index(label)
+    def on_checked(self,state, ch_index):
+        label = self.interactive_selection.channels_selected["Labels"][ch_index]
         if state == 0:
             state = False
         else:
             state = True
         if self.interactive_selection.channels_selected["Selected"][ch_index] != state:
-            if label in self.interactive_selection.located_channel_set.l_cha:
+            if label in\
+                    self.interactive_selection.located_channel_set.l_cha:
                 fig = 'head'
             else:
                 fig = 'unlocated'
@@ -235,7 +236,7 @@ class LSLChannelSelection(ChannelSelectionWidget):
             checkbox.setCheckState(
                 Qt.Unchecked)  # Inicializar en estado "no marcado"
             checkbox.stateChanged.connect(
-                lambda state, label=channel['label']: self.on_checked(state,label))
+                lambda state, index=i_r: self.on_checked(state,index))
             self.ch_checkboxs.append(checkbox)
 
             cha_line_edit = QLineEdit(channel['label'])
@@ -332,6 +333,7 @@ class EEGChannelSelectionPlot(SerializableComponent):
         self.located_channel_set = meeg.EEGChannelSet()
         self.channels_selected = channels_selected
         self.channel_location = None
+        self.unlocated_ch_labels = None
         self.fig_head = None
         self.axes_head = None
         self.fig_unlocated = None
@@ -418,7 +420,6 @@ class EEGChannelSelectionPlot(SerializableComponent):
                                               self.onclick)
     def plot_unlocated(self):
         # Limpia el eje antes de dibujar
-        # self.axes_unlocated.clear()
         self.axes_unlocated.axis("off")
 
         # Plot channels
@@ -462,10 +463,10 @@ class EEGChannelSelectionPlot(SerializableComponent):
             self.axes_unlocated.set_aspect('equal')
             self.axes_unlocated.set_xlim(0, 1)
             self.axes_unlocated.set_ylim(- max_data, 0)
-            self.axes_unlocated.set_title('Unlocated \nChannels',fontsize=11,
-                                          color='w')
             # Actualizar visibilidad de las etiquetas según los límites
             self.update_text_visibility()
+        self.axes_unlocated.set_title('Unlocated \nChannels', fontsize=11,
+                                      color='w')
         self.fig_unlocated.canvas.draw_idle()
 
     def update_text_visibility(self):
@@ -694,12 +695,15 @@ class EEGChannelSelectionPlot(SerializableComponent):
         if len(used_channels_idx) != 0:
             for idx in used_channels_idx:
                 self.channels_selected['Selected'][idx] = False
-                if self.channels_selected['Labels'][idx] in self.unlocated_ch_labels:
-                    self.select_action(self.channels_selected['Labels'][idx],
-                                       'unlocated')
-                else:
+                if self.unlocated_ch_labels is None or \
+                        self.channels_selected['Labels'][idx] in \
+                        self.located_channel_set.l_cha:
                     self.select_action(self.channels_selected['Labels'][idx],
                                        'head')
+                else:
+                    self.select_action(self.channels_selected['Labels'][idx],
+                                           'unlocated')
+
         # if len(ground_channel_idx) != 0:
         #     self.channels_selected['Selected'][int(ground_channel_idx)] = False
         #     self.channels_selected['Ground'][int(ground_channel_idx)] = False
