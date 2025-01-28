@@ -606,7 +606,8 @@ class SaveFileDialog(dialogs.MedusaDialog):
         theme_colors: dict or None
             Theme colors
         """
-        super().__init__(window_title='Save recording file',
+        super().__init__(window_title='Save recording',
+                         width=480, heigh=270,
                          theme_colors=theme_colors)
         self.rec_info = rec_info
         self.rec_streams_info = rec_streams_info
@@ -703,6 +704,7 @@ class SaveFileDialog(dialogs.MedusaDialog):
         self.streams_table.setColumnCount(3)
         self.streams_table.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Minimum)
         self.streams_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.streams_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeToContents)
         self.streams_table.setHorizontalHeaderLabels(["Save", "Medusa UID", "Attribute name"])
         rec_stream_tab.addWidget(self.streams_table)
 
