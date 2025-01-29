@@ -752,7 +752,7 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
     def get_default_rec_info():
         rec_info = {
             'rec_id': None,
-            'file_ext': 'bson',
+            'file_ext': 'mat',
             'path': os.path.abspath('../data'),
             'study_id': None,
             'subject_id': None,

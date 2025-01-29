@@ -52,7 +52,7 @@ class AppGui(QtWidgets.QMainWindow):
         self.main_layout = QtWidgets.QVBoxLayout()
 
         # Label
-        self.label = QtWidgets.QLabel('EEG samples')
+        self.label = QtWidgets.QLabel('Number of received samples')
 
         # Spin box
         self.spin_box = QtWidgets.QSpinBox()

@@ -783,7 +783,7 @@ class SaveFileDialog(dialogs.MedusaDialog):
 
     def on_browse_button_clicked(self):
         # Delete the extension
-        filter = 'Binary (*.bson);; Binary (*.mat);; Text (*.json)'
+        filter = 'Binary (*.mat);; Binary (*.bson);; Text (*.json)'
         path = QFileDialog.getSaveFileName(caption='Save recording file',
                                            dir=self.path,
                                            filter=filter)[0]
@@ -807,8 +807,8 @@ class SaveFileDialog(dialogs.MedusaDialog):
                                  'Error')
             return
         if split_name[-1] not in ['bson', 'mat', 'json']:
-            dialogs.error_dialog('Current supported formats are bson, mat and '
-                                 'json', 'Error')
+            dialogs.error_dialog('Current supported formats are'
+                                 ' bson, mat and json', 'Error')
             return
         # Save info
         self.path = path
