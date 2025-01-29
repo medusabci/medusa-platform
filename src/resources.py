@@ -188,8 +188,9 @@ class AppSkeleton(mp.Process):
         return file_path
 
     def get_rec_streams_info(self):
-        """This function builds a path to save the recording using the rec_info
-        dict. It can be overwritten to implement custom behaviour.
+        """This function returns a default dict containing  the stream info
+        for save recordings. It can be  overwritten to implement custom
+        behaviour.
         """
         rec_streams_info = dict()
         att_names = list()
@@ -209,7 +210,8 @@ class AppSkeleton(mp.Process):
                 att_name = default_att_name
             else:
                 # If the stream name exists, create a unique name
-                new_name = f'{default_att_name}_{att_names_counter[default_att_name]}'
+                new_name = \
+                    f'{default_att_name}_{att_names_counter[default_att_name]}'
                 att_names.append(new_name)
                 att_names_counter[default_att_name] += 1
                 att_name = new_name
