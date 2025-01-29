@@ -198,15 +198,10 @@ class LSLStreamWrapper(components.SerializableComponent):
         self.selected_channels_idx = None
         self.n_cha = None
         self.l_cha = None
-        # Set inlet and lsl info
-        # self.set_inlet(clocksync=self.lsl_proc_clocksync,
-        #                dejitter=self.lsl_proc_dejitter,
-        #                monotonize=self.lsl_proc_monotonize,
-        #                threadsafe=self.lsl_proc_threadsafe)
 
     def set_inlet(self, proc_clocksync=False, proc_dejitter=False,
                   proc_monotonize=False, proc_threadsafe=True):
-        # Possible LSL flags {proc_none, proc_clocksync , proc_dejitter,
+        # Possible LSL flags {proc_none, proc_clocksync , proc_dejitter, proc_monotonize proc_threadsafe}
         processing_flags = 0
         # Conditionally add each flag based on the variables
         if proc_clocksync:

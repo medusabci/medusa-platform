@@ -637,8 +637,26 @@ class EditStreamDialog(QtWidgets.QDialog, ui_stream_config_dialog):
             self.handle_exception(e)
 
     def accept(self):
-        # Get lsl params
+        # Check the medusa uid, it has to be unique
         medusa_uid = self.lineEdit_medusa_uid.text()
+        if not self.editing:
+            if not lsl_utils.check_if_medusa_uid_is_available(
+                    self.working_lsl_streams, medusa_uid):
+                dialogs.error_dialog(
+                    'Duplicated MEDUSA LSL UID. This parameter must be unique, '
+                    'please change it.', 'Incorrect medusa_uid')
+                return
+        # Check processing flags
+        if not self.lsl_stream_info.local_stream:
+            if not self.lsl_stream_info.lsl_proc_clocksync:
+                if not dialogs.confirmation_dialog(
+                    'This LSL stream comes from another host, '
+                    'and LSL clocksync proccessing flag is disabled. '
+                    'For external LSL streams it is recommended to '
+                    'enable this processing flag. Are you sure you want '
+                    'to continue?', 'Warning!'):
+                        return
+        # Get lsl params
         medusa_type = self.comboBox_medusa_type.currentData()
         desc_channels_field = self.comboBox_desc_channels_field.currentText()
         channel_label_field = self.comboBox_channel_label_field.currentText()
@@ -652,14 +670,6 @@ class EditStreamDialog(QtWidgets.QDialog, ui_stream_config_dialog):
             channel_label_field=channel_label_field,
             cha_info=self.cha_info,
             selected_channels_idx=sel_cha_idx)
-        # Check the medusa uid, it has to be unique
-        if not self.editing:
-            if not lsl_utils.check_if_medusa_uid_is_available(
-                    self.working_lsl_streams, medusa_uid):
-                dialogs.error_dialog(
-                    'Duplicated MEDUSA LSL UID. This parameter must be unique, '
-                    'please change it.', 'Incorrect medusa_uid')
-                return
         super().accept()
 
     def reject(self):
