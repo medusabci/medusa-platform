@@ -71,6 +71,7 @@ class AppSkeleton(mp.Process):
         self.app_info = app_info
         self.app_settings = app_settings
         self.rec_info = rec_info
+        self.allowed_formats = ['bson', 'json', 'mat']
         # --------------------- COMMUNICATION GUI-MANAGER -------------------- #
         # Interface
         self.medusa_interface = medusa_interface
@@ -171,8 +172,12 @@ class AppSkeleton(mp.Process):
         if self.rec_info['path'] is None or \
                 not os.path.isdir(self.rec_info['path']):
             return None
-        if self.rec_info['file_ext'] is None or \
-                not self.rec_info['file_ext'] in ['bson', 'mat', 'json']:
+        if self.rec_info['file_ext'] is None:
+            return None
+        if not self.rec_info['file_ext'] in self.allowed_formats:
+            self.medusa_interface.log(
+                f'Format {self.rec_info['file_ext']} is not supported '
+                f'by app {self.app_info['name']}.', style='warning')
             return None
         if self.rec_info['rec_id'] is None or \
                 len(self.rec_info['rec_id']) == 0:
@@ -609,27 +614,24 @@ class SaveFileDialog(dialogs.MedusaDialog):
             }
     app_ext : str
         Application-specific file extension.
-    formats : str, optional
+    allowed_formats : tuple of str, optional
         Supported file formats specified as a Qt filter. The default value is
-        'Binary (*.mat);; Binary (*.bson);; Text (*.json)'. These formats are
-        supported by the MEDUSA Kernel. However, compatibility with specific
-        applications may vary depending on the nature of the data being saved.
-        For example, the *.mat format offers better efficiency for numerical
-        data storage, but it may complicate data handling due to its structure.
+        ``('bson', 'json')``. These formats are compatible with the MEDUSA Kernel.
+        The dialog will only allow saving files in these formats. If an application
+        requires additional formats, this parameter can be customized accordingly.
     theme_colors : dict or None, optional
         Dictionary containing theme colors, by default None.
     """
 
     def __init__(self, rec_info, rec_streams_info, app_ext,
-                 formats='Binary (*.mat);; Binary (*.bson);; Text (*.json)',
-                 theme_colors=None):
+                 allowed_formats, theme_colors=None):
         super().__init__(window_title='Save recording',
                          width=480, heigh=270,
                          theme_colors=theme_colors)
         self.rec_info = rec_info
         self.rec_streams_info = rec_streams_info
         self.app_ext = app_ext
-        self.formats = formats
+        self.allowed_formats = allowed_formats
         # Check path
         if not os.path.exists(self.rec_info['path']):
             self.rec_info['path'] = os.path.abspath('../data')
@@ -637,12 +639,10 @@ class SaveFileDialog(dialogs.MedusaDialog):
         if self.rec_info['rec_id'] is None or \
                 len(self.rec_info['rec_id']) == 0:
             self.rec_info['rec_id'] = self.get_default_date_format()
-        # Get default extension
-        file_ext = re.findall(r'\*\.(\w+)', formats)
         # File name
         self.file_name = '%s.%s.%s' % (self.rec_info['rec_id'],
                                        app_ext,
-                                       file_ext[0])
+                                       allowed_formats[0])
         # Set path
         self.path = os.path.join(self.rec_info['path'], self.file_name)
         self.file_path_lineEdit.setText(self.path)
@@ -813,9 +813,16 @@ class SaveFileDialog(dialogs.MedusaDialog):
 
     def on_browse_button_clicked(self):
         # Delete the extension
+        format_mappings = {
+            'bson': 'Binary',
+            'json': 'Text',
+            'mat': 'Binary'
+        }
+        formatted_filter = ";; ".join(
+            f"{format_mappings[ext]} (*.{ext})" for ext in self.allowed_formats)
         path = QFileDialog.getSaveFileName(caption='Save recording file',
                                            dir=self.path,
-                                           filter=self.formats)[0]
+                                           filter=formatted_filter)[0]
         # Check that the user selected a file name
         if len(path) == 0:
             return
