@@ -81,9 +81,10 @@ class App(resources.AppSkeleton):
         if file_path is None:
             # Display save dialog to retrieve file_info
             self.save_file_dialog = resources.SaveFileDialog(
-                self.rec_info,
-                rec_streams_info,
-                self.app_info['extension'])
+                rec_info=self.rec_info,
+                rec_streams_info=rec_streams_info,
+                app_ext=self.app_info['extension'],
+                allowed_formats=self.allowed_formats)
             self.save_file_dialog.accepted.connect(self.on_save_rec_accepted)
             self.save_file_dialog.rejected.connect(self.on_save_rec_rejected)
             qt_app.exec()
