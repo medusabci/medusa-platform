@@ -7,7 +7,6 @@ import ctypes
 import threading
 import webbrowser
 import datetime
-import pkg_resources
 
 # EXTERNAL MODULES
 from PySide6.QtUiTools import loadUiType

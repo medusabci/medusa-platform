@@ -29,7 +29,7 @@ def get_lsl_streams(wait_time=0.1, force_one_stream=False, **kwargs):
         type, source_id, uid, channel_count, nominal_srate, hostname
     """
     # Resolve EEG LSL streams
-    streams = pylsl.resolve_stream(wait_time)
+    streams = pylsl.resolve_streams(wait_time)
     match_streams = []
     if kwargs is None:
         match_streams = streams
@@ -158,15 +158,15 @@ class LSLStreamWrapper(components.SerializableComponent):
 
         Parameters
         ----------
-        lsl_stream: pylsl.stream_info
+        lsl_stream: pylsl.StreamInfo
             LSL Stream info object. This info can be directly passed from
             function get_lsl_streams, since the LSL inlet will be initialized
             here.
         """
         # LSL stream
-        if not isinstance(lsl_stream, pylsl.stream_info):
+        if not isinstance(lsl_stream, pylsl.StreamInfo):
             raise TypeError('Parameter lsl_stream must be '
-                            'of type pylsl.stream_info')
+                            'of type pylsl.StreamInfo')
         self.lsl_stream = lsl_stream
         # LSL parameters
         self.lsl_stream_inlet = None

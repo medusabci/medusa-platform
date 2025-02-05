@@ -336,8 +336,6 @@ class AboutDialog(QDialog, gui_about):
 
     def __init__(self, release_info, parent=None, alias=''):
         super().__init__(parent)
-        self.setWindowFlags(
-            self.windowFlags() & ~Qt.WindowContextHelpButtonHint)
         self.setupUi(self)
         theme_colors = gui_utils.get_theme_colors('dark')
         self.stl = gui_utils.set_css_and_theme(self, theme_colors)
@@ -380,8 +378,6 @@ class AboutAppDialog(QDialog, gui_about_app):
 
     def __init__(self, app_info, app_icon_path, parent=None, alias=''):
         super().__init__(parent)
-        self.setWindowFlags(
-            self.windowFlags() & ~Qt.WindowContextHelpButtonHint)
         self.setupUi(self)
         self.resize(800, 325)
         theme_colors = gui_utils.get_theme_colors('dark')
