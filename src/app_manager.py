@@ -10,8 +10,8 @@ import time
 import zipfile
 from datetime import datetime
 from io import BytesIO
+import importlib.metadata
 
-import pkg_resources
 from cryptography.fernet import Fernet
 # EXTERNAL MODULES
 from jinja2 import Template
@@ -61,8 +61,8 @@ class AppManager:
         req_path = os.path.normpath('%s/requirements.txt' % app_dir)
         # Get installed packages
         current_pkgs = dict()
-        for p in pkg_resources.working_set:
-            current_pkgs[p.project_name] = p.version
+        for dist in importlib.metadata.distributions():
+            current_pkgs[dist.metadata["Name"].lower()] = dist.version
         # Get app requirements
         with open(req_path, 'r') as f:
             app_reqs_txt = f.read()

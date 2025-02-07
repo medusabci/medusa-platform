@@ -1,5 +1,5 @@
 # Built-in imports
-import sys, os, json, traceback, webbrowser
+import os
 # External imports
 from PySide6.QtUiTools import loadUiType
 from PySide6 import QtCore, QtGui, QtWidgets
@@ -8,10 +8,7 @@ from PySide6.QtCore import Qt
 from gui import gui_utils
 from gui.qt_widgets import dialogs
 from gui.qt_widgets.notifications import NotificationStack
-from acquisition import lsl_utils
-import exceptions
 import constants
-from medusa.plots import optimal_subplots
 
 # Load the .ui files
 ui_main_dialog = loadUiType('gui/ui_files/user_profile_dialog.ui')[0]
@@ -35,12 +32,9 @@ class UserProfileDialog(QtWidgets.QDialog, ui_main_dialog):
         """
         try:
             super().__init__()
-            self.setWindowFlags(
-                self.windowFlags() & ~Qt.WindowContextHelpButtonHint)
             self.setupUi(self)
-
+            # Notifications
             self.notifications = NotificationStack(parent=self)
-
             # Initialize the gui application
             self.dir = os.path.dirname(__file__)
             self.theme_colors = gui_utils.get_theme_colors('dark') if \
@@ -119,7 +113,3 @@ class WebsiteProfileQLabel(QtWidgets.QLabel):
         f = self.font()
         f.setUnderline(False)
         self.setFont(f)
-
-
-if __name__ == '__main__':
-    pass
