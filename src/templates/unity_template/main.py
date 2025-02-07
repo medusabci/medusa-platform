@@ -25,6 +25,7 @@ class App(resources.AppSkeleton):
                          run_state, working_lsl_streams_info, rec_info)
         # Set attributes
         self.app_controller = None
+        self.app_name = app_info["name"]
         # Colors
         theme_colors = gui_utils.get_theme_colors('dark')
         self.log_color = theme_colors['THEME_TEXT_ACCENT']
@@ -87,8 +88,8 @@ class App(resources.AppSkeleton):
         while self.app_controller is None:
             time.sleep(0.1)
         # Set up the TCP server and wait for the Unity client
-        self.send_to_log('Setting up the TCP server...')
         self.app_controller.start_server()
+        self.send_to_log(f'[{self.app_name}] TCP server listening!')
         # Wait until UNITY is UP and send the parameters
         while self.app_controller.unity_state.value == \
                 app_constants.UNITY_DOWN:
@@ -98,7 +99,7 @@ class App(resources.AppSkeleton):
         while self.app_controller.unity_state.value == \
                 app_constants.UNITY_UP:
             time.sleep(0.1)
-        self.send_to_log('Unity is ready to start')
+        self.send_to_log(f'[{self.app_name}] Unity is ready to start')
         # Change app state to power on
         self.medusa_interface.app_state_changed(
             mds_constants.APP_STATE_ON)

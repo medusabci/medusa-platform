@@ -1384,7 +1384,7 @@ class SplashScreen:
             "margin-left: 370px; "
             "margin-top: 276px;"
             "}" +
-            "QProgressBar::chunk{ background: #ffffff; }")
+            "QProgressBar::chunk{ background: #000000; }")
 
         # Creating the progress text
         self.splash_text = QLabel('Making a PhD thesis...')
@@ -1421,6 +1421,9 @@ class SplashScreen:
         self.splash_screen.show()
 
     def set_state(self, prog_value, prog_text):
+        # Scale value
+        max_val = 95 # for MEDUSA v2025
+        prog_value = max_val * prog_value / 100
         self.splash_progbar.setValue(prog_value)
         self.splash_text.setText(prog_text)
 
