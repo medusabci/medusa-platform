@@ -178,20 +178,20 @@ class TopographyPlot(RealTimePlot):
     @staticmethod
     def get_default_settings():
         signal_settings = {
-            'update-rate': 0.2,
-            'frequency-filter': {
+            'update_rate': 0.2,
+            'frequency_filter': {
                 'apply': True,
                 'type': 'highpass',
-                'cutoff-freq': [1],
+                'cutoff_freq': [1],
                 'order': 5
             },
-            'notch-filter': {
+            'notch_filter': {
                 'apply': True,
                 'freq': 50,
                 'bandwidth': [-0.5, 0.5],
                 'order': 5
             },
-            're-referencing': {
+            're_referencing': {
                 'apply': False,
                 'type': 'car',
                 'channel': ''
@@ -200,22 +200,29 @@ class TopographyPlot(RealTimePlot):
                 'apply': False,
                 'factor': 2
             },
-            'PSD': {
-                'time-window': 5,
+            'psd': {
+                'time_window': 5,
                 'welch_overlap_pct': 25,
                 'welch_seg_len_pct': 50,
-                'power-range': [8, 13]
+                'power_range': [8, 13]
             }
         }
         visualization_settings = {
             'title': '<b>TopoPlot</b>',
-            'channel-standard': '10-05',
-            'extra_radius': 0.29,
+            'channel_standard': '10-05',
+            'head_radius': 1.0,
+            'head_line_width': 4.0,
+            'head_skin_color': "#E8BEAC",
+            'plot_channel_labels': False,
+            'plot_channel_points': True,
+            'channel_radius_size': None,
+            'interpolate': True,
+            'extra_radius': 0, 'interp_neighbors': 3,
             'interp_points': 100,
-            'cmap': 'YlOrRd',
-            'head_skin_color': '#E8BEAC',
-            'plot_channel_labels': True,
-            'plot_channel_points': True
+            'interp_contour_width': 0.8,
+            'cmap': "YlGnBu_r",
+            'clim': None,
+            'label_color': 'w'
         }
         return signal_settings, visualization_settings
 
@@ -237,19 +244,27 @@ class TopographyPlot(RealTimePlot):
         self.channel_set = meeg.EEGChannelSet()
         self.channel_set.set_standard_montage(
             l_cha=self.lsl_stream_info.l_cha,
-            montage=self.visualization_settings['channel-standard'])
+            montage=self.visualization_settings['channel_standard'])
         # Initialize
         self.topo_plot = head_plots.TopographicPlot(
             axes=self.widget.figure.axes[0],
             channel_set=self.channel_set,
+            head_radius=self.visualization_settings['head_radius'],
+            head_line_width=self.visualization_settings['head_line_width'],
             head_skin_color=self.visualization_settings['head_skin_color'],
             plot_channel_labels=self.visualization_settings['plot_channel_labels'],
             plot_channel_points=self.visualization_settings['plot_channel_points'],
+            channel_radius_size=self.visualization_settings['channel_radius_size'],
+            interpolate=self.visualization_settings['interpolate'],
             extra_radius=self.visualization_settings['extra_radius'],
+            interp_neighbors=self.visualization_settings['interp_neighbors'],
             interp_points=self.visualization_settings['interp_points'],
-            cmap=self.visualization_settings['cmap'])
+            interp_contour_width=self.visualization_settings['interp_contour_width'],
+            cmap=self.visualization_settings['cmap'],
+            clim=self.visualization_settings['clim'],
+            label_color=self.visualization_settings['label_color'])
         # Signal processing
-        self.win_s = int(self.signal_settings['PSD']['time-window'] * self.fs)
+        self.win_s = int(self.signal_settings['psd']['time_window'] * self.fs)
         # Update view box menu
         self.time_in_graph = np.zeros(1)
         self.sig_in_graph = np.zeros([1, self.lsl_stream_info.n_cha])
@@ -262,10 +277,10 @@ class TopographyPlot(RealTimePlot):
                 self.append_data(chunk_times, chunk_signal)
             # Compute PSD
             welch_seg_len = np.round(
-                self.signal_settings['PSD']['welch_seg_len_pct'] / 100.0
+                self.signal_settings['psd']['welch_seg_len_pct'] / 100.0
                 * sig_in_graph.shape[0]).astype(int)
             welch_overlap = np.round(
-                self.signal_settings['PSD']['welch_overlap_pct'] / 100.0
+                self.signal_settings['psd']['welch_overlap_pct'] / 100.0
                 * welch_seg_len).astype(int)
             welch_ndft = welch_seg_len
             _, psd = scp_signal.welch(
@@ -275,7 +290,7 @@ class TopographyPlot(RealTimePlot):
             # Compute power
             power_values = spectral_parameteres.band_power(
                 psd=psd[np.newaxis, :, :], fs=self.fs,
-                target_band=self.signal_settings['PSD']['power-range'])
+                target_band=self.signal_settings['psd']['power_range'])
             # Plot topography
             self.topo_plot.update(values=power_values)
             self.widget.draw()
@@ -326,20 +341,20 @@ class ConnectivityPlot(RealTimePlot):
     @staticmethod
     def get_default_settings():
         signal_settings = {
-            'update-rate': 0.2,
-            'frequency-filter': {
+            'update_rate': 0.2,
+            'frequency_filter': {
                 'apply': True,
                 'type': 'highpass',
-                'cutoff-freq': [1],
+                'cutoff_freq': [1],
                 'order': 5
             },
-            'notch-filter': {
+            'notch_filter': {
                 'apply': True,
                 'freq': 50,
                 'bandwidth': [-0.5, 0.5],
                 'order': 5
             },
-            're-referencing': {
+            're_referencing': {
                 'apply': False,
                 'type': 'car',
                 'channel': ''
@@ -349,19 +364,25 @@ class ConnectivityPlot(RealTimePlot):
                 'factor': 2
             },
             'connectivity': {
-                'time-window': 2,
+                'time_window': 2,
                 'conn_metric': 'aec',
                 'threshold': 50,
-                'band-range': [8, 13]
+                'band_range': [8, 13]
             }
         }
         visualization_settings = {
             'title': '<b>ConnectivityPlot</b>',
-            'channel-standard': '10-05',
-            'cmap': 'RdBu',
-            'head_skin_color': '#E8BEAC',
-            'plot_channel_labels': True,
-            'plot_channel_points': True
+            'channel_standard': '10-05',
+            'head_radius': 1.0,
+            'head_line_width': 4.0,
+            'head_skin_color': "#E8BEAC",
+            'plot_channel_labels': False,
+            'plot_channel_points': True,
+            'channel_radius_size': 0,
+            'percentile_th': 85,
+            'cmap': "RdBu",
+            'clim': None,
+            'label_color': 'w'
         }
         return signal_settings, visualization_settings
 
@@ -390,16 +411,25 @@ class ConnectivityPlot(RealTimePlot):
         self.channel_set = meeg.EEGChannelSet()
         self.channel_set.set_standard_montage(
             l_cha=self.lsl_stream_info.l_cha,
-            montage=self.visualization_settings['channel-standard'])
+            montage=self.visualization_settings['channel_standard'])
         # Initialize
         self.conn_plot = head_plots.ConnectivityPlot(
             axes=self.widget.figure.axes[0],
             channel_set=self.channel_set,
-            **self.visualization_settings
+            head_radius=self.visualization_settings['head_radius'],
+            head_line_width=self.visualization_settings['head_line_width'],
+            head_skin_color=self.visualization_settings['head_skin_color'],
+            plot_channel_labels=self.visualization_settings['plot_channel_labels'],
+            plot_channel_points=self.visualization_settings['plot_channel_points'],
+            channel_radius_size=self.visualization_settings['channel_radius_size'],
+            percentile_th=self.visualization_settings['percentile_th'],
+            cmap=self.visualization_settings['cmap'],
+            clim=self.visualization_settings['clim'],
+            label_color=self.visualization_settings['label_color'],
         )
         # Signal processing
         self.win_s = int(
-            self.signal_settings['connectivity']['time-window'] * self.fs)
+            self.signal_settings['connectivity']['time_window'] * self.fs)
         # Update view box menu
         self.time_in_graph = np.zeros(1)
         self.sig_in_graph = np.zeros([1, self.lsl_stream_info.n_cha])
@@ -575,20 +605,20 @@ class TimePlotMultichannel(RealTimePlotPyQtGraph):
     @staticmethod
     def get_default_settings():
         signal_settings = {
-            'update-rate': 0.1,
-            'frequency-filter': {
+            'update_rate': 0.1,
+            'frequency_filter': {
                 'apply': True,
                 'type': 'highpass',
-                'cutoff-freq': [1],
+                'cutoff_freq': [1],
                 'order': 5
             },
-            'notch-filter': {
+            'notch_filter': {
                 'apply': True,
                 'freq': 50,
                 'bandwidth': [-0.5, 0.5],
                 'order': 5
             },
-            're-referencing': {
+            're_referencing': {
                 'apply': False,
                 'type': 'car',
                 'channel': ''
@@ -872,7 +902,7 @@ class TimePlotMultichannel(RealTimePlotPyQtGraph):
             # Update x range
             self.draw_x_axis_ticks()
             # Print info
-            # if time.time() - t0 > self.signal_settings['update-rate']:
+            # if time.time() - t0 > self.signal_settings['update_rate']:
             #     self.medusa_interface.log(
             #         '[Plot %i] The plot time per chunk is higher than the '
             #         'update rate. This may end up freezing MEDUSA.' %
@@ -955,20 +985,20 @@ class TimePlot(RealTimePlotPyQtGraph):
     @staticmethod
     def get_default_settings():
         signal_settings = {
-            'update-rate': 0.1,
-            'frequency-filter': {
+            'update_rate': 0.1,
+            'frequency_filter': {
                 'apply': True,
                 'type': 'highpass',
-                'cutoff-freq': [1],
+                'cutoff_freq': [1],
                 'order': 5
             },
-            'notch-filter': {
+            'notch_filter': {
                 'apply': True,
                 'freq': 50,
                 'bandwidth': [-0.5, 0.5],
                 'order': 5
             },
-            're-referencing': {
+            're_referencing': {
                 'apply': False,
                 'type': 'car',
                 'channel': ''
@@ -1217,7 +1247,7 @@ class TimePlot(RealTimePlotPyQtGraph):
             self.autoscale()
             # Update x range
             self.draw_x_axis_ticks()
-            # if time.time() - t0 > self.signal_settings['update-rate']:
+            # if time.time() - t0 > self.signal_settings['update_rate']:
             #     self.medusa_interface.log(
             #         '[Plot %i] The plot time per chunk is higher than the '
             #         'update rate. This may end up freezing MEDUSA.' %
@@ -1296,20 +1326,20 @@ class PSDPlotMultichannel(RealTimePlotPyQtGraph):
     @staticmethod
     def get_default_settings():
         signal_settings = {
-            'update-rate': 0.1,
-            'frequency-filter': {
+            'update_rate': 0.1,
+            'frequency_filter': {
                 'apply': True,
                 'type': 'highpass',
-                'cutoff-freq': [1],
+                'cutoff_freq': [1],
                 'order': 5
             },
-            'notch-filter': {
+            'notch_filter': {
                 'apply': True,
                 'freq': 50,
                 'bandwidth': [-0.5, 0.5],
                 'order': 5
             },
-            're-referencing': {
+            're_referencing': {
                 'apply': False,
                 'type': 'car',
                 'channel': ''
@@ -1574,20 +1604,20 @@ class PSDPlot(RealTimePlotPyQtGraph):
     @staticmethod
     def get_default_settings():
         signal_settings = {
-            'update-rate': 0.1,
-            'frequency-filter': {
+            'update_rate': 0.1,
+            'frequency_filter': {
                 'apply': True,
                 'type': 'highpass',
-                'cutoff-freq': [1],
+                'cutoff_freq': [1],
                 'order': 5
             },
-            'notch-filter': {
+            'notch_filter': {
                 'apply': True,
                 'freq': 50,
                 'bandwidth': [-0.5, 0.5],
                 'order': 5
             },
-            're-referencing': {
+            're_referencing': {
                 'apply': False,
                 'type': 'car',
                 'channel': ''
@@ -1770,9 +1800,9 @@ class RealTimePlotWorker(QThread):
         self.signal_settings = signal_settings
         self.medusa_interface = medusa_interface
         self.fs = self.lsl_stream_info.fs
-        self.sleep_time = self.signal_settings['update-rate'] * 0.9
+        self.sleep_time = self.signal_settings['update_rate'] * 0.9
         # Get minimum chunk size to comply with the update rate
-        min_chunk_size = int(self.signal_settings['update-rate'] * self.fs)
+        min_chunk_size = int(self.signal_settings['update_rate'] * self.fs)
         min_chunk_size = max(min_chunk_size, 1)
         # Set receiver
         self.receiver = lsl_utils.LSLStreamReceiver(
@@ -1860,9 +1890,9 @@ class PlotsRealTimePreprocessor:
     def __init__(self, preprocessing_settings, **kwargs):
         # Settings
         super().__init__(**kwargs)
-        self.freq_filt_settings = preprocessing_settings['frequency-filter']
-        self.notch_filt_settings = preprocessing_settings['notch-filter']
-        self.re_referencing_settings = preprocessing_settings['re-referencing']
+        self.freq_filt_settings = preprocessing_settings['frequency_filter']
+        self.notch_filt_settings = preprocessing_settings['notch_filter']
+        self.re_referencing_settings = preprocessing_settings['re_referencing']
         self.downsampling_settings = preprocessing_settings['downsampling']
         self.apply_freq_filt = self.freq_filt_settings['apply']
         self.apply_notch = self.notch_filt_settings['apply']
@@ -1883,7 +1913,7 @@ class PlotsRealTimePreprocessor:
         if self.apply_freq_filt:
             self.freq_filt = medusa.IIRFilter(
                 order=self.freq_filt_settings['order'],
-                cutoff=self.freq_filt_settings['cutoff-freq'],
+                cutoff=self.freq_filt_settings['cutoff_freq'],
                 btype=self.freq_filt_settings['type'],
                 filt_method='sosfilt',
                 axis=0)
@@ -1916,14 +1946,14 @@ class PlotsRealTimePreprocessor:
                                  'downsampling is applied.')
             nyquist_cutoff = self.fs / 2 / self.downsampling_settings['factor']
             if self.freq_filt_settings['type'] == 'lowpass':
-                if self.freq_filt_settings['cutoff-freq'] > nyquist_cutoff:
+                if self.freq_filt_settings['cutoff_freq'] > nyquist_cutoff:
                     raise ValueError(
                         'Incorrect frequency filter for downsampling factor '
                         '%i. The upper cutoff must be less than %.2f to '
                         'comply with Nyquist criterion' %
                         (self.downsampling_settings['factor'], nyquist_cutoff))
             elif self.freq_filt_settings['type'] == 'bandpass':
-                if self.freq_filt_settings['cutoff-freq'][1] > nyquist_cutoff:
+                if self.freq_filt_settings['cutoff_freq'][1] > nyquist_cutoff:
                     raise ValueError(
                         'Incorrect frequency filter for downsampling factor '
                         '%i. The upper cutoff must be less than %.2f to '
