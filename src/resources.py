@@ -1,14 +1,17 @@
-# Python modules
+# PYTHON MODULES
 from abc import abstractmethod, ABC
 import multiprocessing as mp
 import threading as th
 import os, time, json, math, re
-# External modules
+# EXTERNAL MODULES
 from PySide6.QtCore import *
 from PySide6.QtGui import *
 from PySide6.QtWidgets import *
 import numpy as np
-# Medusa modules
+# MEDUSA-KERNEL MODULES
+from medusa import components
+from medusa import meeg, emg, nirs, ecg
+# MEDUSA-PLATFORM MODULES
 import constants, exceptions
 from acquisition import lsl_utils
 from gui.qt_widgets import dialogs
@@ -176,8 +179,9 @@ class AppSkeleton(mp.Process):
             return None
         if not self.rec_info['file_ext'] in self.allowed_formats:
             self.medusa_interface.log(
-                f'Format {self.rec_info['file_ext']} is not supported '
-                f'by app {self.app_info['name']}.', style='warning')
+                'Format %s is not supported by app %s.' %
+                (self.rec_info['file_ext'], self.app_info['name']),
+                style='warning')
             return None
         if self.rec_info['rec_id'] is None or \
                 len(self.rec_info['rec_id']) == 0:
@@ -445,6 +449,84 @@ class LSLStreamAppWorker(th.Thread):
         with self.lock:
             self.data = np.zeros((0, self.receiver.n_cha))
             self.timestamps = np.zeros((0,))
+
+    def get_data_class(self):
+        """
+        Retrieves and constructs a data class corresponding to the biosignal type
+        of the current LSL stream in MEDUSA Kernel.
+
+        Returns
+        -------
+        object
+            An instance of the corresponding data class:
+            - `medusa.meeg.EEG` for EEG signals
+            - `medusa.ecg.ECG` for ECG signals
+            - `medusa.emg.EMG` for EMG signals
+            - `medusa.nirs.NIRS` for NIRS signals
+            - `medusa.components.CustomBiosignalData` for custom biosignal data
+
+        Raises
+        ------
+        ValueError
+            If the type of the LSL stream is unknown
+        """
+        # Get lsl steam info
+        lsl_stream = self.receiver.lsl_stream
+        # Create data class
+        if lsl_stream.medusa_type == 'EEG':
+            times, signal = self.get_data()
+            channel_set = meeg.EEGChannelSet()
+            channel_set.set_standard_montage(
+                l_cha=self.receiver.l_cha,
+                allow_unlocated_channels=True)
+            stream_data = meeg.EEG(
+                times=times,
+                signal=signal,
+                fs=self.receiver.fs,
+                channel_set=channel_set,
+                lsl_stream_info=lsl_stream.to_serializable_obj())
+        elif lsl_stream.medusa_type == 'ECG':
+            times, signal = self.get_data()
+            channel_set = ecg.ECGChannelSet()
+            [channel_set.add_channel(label=l) for l in self.receiver.l_cha]
+            stream_data = ecg.ECG(
+                times=times,
+                signal=signal,
+                fs=self.receiver.fs,
+                channel_set=channel_set,
+                lsl_stream_info=lsl_stream.to_serializable_obj())
+        elif lsl_stream.medusa_type == 'EMG':
+            times, signal = self.get_data()
+            channel_set = lsl_stream.cha_info
+            stream_data = emg.EMG(
+                times=times,
+                signal=signal,
+                fs=self.receiver.fs,
+                channel_set=channel_set,
+                lsl_stream_info=lsl_stream.to_serializable_obj())
+        elif lsl_stream.medusa_type == 'NIRS':
+            times, signal = self.get_data()
+            channel_set = lsl_stream.cha_info
+            stream_data = nirs.NIRS(
+                times=times,
+                signal=signal,
+                fs=self.receiver.fs,
+                channel_set=channel_set,
+                lsl_stream_info=lsl_stream.to_serializable_obj())
+        elif lsl_stream.medusa_type == 'CustomBiosignalData':
+            times, signal = self.get_data()
+            channel_set = lsl_stream.cha_info
+            fs = self.receiver.fs
+            stream_data = components.CustomBiosignalData(
+                times=times,
+                signal=signal,
+                fs=fs,
+                channel_set=channel_set,
+                lsl_stream_info=lsl_stream.to_serializable_obj())
+        else:
+            raise ValueError('Unknown stream type %s!' %
+                             lsl_stream.medusa_type)
+        return stream_data
 
 
 class Preprocessor(ABC):

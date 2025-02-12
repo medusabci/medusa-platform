@@ -138,68 +138,12 @@ class App(resources.AppSkeleton):
         for lsl_stream in self.lsl_streams_info:
             if not rec_streams_info[lsl_stream.medusa_uid]['enabled']:
                 continue
-            if lsl_stream.medusa_type == 'EEG':
-                lsl_worker = self.lsl_workers[lsl_stream.medusa_uid]
-                times, signal = lsl_worker.get_data()
-                channel_set = meeg.EEGChannelSet()
-                channel_set.set_standard_montage(
-                    l_cha=lsl_worker.receiver.l_cha,
-                    allow_unlocated_channels=True)
-                biosignal = meeg.EEG(
-                    times=times,
-                    signal=signal,
-                    fs=lsl_worker.receiver.fs,
-                    channel_set=channel_set,
-                    lsl_stream_info=lsl_stream.to_serializable_obj())
-            elif lsl_stream.medusa_type == 'ECG':
-                lsl_worker = self.lsl_workers[lsl_stream.medusa_uid]
-                times, signal = lsl_worker.get_data()
-                channel_set = ecg.ECGChannelSet()
-                [channel_set.add_channel(label=l) for l in
-                 lsl_worker.receiver.l_cha]
-                biosignal = ecg.ECG(
-                    times=times,
-                    signal=signal,
-                    fs=lsl_worker.receiver.fs,
-                    channel_set=channel_set,
-                    lsl_stream_info=lsl_stream.to_serializable_obj())
-            elif lsl_stream.medusa_type == 'EMG':
-                lsl_worker = self.lsl_workers[lsl_stream.medusa_uid]
-                times, signal = lsl_worker.get_data()
-                channel_set = lsl_stream.cha_info
-                biosignal = emg.EMG(
-                    times=times,
-                    signal=signal,
-                    fs=lsl_worker.receiver.fs,
-                    channel_set=channel_set,
-                    lsl_stream_info=lsl_stream.to_serializable_obj())
-            elif lsl_stream.medusa_type == 'NIRS':
-                lsl_worker = self.lsl_workers[lsl_stream.medusa_uid]
-                times, signal = lsl_worker.get_data()
-                channel_set = lsl_stream.cha_info
-                biosignal = nirs.NIRS(
-                    times=times,
-                    signal=signal,
-                    fs=lsl_worker.receiver.fs,
-                    channel_set=channel_set,
-                    lsl_stream_info=lsl_stream.to_serializable_obj())
-            elif lsl_stream.medusa_type == 'CustomBiosignalData':
-                lsl_worker = self.lsl_workers[lsl_stream.medusa_uid]
-                times, signal = lsl_worker.get_data()
-                channel_set = lsl_stream.cha_info
-                fs = lsl_worker.receiver.fs
-                biosignal = components.CustomBiosignalData(
-                    times=times,
-                    signal=signal,
-                    fs=fs,
-                    channel_set=channel_set,
-                    lsl_stream_info=lsl_stream.to_serializable_obj())
-            else:
-                raise ValueError('Unknown biosignal type %s!' %
-                                 lsl_stream.medusa_type)
+            # Get stream data class
+            lsl_worker = self.lsl_workers[lsl_stream.medusa_uid]
+            stream_data = lsl_worker.get_data_class()
             # Save stream
             att_key = rec_streams_info[lsl_stream.medusa_uid]['att-name']
-            rec.add_biosignal(biosignal, att_key)
+            rec.add_biosignal(stream_data, att_key)
         # Save recording
         rec.save(file_path)
         # Print a message
