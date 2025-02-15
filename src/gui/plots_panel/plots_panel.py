@@ -17,26 +17,41 @@ from acquisition import lsl_utils
 from gui import gui_utils as gu
 
 
-ui_plots_panel_widget = loadUiType('gui/ui_files/plots_panel_widget.ui')[0]
-
-
-class PlotsPanelWidget(QWidget, ui_plots_panel_widget):
+class PlotsPanelWidget(QWidget):
     """ This widget implements the logic behind the plots panel.
     """
     def __init__(self, lsl_config, plot_state, medusa_interface,
                  plots_config_file_path, theme_colors):
         super().__init__()
-        self.setupUi(self)
 
         # Attributes
         self.lsl_config = lsl_config
         self.plot_state = plot_state
         self.medusa_interface = medusa_interface
         self.theme_colors = theme_colors
-        self.plots_handlers = dict()
+        self.plots_handlers = list()
         self.undocked = False
-        # Set up tool bar
+        # Toolbar layout
+        main_layout = QVBoxLayout()
+        toolbar_layout = QHBoxLayout()
+        self.toolButton_plot_start = QToolButton()
+        self.toolButton_plot_config = QToolButton()
+        self.toolButton_plot_undock = QToolButton()
+        toolbar_layout.addWidget(self.toolButton_plot_start)
+        toolbar_layout.addWidget(self.toolButton_plot_config)
+        toolbar_layout.addItem(QSpacerItem(
+            0, 0, QSizePolicy.Expanding, QSizePolicy.Minimum))
+        toolbar_layout.addWidget(self.toolButton_plot_undock)
+        main_layout.addLayout(toolbar_layout)
+        # Grid layout
+        self.tab_widget = QTabWidget()
+        self.tab_widget.currentChanged.connect(self.on_tab_changed)
+        main_layout.addWidget(self.tab_widget)
+        self.setLayout(main_layout)
+        # Set up
         self.set_up_tool_bar_plot()
+        init_grid_layout = self.add_tab('')
+        init_grid_layout.addWidget(QLabel('Empty tab'), 0, 0)
         # Initial configuration
         self.plots_panel_config = None
         self.plots_config_file_path = plots_config_file_path
@@ -59,6 +74,24 @@ class PlotsPanelWidget(QWidget, ui_plots_panel_widget):
                 origin='plots_panel/plots_panel/handle_exception')
         # Notify exception to gui main
         self.medusa_interface.error(ex)
+
+    def add_tab(self, tab_name):
+        grid_widget = QWidget()
+        grid_layout = QGridLayout()
+        grid_widget.setLayout(grid_layout)
+        self.tab_widget.addTab(grid_widget, tab_name)
+        return grid_layout
+
+    def get_tab_grid_layout(self, tab_index):
+        return self.tab_widget.widget(tab_index).layout()
+
+    def on_tab_changed(self, current_tab_index):
+        for tab_index, tab_plots_handlers in enumerate(self.plots_handlers):
+            for uid, plot_handler in tab_plots_handlers.items():
+                if tab_index == current_tab_index:
+                    plot_handler.active = True
+                else:
+                    plot_handler.active = False
 
     @exceptions.error_handler(scope='plots')
     def set_undocked(self, undocked):
@@ -137,123 +170,142 @@ class PlotsPanelWidget(QWidget, ui_plots_panel_widget):
             return
         # Clear previous config and load the new one
         self.clear_plots_grid()
-        # Add grid cells
-        count = 0
-        for r in range(self.plots_panel_config['n_rows']):
-            for c in range(self.plots_panel_config['n_cols']):
-                item = plots_panel_config.GridCell(count, [r, c])
-                self.gridLayout_plots.addWidget(item, r, c, 1, 1)
-                count += 1
-        # Add plot frames
-        for item in self.plots_panel_config['plots']:
-            plot_uid = item['uid']
-            plot_settings = \
-                self.plots_panel_config['plots_settings'][str(plot_uid)]
-            plot_type = plot_settings['plot_uid']
-            if plot_type is not None and item['configured']:
-                plot_info = real_time_plots.get_plot_info(plot_type)
-                try:
-                    # Create plot
-                    self.plots_handlers[plot_uid] = plot_info['class'](
-                        uid=plot_uid,
-                        plot_state=self.plot_state,
-                        medusa_interface=self.medusa_interface,
-                        theme_colors=self.theme_colors)
-                    # Set settings
-                    self.plots_handlers[plot_uid].set_settings(
-                        plot_settings['signal_settings'],
-                        plot_settings['visualization_settings'])
-                    # Get the lsl stream from the working lsl streams
-                    dict_data = plot_settings['lsl_stream_info']
-                    if self.lsl_config['weak_search']:
-                        working_lsl_stream = lsl_utils.find_lsl_stream(
-                            lsl_streams=self.lsl_config['working_streams'],
-                            force_one_stream=True,
-                            medusa_uid=dict_data['medusa_uid'],
-                            name=dict_data['lsl_name'],
-                            type=dict_data['lsl_type'],
-                            source_id=dict_data['lsl_source_id'],
-                            channel_count=dict_data['lsl_n_cha'],
-                            nominal_srate=dict_data['fs']
+        # Add tabs
+        for tab_config in self.plots_panel_config:
+            # Add new tab
+            grid_layout = self.add_tab(tab_config['tab_name'])
+            # Add grid cells
+            count = 0
+            for r in range(tab_config['n_rows']):
+                for c in range(tab_config['n_cols']):
+                    item = plots_panel_config.GridCell(count, [r, c])
+                    grid_layout.addWidget(item, r, c, 1, 1)
+                    count += 1
+            # Add plot frames
+            tab_plots_handlers = dict()
+            for item in tab_config['plots']:
+                plot_uid = item['uid']
+                plot_settings = tab_config['plots_settings'][str(plot_uid)]
+                plot_type = plot_settings['plot_uid']
+                if plot_type is not None and item['configured']:
+                    plot_info = real_time_plots.get_plot_info(plot_type)
+                    try:
+                        # Create plot
+                        tab_plots_handlers[plot_uid] = plot_info['class'](
+                            uid=plot_uid,
+                            plot_state=self.plot_state,
+                            medusa_interface=self.medusa_interface,
+                            theme_colors=self.theme_colors)
+                        # Set settings
+                        tab_plots_handlers[plot_uid].set_settings(
+                            plot_settings['signal_settings'],
+                            plot_settings['visualization_settings'])
+                        # Get the lsl stream from the working lsl streams
+                        dict_data = plot_settings['lsl_stream_info']
+                        if self.lsl_config['weak_search']:
+                            working_lsl_stream = lsl_utils.find_lsl_stream(
+                                lsl_streams=self.lsl_config['working_streams'],
+                                force_one_stream=True,
+                                medusa_uid=dict_data['medusa_uid'],
+                                name=dict_data['lsl_name'],
+                                type=dict_data['lsl_type'],
+                                source_id=dict_data['lsl_source_id'],
+                                channel_count=dict_data['lsl_n_cha'],
+                                nominal_srate=dict_data['fs']
+                            )
+                        else:
+                            working_lsl_stream = lsl_utils.find_lsl_stream(
+                                lsl_streams=self.lsl_config['working_streams'],
+                                force_one_stream=True,
+                                uid=dict_data['lsl_uid'],
+                                medusa_uid=dict_data['medusa_uid'],
+                                name=dict_data['lsl_name'],
+                                type=dict_data['lsl_type'],
+                                source_id=dict_data['lsl_source_id'],
+                                channel_count=dict_data['lsl_n_cha'],
+                                nominal_srate=dict_data['fs']
+                            )
+                        # New instance to avoid pulling data from the same stream
+                        # for several plots
+                        lsl_stream = lsl_utils.LSLStreamWrapper(
+                            working_lsl_stream.lsl_stream)
+                        lsl_stream.set_inlet(
+                            proc_clocksync=working_lsl_stream.lsl_proc_clocksync,
+                            proc_dejitter=working_lsl_stream.lsl_proc_dejitter,
+                            proc_monotonize=working_lsl_stream.lsl_proc_monotonize,
+                            proc_threadsafe=working_lsl_stream.lsl_proc_threadsafe)
+                        lsl_stream.update_medusa_parameters_from_lslwrapper(
+                                        working_lsl_stream)
+                        # Set receiver
+                        tab_plots_handlers[plot_uid].set_lsl_worker(
+                            lsl_stream)
+                        tab_plots_handlers[plot_uid].init_plot()
+                        tab_plots_handlers[plot_uid].set_ready()
+                    except exceptions.LSLStreamNotFound as e:
+                        msg = 'Plot %i. The LSL stream associated with this plot ' \
+                              'is no longer available. Please, reconfigure' % \
+                              (plot_uid)
+                        self.medusa_interface.log(msg, style='warning')
+                        continue
+                    except exceptions.UnspecificLSLStreamInfo as e:
+                        # If this exception occurs, the error has already been
+                        # displayed by method set_up_lsl_config in main_window, so
+                        # it is not necessary to repeat information
+                        msg = 'Plot %i. There are more than one LSL stream that' \
+                              'can be associated with this plot. Disable weak ' \
+                              'search to avoid these issues. Please, ' \
+                              'reconfigure' % (plot_uid)
+                        self.medusa_interface.log(msg, style='warning')
+                        continue
+                    except KeyError as e:
+                        msg = 'Plot %i. KeyError: %s The configuration of ' \
+                              'this plot is not valid. This may be due to ' \
+                              'a corrupted file or a software update. ' \
+                              'Please, reset the configuration of this ' \
+                              'plot.' % (plot_uid, str(e))
+                        raise exceptions.IncorrectSettingsConfig(msg)
+                    except Exception as e:
+                        msg = type(e)('Plot %i. %s' % (plot_uid, str(e)))
+                        ex = exceptions.MedusaException(
+                            msg, importance='unknown',
+                            scope='plots',
+                            origin='PlotsWidget/update_plots_panel'
                         )
-                    else:
-                        working_lsl_stream = lsl_utils.find_lsl_stream(
-                            lsl_streams=self.lsl_config['working_streams'],
-                            force_one_stream=True,
-                            uid=dict_data['lsl_uid'],
-                            medusa_uid=dict_data['medusa_uid'],
-                            name=dict_data['lsl_name'],
-                            type=dict_data['lsl_type'],
-                            source_id=dict_data['lsl_source_id'],
-                            channel_count=dict_data['lsl_n_cha'],
-                            nominal_srate=dict_data['fs']
-                        )
-                    # New instance to avoid pulling data from the same stream
-                    # for several plots
-                    lsl_stream = lsl_utils.LSLStreamWrapper(
-                        working_lsl_stream.lsl_stream)
-                    lsl_stream.set_inlet(
-                        proc_clocksync=working_lsl_stream.lsl_proc_clocksync,
-                        proc_dejitter=working_lsl_stream.lsl_proc_dejitter,
-                        proc_monotonize=working_lsl_stream.lsl_proc_monotonize,
-                        proc_threadsafe=working_lsl_stream.lsl_proc_threadsafe)
-                    lsl_stream.update_medusa_parameters_from_lslwrapper(
-                                    working_lsl_stream)
-                    # self.check_and_update_lsl_stream(lsl_stream)
-                    # Set receiver
-                    self.plots_handlers[plot_uid].set_lsl_worker(
-                        lsl_stream)
-                    self.plots_handlers[plot_uid].init_plot()
-                    self.plots_handlers[plot_uid].set_ready()
-                except exceptions.LSLStreamNotFound as e:
-                    msg = 'Plot %i. The LSL stream associated with this plot ' \
-                          'is no longer available. Please, reconfigure' % \
-                          (plot_uid)
-                    self.medusa_interface.log(msg, style='warning')
-                    continue
-                except exceptions.UnspecificLSLStreamInfo as e:
-                    # If this exception occurs, the error has already been
-                    # displayed by method set_up_lsl_config in main_window, so
-                    # it is not necessary to repeat information
-                    msg = 'Plot %i. There are more than one LSL stream that' \
-                          'can be associated with this plot. Disable weak ' \
-                          'search to avoid these issues. Please, ' \
-                          'reconfigure' % (plot_uid)
-                    self.medusa_interface.log(msg, style='warning')
-                    continue
-                except KeyError as e:
-                    msg = 'Plot %i. KeyError: %s The configuration of ' \
-                          'this plot is not valid. This may be due to ' \
-                          'a corrupted file or a software update. ' \
-                          'Please, reset the configuration of this ' \
-                          'plot.' % (plot_uid, str(e))
-                    raise exceptions.IncorrectSettingsConfig(msg)
-                except Exception as e:
-                    msg = type(e)('Plot %i. %s' % (plot_uid, str(e)))
-                    ex = exceptions.MedusaException(
-                        msg, importance='unknown',
-                        scope='plots',
-                        origin='PlotsWidget/update_plots_panel'
-                    )
-                    self.medusa_interface.error(ex)
-                    continue
-                # Add plot
-                self.gridLayout_plots.addWidget(
-                    self.plots_handlers[plot_uid].get_widget(),
-                    item['coordinates'][0],
-                    item['coordinates'][1],
-                    item['span'][0],
-                    item['span'][1])
+                        self.medusa_interface.error(ex)
+                        continue
+                    # Add plot
+                    grid_layout.addWidget(
+                        tab_plots_handlers[plot_uid].get_widget(),
+                        item['coordinates'][0],
+                        item['coordinates'][1],
+                        item['span'][0],
+                        item['span'][1])
+                    self.plots_handlers.append(tab_plots_handlers)
 
     @exceptions.error_handler(scope='plots')
     def clear_plots_grid(self):
-        """Clears the grid of the plots panel"""
-        # Delete widgets
-        while self.gridLayout_plots.count() > 0:
-            item = self.gridLayout_plots.takeAt(0)
-            item.widget().deleteLater()
+        """
+        Clears the grid of the plots panel by removing all tabs and widgets.
+        """
+        # Remove all tabs and delete their content
+        while self.tab_widget.count() > 0:
+            # Always remove the first tab
+            tab = self.tab_widget.widget(0)
+            self.tab_widget.removeTab(0)
+            if tab is not None:
+                grid_layout = tab.layout()
+                if grid_layout is not None:
+                    while grid_layout.count() > 0:
+                        item = grid_layout.takeAt(0)
+                        if item is not None:
+                            widget = item.widget()
+                            if widget is not None:
+                                widget.setParent(None)
+                                widget.deleteLater()
+                # Delete the tab widget itself
+                tab.deleteLater()
         # Reset plot handlers
-        self.plots_handlers = dict()
+        self.plots_handlers.clear()
 
     @exceptions.error_handler(scope='plots')
     def plot_start(self, checked=None):
@@ -266,28 +318,29 @@ class PlotsPanelWidget(QWidget, ui_plots_panel_widget):
             self.plot_state.value = constants.PLOT_STATE_ON
             # Start plot
             n_ready_plots = 0
-            for uid, plot_handler in self.plots_handlers.items():
-                # The plot is not ready if there has been some error during
-                # the initialization. Still, the other plots can work
-                if plot_handler.ready:
-                    plot_handler.start()
-                    n_ready_plots += 1
-            # If none of the plots is correctly initialized
-            if n_ready_plots == 0:
-                return
-            # Update gui
-            icon_dock = "open_in_new.svg" if self.undocked else "close.svg"
-            plot_undock_icon = gu.get_icon(icon_dock, self.theme_colors)
-            self.toolButton_plot_undock.setIcon(
-                plot_undock_icon)
-            self.toolButton_plot_undock.setDisabled(True)
-            self.toolButton_plot_config.setIcon(
-                gu.get_icon("settings.svg", self.theme_colors)
-            )
-            self.toolButton_plot_config.setDisabled(True)
-            self.toolButton_plot_start.setIcon(
-                gu.get_icon("visibility_off.svg", self.theme_colors)
-            )
+            for tab_plots_handlers in self.plots_handlers:
+                for uid, plot_handler in tab_plots_handlers.items():
+                    # The plot is not ready if there has been some error during
+                    # the initialization. Still, the other plots can work
+                    if plot_handler.ready:
+                        plot_handler.start()
+                        n_ready_plots += 1
+                # If none of the plots is correctly initialized
+                if n_ready_plots == 0:
+                    return
+                # Update gui
+                icon_dock = "open_in_new.svg" if self.undocked else "close.svg"
+                plot_undock_icon = gu.get_icon(icon_dock, self.theme_colors)
+                self.toolButton_plot_undock.setIcon(
+                    plot_undock_icon)
+                self.toolButton_plot_undock.setDisabled(True)
+                self.toolButton_plot_config.setIcon(
+                    gu.get_icon("settings.svg", self.theme_colors)
+                )
+                self.toolButton_plot_config.setDisabled(True)
+                self.toolButton_plot_start.setIcon(
+                    gu.get_icon("visibility_off.svg", self.theme_colors)
+                )
         else:
             if self.plot_state.value == constants.PLOT_STATE_ON:
                 # The change of state will notify the action directly
@@ -310,9 +363,10 @@ class PlotsPanelWidget(QWidget, ui_plots_panel_widget):
     @exceptions.error_handler(scope='plots')
     def reset_plots(self):
         # Reset the plots
-        for uid, plot_handler in self.plots_handlers.items():
-            if plot_handler.ready:
-                plot_handler.destroy_plot()
+        for tab_plots_handlers in self.plots_handlers:
+            for uid, plot_handler in tab_plots_handlers.items():
+                if plot_handler.ready:
+                    plot_handler.destroy_plot()
 
 
 class PlotsPanelWindow(QMainWindow):

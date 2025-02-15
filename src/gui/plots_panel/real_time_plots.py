@@ -46,6 +46,7 @@ class RealTimePlot(ABC):
         self.init_time = None
         self.widget = None
         self.fs = None
+        self.active = False
 
     def handle_exception(self, ex):
         self.medusa_interface.error(ex)
@@ -291,16 +292,23 @@ class TopographyPlot(RealTimePlot):
             power_values = spectral_parameteres.band_power(
                 psd=psd[np.newaxis, :, :], fs=self.fs,
                 target_band=self.signal_settings['psd']['power_range'])
-            # Plot topography
+            # Update plot checking for dims to avoid errors when plot is not
+            # being displayed
             self.topo_plot.update(values=power_values)
-            self.widget.draw()
+            width, height = self.widget.get_width_height()
+            if width > 0 and height > 0:
+                self.widget.draw()
             # print('Chunk plotted at: %.6f' % time.time())
         except Exception as e:
             self.handle_exception(e)
 
     def clear_plot(self):
         self.topo_plot.clear()
-        self.widget.draw()
+        # Check dims to avoid errors when plot is not being displayed
+        width, height = self.widget.get_width_height()
+        if width > 0 and height > 0:
+            # Update plot
+            self.widget.draw()
 
 
 class ConnectivityPlot(RealTimePlot):
@@ -458,8 +466,11 @@ class ConnectivityPlot(RealTimePlot):
                     np.abs(adj_mat),
                     self.signal_settings['connectivity']['threshold'])
                 adj_mat = adj_mat * th_idx
-                # Plot connectivity
-                self.conn_plot.update(adj_mat=adj_mat)
+            # Update plot checking for dims to avoid errors when plot is not
+            # being displayed
+            self.conn_plot.update(adj_mat=adj_mat)
+            width, height = self.widget.get_width_height()
+            if width > 0 and height > 0:
                 self.widget.draw()
             # print('Chunk plotted at: %.6f' % time.time())
         except Exception as e:
@@ -467,7 +478,11 @@ class ConnectivityPlot(RealTimePlot):
 
     def clear_plot(self):
         self.conn_plot.clear()
-        self.widget.draw()
+        # Check dims to avoid errors when plot is not being displayed
+        width, height = self.widget.get_width_height()
+        if width > 0 and height > 0:
+            # Update plot
+            self.widget.draw()
 
 
 class RealTimePlotPyQtGraph(RealTimePlot, ABC):

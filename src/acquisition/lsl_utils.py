@@ -358,6 +358,10 @@ class LSLStreamWrapper(components.SerializableComponent):
             List with the channel info. If None, the info will be extracted
             automatically from the lsl_stream.
         """
+        # Check inlet
+        if self.lsl_stream_inlet is None:
+            raise ValueError('LSL inlet must be initialized before '
+                             'configuring LSL MEDUSA parameters')
         # Select channels
         sel_cha_info = [cha_info[i] for i in selected_channels_idx]
         n_cha = len(selected_channels_idx)
@@ -373,8 +377,7 @@ class LSLStreamWrapper(components.SerializableComponent):
             cha_info=cha_info,
             selected_channels_idx=selected_channels_idx,
             n_cha=n_cha,
-            l_cha=l_cha
-        )
+            l_cha=l_cha)
 
     def update_medusa_parameters_from_lslwrapper(self, lsl_stream_wrapper):
         """Use this function to manually update the medusa params from one
