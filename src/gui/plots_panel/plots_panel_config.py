@@ -505,7 +505,6 @@ class PlotsTabConfig(components.SerializableComponent):
                 for key, value in plot_settings.items():
                     if key == 'lsl_stream_info':
                         value = value.to_serializable_obj()
-                        print(value)
                     data['plots_settings'][str(plot_key)][key] = value
             return data
         except Exception as e:
@@ -1328,6 +1327,10 @@ class PlotsPanelConfigDialog(dialogs.MedusaDialog):
                 self.add_new_tab(tab_config.tab_name, tab_config)
         self.tab_widget.setCurrentIndex(0)
 
+    def clear_tab_widget(self):
+        while self.tab_widget.count() > 1:  # Keep the "add tab" tab
+            self.tab_widget.removeTab(0)  # Always remove the first tab
+
     def get_config(self):
         return self.config.to_serializable_obj()
 
@@ -1351,7 +1354,24 @@ class PlotsPanelConfigDialog(dialogs.MedusaDialog):
             self.exception_handler(e)
 
     def on_load_clicked(self):
-        raise NotImplemented
+        file_dialog = QFileDialog()
+        file_path = file_dialog.getOpenFileName(
+            parent=self,
+            caption='Open settings file',
+            dir='../config/',
+            filter='JSON (*.json)')[0]
+        if file_path:
+            with open(file_path, 'r') as f:
+                config_json = json.load(f)
+            self.clear_tab_widget()
+            self.set_config(config_json)
 
     def on_save_clicked(self):
-        raise NotImplemented
+        file_dialog = QFileDialog()
+        file_path = file_dialog.getSaveFileName(
+            parent=self,
+            caption='Save settings file',
+            dir='../config/',
+            filter='JSON (*.json)')[0]
+        if file_path:
+            self.config.save(file_path)
