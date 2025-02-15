@@ -568,10 +568,10 @@ class PlotsTabConfig(components.SerializableComponent):
                     new_lsl_stream_info.update_medusa_parameters_from_lslwrapper(
                         lsl_stream)
                 except exceptions.LSLStreamNotFound as e:
-                    lsl_stream_info = None
+                    new_lsl_stream_info = None
                     item['configured'] = False
                 except exceptions.UnspecificLSLStreamInfo as e:
-                    lsl_stream_info = None
+                    new_lsl_stream_info = None
                     item['configured'] = False
                 plot_idx = config.create_plot_frame(
                     item['uid'],
@@ -1318,10 +1318,10 @@ class PlotsPanelConfigDialog(dialogs.MedusaDialog):
                         tab_config)
                 except Exception as e:
                     dialogs.error_dialog(
-                        'The plots panel configuration is corrupted. The '
-                        'reason could be an external modification of the '
-                        'configuration file or a software update. '
-                        'Please, reconfigure.', 'Error')
+                        "The plots configuration is corrupted. This "
+                        "may have occurred due to an external modification "
+                        "or a software update. Please reset the configuration "
+                        "to restore functionality.","Configuration Error")
                     tab_idx = self.tab_widget.count() - 1
                     tab_name = f"Panel {tab_idx + 1}"
                     tab_config = PlotsTabConfig(tab_name, n_rows=8, n_cols=8)
