@@ -491,11 +491,18 @@ class EditStreamDialog(QtWidgets.QDialog, ui_stream_config_dialog):
             self.comboBox_channel_label_field, 'label')
 
     def on_configure_channels(self):
-        self.channel_selection = LSLChannelSelection(
+        channel_selection = LSLChannelSelection(
             cha_field=self.comboBox_channel_label_field.currentText(),
         lsl_cha_info=self.cha_info)
-        self.channel_selection.show()
-        # self.channel_selection.raise_()
+        channel_selection.close_signal.connect(self.config_finished)
+        channel_selection.exec_()
+
+    def config_finished(self,data):
+        # Update LSL cha info
+        self.cha_info = data
+
+        self.update_channels_table()
+
 
     def on_read_channels_info(self):
         current_desc_field = \
