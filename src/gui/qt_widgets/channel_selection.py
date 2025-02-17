@@ -155,8 +155,6 @@ class ChannelSelectionWidget(QDialog, ui_main_file):
         fname = fdialog.getOpenFileName(
             fdialog, 'Load Channel Selection', '../../channelset/', 'JSON (*.json)')
         if fname[0]:
-            self.plotLayout.itemAt(0).widget().deleteLater()
-            # self.plotLayout.removeWidget(self.interactive_selection.fig.canvas)
             with open(fname[0], 'r', encoding='utf-8') as f:
                 loaded_channel_dict = json.load(f)
             # Check if json loaded has the correct format
@@ -167,27 +165,68 @@ class ChannelSelectionWidget(QDialog, ui_main_file):
                        if n_k in loaded_channel_dict[key].keys():
                            pass
                        else:
-                           raise ValueError("The json file must include for all "
-                                            "channels the following labels: "
-                                            "“Medusa label”, ‘Selected’, “X pos” "
-                                            "and ‘Y pos’.")
-            else:
-                raise ValueError("The json file is empty.")
+                           msg_error = "The json file must include for all " \
+                                       "channels the following labels: " \
+                                       "“Medusa label”, ‘Selected’, “X pos” " \
+                                       "and ‘Y pos’."
+                           self.show_warning(msg_error)
+                           return
 
-            # TODO ACTUALIZAR LA TABLA CON LA INFORMACIÓN
-            self.ch_labels = list(loaded_channel_dict.keys())
+
+            else:
+                msg_error = "The json file is empty."
+                self.show_warning(msg_error)
+                return
+
+            # Check if json loaded corresponds to the channel set in use
+            for key in loaded_channel_dict.keys():
+                if key not in self.interactive_selection.channel_set.l_cha:
+                    msg_error = "The config file loaded does not correspond" \
+                                " to the EEG channel set in use."
+                    self.show_warning(msg_error)
+                    return
+
+
+            channels_selected = self.interactive_selection.channels_selected
+            channels_selected['Labels'] = [loaded_channel_dict[key]["Medusa label"] for key in loaded_channel_dict.keys()]
+            channels_selected['Selected'] = [loaded_channel_dict[key]["Selected"]
+                                             for key in loaded_channel_dict.keys()]
+
+
+            self.clear_plots()
+
             self.interactive_selection = EEGChannelSelectionPlot(
-                ch_labels=self.ch_labels)
+                ch_labels=channels_selected['Labels'],
+                channels_selected=channels_selected)
             self.plotLayout.addWidget(self.interactive_selection.fig_head.canvas)
             self.interactive_selection.fig_head.canvas.draw()
+            self.unlocatedChannelsLayout.addWidget(
+                self.interactive_selection.fig_unlocated.canvas)
             self.notifications.new_notification('Loaded channels selection: %s' %
                                                 fname[0].split('/')[-1])
+
+            self.table_keys = []
+            self.ch_checkboxs = []
+            self.init_table()
 
     def done(self):
         """ Shows a confirmation dialog if non-saved changes has been made. """
         self.interactive_selection.get_channels_selection_from_gui()
         self.changes_made = False
         self.close()
+
+
+    @staticmethod
+    def show_warning(text):
+        """ Shows a warning message with an OK button. """
+        msg = QMessageBox()
+        msg.setIcon(QMessageBox.Warning)
+        msg.setWindowTitle("Warning")
+        msg.setText("Incorrect file format uploaded in EEG channel selection.")
+        msg.setInformativeText(text)
+
+        msg.setStandardButtons(QMessageBox.Ok)
+        msg.exec_()
 
     @staticmethod
     def close_dialog():
@@ -308,6 +347,10 @@ class LSLChannelSelection(ChannelSelectionWidget):
                 x_spinbox.setValue(channel['r']*np.cos(channel['theta']))
                 y_spinbox.setValue(channel['r']*np.sin(channel['theta']))
                 manage_button.setText('Make unlocated')
+            elif 'x' in channel.keys():
+                x_spinbox.setValue(channel['x'])
+                y_spinbox.setValue(channel['y'])
+                manage_button.setText('Make unlocated')
             else:
                 x_spinbox.setEnabled(False)
                 y_spinbox.setEnabled(False)
@@ -342,26 +385,17 @@ class LSLChannelSelection(ChannelSelectionWidget):
                 self.interactive_selection.channel_set.channels[i]['label'] = label
                 self.interactive_selection.channel_set.channels[i]['r'] = r
                 self.interactive_selection.channel_set.channels[i]['theta'] = theta
+                self.interactive_selection.channel_set.channels[i]['x'] = xpos
+                self.interactive_selection.channel_set.channels[i]['y'] = ypos
             # Else -> unlocated channel
             else:
                 self.interactive_selection.channel_set.channels[i] = {'label':label,'reference':None}
             self.interactive_selection.channel_set.l_cha[i] = label
 
         self.interactive_selection.l_cha = self.interactive_selection.channel_set.l_cha
-        self.interactive_selection.fig_unlocated.clf()
-        self.interactive_selection.fig_head.clf()
-        self.plotLayout.removeWidget(self.interactive_selection.fig_head.canvas)
-        self.interactive_selection.fig_head.canvas.deleteLater()
-        self.interactive_selection.fig_head.canvas = None
-        self.unlocatedChannelsLayout.removeWidget(
-            self.interactive_selection.fig_unlocated.canvas)
-        self.interactive_selection.fig_unlocated.canvas.deleteLater()
-        self.interactive_selection.fig_unlocated.canvas = None
 
-        plt.close(self.interactive_selection.fig_head)
-        self.interactive_selection.fig_head = None
-        plt.close(self.interactive_selection.fig_unlocated)
-        self.interactive_selection.fig_unlocated = None
+        self.clear_plots()
+
         self.interactive_selection.init_plots()
         self.interactive_selection.load_channel_selection_settings()
         self.plotLayout.addWidget(self.interactive_selection.fig_head.canvas)
@@ -380,6 +414,20 @@ class LSLChannelSelection(ChannelSelectionWidget):
             self.channels_table.cellWidget(i, 3).setText('Set coordinates')
 
 
+    def clear_plots(self):
+        self.interactive_selection.fig_unlocated.clf()
+        self.interactive_selection.fig_head.clf()
+        self.plotLayout.removeWidget(self.interactive_selection.fig_head.canvas)
+        self.interactive_selection.fig_head.canvas.deleteLater()
+        self.interactive_selection.fig_head.canvas = None
+        self.unlocatedChannelsLayout.removeWidget(
+            self.interactive_selection.fig_unlocated.canvas)
+        self.interactive_selection.fig_unlocated.canvas.deleteLater()
+        self.interactive_selection.fig_unlocated.canvas = None
+        plt.close(self.interactive_selection.fig_head)
+        self.interactive_selection.fig_head = None
+        plt.close(self.interactive_selection.fig_unlocated)
+        self.interactive_selection.fig_unlocated = None
 
 
 class EEGChannelSelectionPlot(SerializableComponent):
@@ -432,7 +480,7 @@ class EEGChannelSelectionPlot(SerializableComponent):
     def check_unlocated_channels(self):
         """Separates located from unlocated channels"""
         for ch in self.channel_set.channels:
-            if 'r' in ch.keys():
+            if 'r' in ch.keys() or 'x' in ch.keys():
                 self.located_channel_set.add_channel(ch,reference=None)
             else:
                 self.unlocated_channels.append(ch)
@@ -564,14 +612,23 @@ class EEGChannelSelectionPlot(SerializableComponent):
     def set_channel_location(self):
         """For an easy treat of channel coordinates"""
         self.channel_location = dict()
+        if 'r' in self.located_channel_set.channels[0].keys():
+            self.channel_location['radius'] = [c['r'] for c in self.located_channel_set.channels]
+            self.channel_location['theta'] = [c['theta'] for c in self.located_channel_set.channels]
 
-        self.channel_location['radius'] = [c['r'] for c in self.located_channel_set.channels]
-        self.channel_location['theta'] = [c['theta'] for c in self.located_channel_set.channels]
+            self.channel_location['ch_x'] = np.array(self.channel_location['radius']) * np.cos(
+                self.channel_location['theta'])
+            self.channel_location['ch_y'] = np.array(self.channel_location['radius']) * np.sin(
+                self.channel_location['theta'])
+        else:
+            self.channel_location['ch_x'] = [c['x'] for c in self.located_channel_set.channels]
+            self.channel_location['ch_y'] = [c['y'] for c in
+                                             self.located_channel_set.channels]
 
-        self.channel_location['ch_x'] = np.array(self.channel_location['radius']) * np.cos(
-            self.channel_location['theta'])
-        self.channel_location['ch_y'] = np.array(self.channel_location['radius']) * np.sin(
-            self.channel_location['theta'])
+            self.channel_location['radius'] = np.sqrt(np.power(self.channel_location['ch_x'],2) +
+                                                      np.power(self.channel_location['ch_y'],2))
+            self.channel_location['theta'] = np.arctan2(np.array(self.channel_location['ch_y']),np.array(self.channel_location['ch_x']))
+
 
     def set_channel_selection_dict(self):
         """Initialize the state dict"""
