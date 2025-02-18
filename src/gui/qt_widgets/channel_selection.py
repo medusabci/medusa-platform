@@ -1,5 +1,3 @@
-"""Created on Tuesday February 01 2022
-@author: Diego Marcos-Martínez"""
 import copy
 
 from gui.qt_widgets.notifications import NotificationStack
@@ -25,20 +23,248 @@ from functools import partial
 
 
 # Load the .ui files
-ui_main_file = loadUiType(os.path.dirname(__file__) + "/channel_selection_new.ui")[0]
+ui_eeg_file = loadUiType(os.path.dirname(__file__) + "/channel_selection_eeg.ui")[0]
+ui_general_file = loadUiType(os.path.dirname(__file__) + "/channel_selection_general.ui")[0]
 
 
-class ChannelSelectionWidget(QDialog, ui_main_file):
+class LSLGeneralChannelSelection(QDialog,ui_general_file):
+    """This class allows you to control the GUI of the general channel
+       selection widget."""
+
+    close_signal = Signal(object)
+    def __init__(self, cha_field,lsl_cha_info):
+        QDialog.__init__(self)
+        self.setupUi(self)
+
+        # Initialize the gui application
+        theme_colors = None
+        self.theme_colors = gui_utils.get_theme_colors('dark') if \
+            theme_colors is None else theme_colors
+        self.stl = gui_utils.set_css_and_theme(self, self.theme_colors)
+        self.setWindowIcon(QIcon('gui\images/medusa_task_icon.png'))
+        self.setWindowTitle('MEDUSA EEG Channel Selection')
+        self.notifications = NotificationStack(parent=self, timer_ms=500)
+        self.changes_made = False
+
+        # Initialize variables
+        self.cha_field = cha_field
+        self.lsl_cha_info = lsl_cha_info
+        self.lsl_cha_keys = lsl_cha_info[0].keys()
+        self.ch_labels = [channel['medusa_label'] for channel in self.lsl_cha_info]
+
+
+        # Initialize the table
+        self.table_keys = []
+        self.ch_checkboxs = []
+        self.init_table()
+
+        # Button connections
+        self.selectall_btn.clicked.connect(self.activate_select_all)
+        self.unselectall_btn.clicked.connect(self.activate_unselect_all)
+        self.save_btn.clicked.connect(self.save)
+        self.load_btn.clicked.connect(self.load)
+        self.done_btn.clicked.connect(self.done)
+
+    def init_table(self):
+        self.channels_table.setColumnCount(len(self.lsl_cha_keys)-1)
+        self.channels_table.setRowCount(len(self.lsl_cha_info))
+        table_keys = ["medusa_label", "x_pos", "y_pos"]
+        for key in self.lsl_cha_keys:
+            if key not in table_keys and key != 'selected':
+                table_keys.append(key)
+        self.channels_table.setHorizontalHeaderLabels(table_keys)
+        header = self.channels_table.horizontalHeader()
+        header.setSectionResizeMode(QHeaderView.Stretch)
+        self.channels_table.verticalHeader().hide()
+
+        for i_r, row_data in enumerate(self.lsl_cha_info):
+            channel = self.lsl_cha_info[i_r]
+            checkbox = QCheckBox()  # Añade el texto como etiqueta
+            checkbox.setCheckable(True)  # Hacer el ítem checkable
+            checkbox.setChecked(row_data['selected'])
+            self.ch_checkboxs.append(checkbox)
+
+            cha_line_edit = QLineEdit(channel['medusa_label'])
+            cha_line_edit.setObjectName('cha_name')
+            cell_layout = QHBoxLayout()
+            cell_layout.addWidget(checkbox)
+            cell_layout.addWidget(cha_line_edit)
+            cell_widget = QWidget()
+            cell_layout.setContentsMargins(0, 0, 0, 0)
+            cell_widget.setLayout(cell_layout)
+            self.channels_table.setCellWidget(
+                i_r, 0, cell_widget)
+
+            x_spinbox = CustomDoubleSpinBox()
+            x_spinbox.setMinimum(-100)
+            x_spinbox.setMaximum(100)
+            y_spinbox = CustomDoubleSpinBox()
+            y_spinbox.setMinimum(-100)
+            y_spinbox.setMaximum(100)
+
+            if 'x' in channel.keys():
+                x_spinbox.setValue(channel['x'])
+                y_spinbox.setValue(channel['y'])
+
+            self.channels_table.setCellWidget(i_r, 1, x_spinbox)
+            self.channels_table.setCellWidget(i_r, 2, y_spinbox)
+            # Add rest of data
+            for i_k, key in enumerate(table_keys):
+                if i_k > 2:
+                    value = row_data.get(key, "")
+                    item = QLineEdit(str(value))
+                    if key == self.cha_field:
+                        item.setEnabled(False)
+                    self.channels_table.setCellWidget(i_r, i_k, item)
+
+    def activate_select_all(self):
+        for checkbox in self.ch_checkboxs:
+            checkbox.setChecked(True)
+        self.changes_made = True
+
+    def activate_unselect_all(self):
+        for checkbox in self.ch_checkboxs:
+            checkbox.setChecked(False)
+        self.changes_made = True
+
+    def get_ch_dict(self):
+        channels_dict = []
+        for row in range(self.channels_table.rowCount()):
+            # Get LSL label
+            ch_dict = {}
+            # Get Medusa label
+            ch_dict['medusa_label'] = self.channels_table.cellWidget(row, 0).findChild(
+                QLineEdit, 'cha_name').text()
+            # Get Selected state
+            ch_dict['selected'] = self.channels_table.cellWidget(row, 0).findChild(QCheckBox).isChecked()
+            # Get coordinates
+            if self.channels_table.cellWidget(row, 1).isEnabled():
+                ch_dict['x_pos'] = self.channels_table.cellWidget(row, 1).value()
+                ch_dict['y_pos'] = self.channels_table.cellWidget(row, 2).value()
+            else:
+                ch_dict['x_pos'] = None
+                ch_dict['y_pos'] = None
+            # Get rest of the data
+            for col in range(3,self.channels_table.columnCount()):
+                ch_dict[f'{self.channels_table.horizontalHeaderItem(col).text()}'] = \
+                self.channels_table.cellWidget(row,col).text()
+            channels_dict.append(ch_dict)
+        return channels_dict
+
+    def save(self):
+        """ Opens a dialog to save the configuration as a file. """
+        fdialog = QFileDialog()
+        fname = fdialog.getSaveFileName(
+            fdialog, 'Save Channel Selection', '../../channelset/', 'JSON (*.json)')
+        if fname[0]:
+            with open(fname[0], 'w', encoding='utf-8') as f:
+                json.dump(self.get_ch_dict(), f, indent=4)
+            self.notifications.new_notification('Channels selection saved as %s' %
+                                                fname[0].split('/')[-1])
+
+    def load(self):
+        """ Opens a dialog to load a configuration file. """
+        fdialog = QFileDialog()
+        fname = fdialog.getOpenFileName(
+            fdialog, 'Load Channel Selection', '../../channelset/', 'JSON (*.json)')
+        if fname[0]:
+            with open(fname[0], 'r', encoding='utf-8') as f:
+                loaded_channel_dict = json.load(f)
+            # Check if json loaded has the correct format
+            necessary_keys = ['medusa_label', 'selected', 'x_pos', 'y_pos']
+            if len(loaded_channel_dict) != 0:
+                for channel in loaded_channel_dict:
+                   for n_k in necessary_keys:
+                       if n_k in channel.keys():
+                           pass
+                       else:
+                           msg_error = "The json file must include for all " \
+                                       "channels the following labels: " \
+                                       "“medusa_label”, ‘selected’, “x_pos” " \
+                                       "and ‘y_pos’."
+                           self.show_warning(msg_error)
+                           return
+
+
+            else:
+                msg_error = "The json file is empty."
+                self.show_warning(msg_error)
+                return
+
+            # Check if json loaded corresponds to the channel set in use
+            for channel in loaded_channel_dict:
+                if channel[self.cha_field] not in self.lsl_cha_keys:
+                    msg_error = "The config file loaded does not correspond" \
+                                " to the channel set in use."
+                    self.show_warning(msg_error)
+                    return
+
+            self. lsl_cha_info = loaded_channel_dict
+
+            self.clear_plots()
+
+            self.notifications.new_notification('Loaded channels selection: %s' %
+                                                fname[0].split('/')[-1])
+
+            self.table_keys = []
+            self.ch_checkboxs = []
+            self.init_table()
+
+    def done(self):
+        """ Shows a confirmation dialog if non-saved changes has been made. """
+        self.close()
+
+    def closeEvent(self, event):
+        """ Overrides the closeEvent in order to show the confirmation dialog.
+        """
+        if self.changes_made:
+            retval = self.close_dialog()
+            if retval == QMessageBox.Yes:
+                cha_info = self.get_ch_dict()
+                self.close_signal.emit(cha_info)
+                event.accept()
+            else:
+                event.ignore()
+        else:
+            cha_info = self.get_ch_dict()
+            self.close_signal.emit(cha_info)
+            event.accept()
+
+    @staticmethod
+    def close_dialog():
+        """ Shows a confirmation dialog that asks the user if he/she wants to
+        close the configuration window.
+
+        Returns
+        -------
+        output value: QtWidgets.QMessageBox.No or QtWidgets.QMessageBox.Yes
+            If the user do not want to close the window, and
+            QtWidgets.QMessageBox.Yes otherwise.
+        """
+        msg = QMessageBox()
+        msg.setIcon(QMessageBox.Warning)
+        msg.setWindowTitle("EEG Channel Selection")
+        msg.setWindowIcon(QIcon(os.path.join(
+            os.path.dirname(__file__),
+            '../../gui/images/medusa_task_icon.png')))
+        msg.setText("Do you want to leave this window?")
+        msg.setInformativeText("Non-saved changes will be discarded.")
+        msg.setStandardButtons(
+            QMessageBox.Yes | QMessageBox.No)
+        return msg.exec_()
+
+
+class EEGChannelSelectionWidget(QDialog, ui_eeg_file):
     """This class allows you to control the GUI of the EEG channel
        selection widget."""
 
     close_signal = Signal(object)
 
-    def __init__(self, ch_labels):
+    def __init__(self, channel_set, channels_selected=None):
         QDialog.__init__(self)
         self.setupUi(self)
         # self.TAG = '[widget/EEG Channel Selection for Medusa App]'
-        self.ch_labels = ch_labels
+        self.ch_labels = channel_set.l_cha
 
         # Initialize control
         self.finished = False
@@ -50,17 +276,12 @@ class ChannelSelectionWidget(QDialog, ui_main_file):
         self.stl = gui_utils.set_css_and_theme(self, self.theme_colors)
         self.setWindowIcon(QIcon('gui\images/medusa_task_icon.png'))
         self.setWindowTitle('MEDUSA EEG Channel Selection')
-        self.used_btn.setStyleSheet('QPushButton {background-color: #76ba1b; color: #000000;}')
-        self.ground_btn.setStyleSheet('QPushButton {background-color: #fff44f; color: #000000;}')
-        self.reference_btn.setStyleSheet('QPushButton {background-color: #00bdfe; color: #000000;}')
         self.notifications = NotificationStack(parent=self, timer_ms=500)
-        self.ground_btn.setVisible(False)
-        self.reference_btn.setVisible(False)
-        self.used_btn.setVisible(False)
         self.changes_made = False
 
         # Initialize the plot
-        self.interactive_selection = EEGChannelSelectionPlot(ch_labels=self.ch_labels)
+        self.interactive_selection = EEGChannelSelectionPlot(channel_set=channel_set,
+                                                             channels_selected=channels_selected)
         self.plotLayout.addWidget(self.interactive_selection.fig_head.canvas)
         self.unlocatedChannelsLayout.addWidget(
             self.interactive_selection.fig_unlocated.canvas)
@@ -158,28 +379,48 @@ class ChannelSelectionWidget(QDialog, ui_main_file):
             QMessageBox.Yes | QMessageBox.No)
         return msg.exec_()
 
-
-
-
-class LSLChannelSelection(ChannelSelectionWidget):
+class LSLEEGChannelSelection(EEGChannelSelectionWidget):
     def __init__(self,cha_field,lsl_cha_info):
         self.cha_field = cha_field
         self.lsl_cha_info = lsl_cha_info
         self.lsl_cha_keys = lsl_cha_info[0].keys()
-        self.ch_labels = self.get_channel_labels()
-        super().__init__(ch_labels=self.ch_labels)
+        self.ch_labels = [cha_dict['medusa_label'] for cha_dict in self.lsl_cha_info]
+        self.channel_set = meeg.EEGChannelSet()
+        self.channel_set.set_standard_montage(self.ch_labels,
+                                              allow_unlocated_channels=True)
+        self.update_ch_set(self.lsl_cha_info)
+
+        super().__init__(channel_set=self.channel_set,
+                         channels_selected=self.update_ch_info())
 
         self.refresh_btn.clicked.connect(self.on_refresh)
 
+    def update_ch_info(self):
+        channels_selected = {}
+        channels_selected['Labels'] = [channel["medusa_label"] for channel in
+                                       self.lsl_cha_info]
+        channels_selected['Selected'] = [channel["selected"]
+                                         for channel in self.lsl_cha_info]
+        channels_selected['Plot line'] = np.full(len(self.ch_labels), None)
+        return channels_selected
+
+    def update_ch_set(self, cha_info):
+        for i, ch in enumerate(self.channel_set.channels):
+            if cha_info[i]['x_pos'] != None:
+                ch['x'] = cha_info[i]['x_pos']
+                ch['y'] = cha_info[i]['y_pos']
+
     def get_channel_labels(self):
-        return [cha_dict[self.cha_field] for cha_dict in self.lsl_cha_info]
+        return [cha_dict['medusa_label'] for cha_dict in self.lsl_cha_info]
+
     def init_table(self):
         channel_set = self.interactive_selection.channel_set
-        self.channels_table.setColumnCount(len(self.lsl_cha_keys)+3)
+        self.channels_table.setColumnCount(len(self.lsl_cha_keys))
         self.channels_table.setRowCount(len(channel_set.channels))
-        table_keys = ["Medusa label","X pos", "Y pos","Manage pos"]
+        table_keys = ["medusa_label","x_pos", "y_pos","manage position"]
         for key in self.lsl_cha_keys:
-            table_keys.append(key)
+            if key not in table_keys and key != 'selected':
+                table_keys.append(key)
         self.channels_table.setHorizontalHeaderLabels(table_keys)
         header = self.channels_table.horizontalHeader()
         header.setSectionResizeMode(QHeaderView.Stretch)
@@ -189,8 +430,7 @@ class LSLChannelSelection(ChannelSelectionWidget):
             channel = self.interactive_selection.channel_set.channels[i_r]
             checkbox = QCheckBox() # Añade el texto como etiqueta
             checkbox.setCheckable(True)  # Hacer el ítem checkable
-            checkbox.setCheckState(
-                Qt.Unchecked)  # Inicializar en estado "no marcado"
+            checkbox.setChecked(row_data['selected'])
             checkbox.stateChanged.connect(
                 lambda state, index=i_r: self.on_checked(state,index))
             self.ch_checkboxs.append(checkbox)
@@ -231,12 +471,13 @@ class LSLChannelSelection(ChannelSelectionWidget):
             manage_button.clicked.connect(partial(self.on_define_coords,i_r))
             self.channels_table.setCellWidget(i_r, 3, manage_button)
             # Add rest of data
-            for i_k, key in enumerate(self.lsl_cha_keys):
-                value = row_data.get(key, "")
-                item = QLineEdit(str(value))
-                if key == self.cha_field:
-                   item.setEnabled(False)
-                self.channels_table.setCellWidget(i_r,i_k+4, item)
+            for i_k, key in enumerate(table_keys):
+                if i_k > 3:
+                    value = row_data.get(key, "")
+                    item = QLineEdit(str(value))
+                    if key == self.cha_field:
+                       item.setEnabled(False)
+                    self.channels_table.setCellWidget(i_r,i_k, item)
 
     def on_refresh(self):
         self.interactive_selection.located_channel_set = meeg.EEGChannelSet()
@@ -289,7 +530,6 @@ class LSLChannelSelection(ChannelSelectionWidget):
             # Get LSL label
             ch_dict = {}
             # Get Medusa label
-            ch_dict['lsl_label'] = self.channels_table.cellWidget(row,4).text()
             ch_dict['medusa_label'] = self.channels_table.cellWidget(row, 0).findChild(
                 QLineEdit, 'cha_name').text()
             # Get Selected state
@@ -302,7 +542,7 @@ class LSLChannelSelection(ChannelSelectionWidget):
                 ch_dict['x_pos'] = None
                 ch_dict['y_pos'] = None
             # Get rest of the data
-            for col in range(5,self.channels_table.columnCount()):
+            for col in range(4,self.channels_table.columnCount()):
                 ch_dict[f'{self.channels_table.horizontalHeaderItem(col).text()}'] = \
                 self.channels_table.cellWidget(row,col).text()
             channels_dict.append(ch_dict)
@@ -365,8 +605,8 @@ class LSLChannelSelection(ChannelSelectionWidget):
                        else:
                            msg_error = "The json file must include for all " \
                                        "channels the following labels: " \
-                                       "“Medusa label”, ‘Selected’, “X pos” " \
-                                       "and ‘Y pos’."
+                                       "“medusa_label”, ‘selected’, “x_pos” " \
+                                       "and ‘y_pos’."
                            self.show_warning(msg_error)
                            return
 
@@ -378,7 +618,7 @@ class LSLChannelSelection(ChannelSelectionWidget):
 
             # Check if json loaded corresponds to the channel set in use
             for channel in loaded_channel_dict:
-                if channel['lsl_label'] not in self.interactive_selection.channel_set.l_cha:
+                if channel[self.cha_field] not in self.interactive_selection.channel_set.l_cha:
                     msg_error = "The config file loaded does not correspond" \
                                 " to the EEG channel set in use."
                     self.show_warning(msg_error)
@@ -392,9 +632,13 @@ class LSLChannelSelection(ChannelSelectionWidget):
 
 
             self.clear_plots()
-
+            self.ch_labels = channels_selected['Labels']
+            self.channel_set = meeg.EEGChannelSet()
+            self.channel_set.set_standard_montage(self.ch_labels,
+                                                  allow_unlocated_channels=True)
+            self.update_ch_set(loaded_channel_dict)
             self.interactive_selection = EEGChannelSelectionPlot(
-                ch_labels=channels_selected['Labels'],
+                channel_set=self.channel_set,
                 channels_selected=channels_selected)
             self.plotLayout.addWidget(self.interactive_selection.fig_head.canvas)
             self.interactive_selection.fig_head.canvas.draw()
@@ -412,7 +656,8 @@ class LSLChannelSelection(ChannelSelectionWidget):
         if self.changes_made:
             retval = self.close_dialog()
             if retval == QMessageBox.Yes:
-                self.close_signal.emit(None)
+                cha_info = self.get_ch_dict()
+                self.close_signal.emit(cha_info)
                 event.accept()
             else:
                 event.ignore()
@@ -426,15 +671,12 @@ class EEGChannelSelectionPlot(SerializableComponent):
         After selection, a dictionary with an EEGChannelSet consisting of
         the selected channels, the selected reference and the selected
         ground is returned."""
-    def __init__(self, ch_labels=None, channels_selected=None):
+    def __init__(self, channel_set, channels_selected=None):
         # Parameters
-        self.ch_labels = ch_labels
+        self.ch_labels = channel_set.l_cha
 
         # Initialize Variables
-        self.channel_set = meeg.EEGChannelSet()
-        self.channel_set.set_standard_montage(l_cha=self.ch_labels,
-                                              montage='10-05',
-                                              allow_unlocated_channels=True)
+        self.channel_set = channel_set
         self.l_cha = self.channel_set.l_cha
         self.unlocated_channels = []
         self.located_channel_set = meeg.EEGChannelSet()
@@ -624,11 +866,8 @@ class EEGChannelSelectionPlot(SerializableComponent):
     def set_channel_selection_dict(self):
         """Initialize the state dict"""
         self.channels_selected = dict()
-        self.channels_selected['Labels'] = np.asarray(self.l_cha)
+        self.channels_selected['Labels'] = np.asarray(self.l_cha,dtype='<U32')
         self.channels_selected['Selected'] = np.zeros(len(self.l_cha), dtype=bool)
-        # self.channels_selected['Used'] = np.zeros(len(self.l_cha), dtype=bool)
-        # self.channels_selected['Ground'] = np.zeros(len(self.l_cha), dtype=bool)
-        # self.channels_selected['Reference'] = np.zeros(len(self.l_cha), dtype=bool)
         self.channels_selected['Plot line'] = np.full(len(self.l_cha), None)
 
     def set_tolerance_radius(self):
@@ -801,10 +1040,6 @@ class EEGChannelSelectionPlot(SerializableComponent):
         """Initialize the selection settings and make the necessary plots"""
         for key in self.channels_selected.keys():
             self.channels_selected[key] = np.asarray(self.channels_selected[key])
-        # self.channels_selected['Plot line'] = np.full(len(self.l_cha), None)
-        # used_channels_idx = np.where(self.channel_set)[0]
-        # ground_channel_idx = np.where(self.channels_selected['Ground'])[0]
-        # reference_channel_idx = np.where(self.channels_selected['Reference'])[0]
         if len(self.channel_set.l_cha) != 0:
             for idx in range(len(self.channel_set.l_cha)):
                 if self.unlocated_ch_labels is None or \
@@ -818,16 +1053,7 @@ class EEGChannelSelectionPlot(SerializableComponent):
                         self.select_action(self.channels_selected['Labels'][idx],
                                                'unlocated')
 
-        # if len(ground_channel_idx) != 0:
-        #     self.channels_selected['Selected'][int(ground_channel_idx)] = False
-        #     self.channels_selected['Ground'][int(ground_channel_idx)] = False
-        #     self.selection_mode = 'Ground'
-        #     self.select_action(int(ground_channel_idx))
-        # if len(reference_channel_idx) != 0:
-        #     self.channels_selected['Selected'][int(reference_channel_idx)] = False
-        #     self.channels_selected['Reference'][int(reference_channel_idx)] = False
-        #     self.selection_mode = 'Reference'
-        #     self.select_action(int(reference_channel_idx))
+
 
     def get_channels_selection_from_gui(self):
         """Updates the final_channel_selection dict. It makes possible to get from widget
@@ -839,10 +1065,6 @@ class EEGChannelSelectionPlot(SerializableComponent):
                                                montage='10-05',
                                                allow_unlocated_channels=True)
         self.final_channel_selection['Used'] = saved_channel_set
-        # self.final_channel_selection['Ground'] = list(
-        #     self.channels_selected['Labels'][self.channels_selected['Ground']])
-        # self.final_channel_selection['Reference'] = list(
-        #     self.channels_selected['Labels'][self.channels_selected['Reference']])
 
     def to_serializable_obj(self):
         channels_selected = {k: v.tolist() for k, v in self.channels_selected.items()}

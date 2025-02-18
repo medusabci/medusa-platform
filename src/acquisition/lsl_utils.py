@@ -198,6 +198,7 @@ class LSLStreamWrapper(components.SerializableComponent):
         self.selected_channels_idx = None
         self.n_cha = None
         self.l_cha = None
+        self.cha_coordinates = []
         # Set inlet and lsl info
         # self.set_inlet(clocksync=self.lsl_proc_clocksync,
         #                dejitter=self.lsl_proc_dejitter,
@@ -366,8 +367,11 @@ class LSLStreamWrapper(components.SerializableComponent):
         # Select channels
         sel_cha_info = [cha_info[i] for i in selected_channels_idx]
         n_cha = len(selected_channels_idx)
-        l_cha = [info[channel_label_field] for info in sel_cha_info] \
+        l_cha = [info['medusa_label'] for info in sel_cha_info] \
             if channel_label_field is not None else list(range(n_cha))
+        # TODO AÑADIR LAS COORDENADAS AL LSL STREAM
+        cha_coordinates = [(info['x_pos'],info['y_pos']) for info in sel_cha_info
+                           if 'x_pos' in sel_cha_info[0].keys()]
         # Update parameters
         self.update_medusa_parameters(
             medusa_params_initialized=True,

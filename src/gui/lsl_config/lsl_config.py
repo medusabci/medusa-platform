@@ -11,7 +11,8 @@ from gui.qt_widgets.notifications import NotificationStack
 from acquisition import lsl_utils
 import exceptions
 import constants
-from gui.qt_widgets.channel_selection import LSLChannelSelection
+from gui.qt_widgets.channel_selection import LSLEEGChannelSelection, \
+    LSLGeneralChannelSelection
 
 # Load the .ui files
 ui_main_dialog = loadUiType(
@@ -384,12 +385,9 @@ class EditStreamDialog(QtWidgets.QDialog, ui_stream_config_dialog):
         self.comboBox_desc_channels_field.currentIndexChanged.connect(
             self.update_channel_fields)
         self.comboBox_channel_label_field.currentIndexChanged.connect(
-            self.update_channels_table)
+            self.update_cha_label)
         # Channels buttons
         self.pushButton_ch_config.clicked.connect(self.on_configure_channels)
-        # self.pushButton_cha_load.clicked.connect(self.load_custom_labels)
-        # self.pushButton_cha_select.clicked.connect(self.select_all_channels)
-        # self.pushButton_cha_diselect.clicked.connect(self.deselect_all_channels)
         # Table
         self.tableView_ch_summary.setSizePolicy(
             QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Preferred)
@@ -491,11 +489,18 @@ class EditStreamDialog(QtWidgets.QDialog, ui_stream_config_dialog):
             self.comboBox_channel_label_field, 'label')
 
     def on_configure_channels(self):
-        channel_selection = LSLChannelSelection(
-            cha_field=self.comboBox_channel_label_field.currentText(),
-        lsl_cha_info=self.cha_info)
-        channel_selection.close_signal.connect(self.config_finished)
-        channel_selection.exec_()
+        if self.lsl_stream_info.lsl_type == 'EEG':
+            channel_selection = LSLEEGChannelSelection(
+                self.comboBox_channel_label_field.currentText(),
+            lsl_cha_info=self.cha_info)
+            channel_selection.close_signal.connect(self.config_finished)
+            channel_selection.exec_()
+        else:
+            channel_selection = LSLGeneralChannelSelection(
+                self.comboBox_channel_label_field.currentText(),
+                lsl_cha_info=self.cha_info)
+            channel_selection.close_signal.connect(self.config_finished)
+            channel_selection.exec_()
 
     def config_finished(self,data):
         # Update LSL cha info
@@ -509,7 +514,7 @@ class EditStreamDialog(QtWidgets.QDialog, ui_stream_config_dialog):
             self.comboBox_desc_channels_field.currentText()
         self.cha_info = \
             self.lsl_stream_info.get_desc_field_value(current_desc_field)
-        self.update_channels_table()
+        self.update_cha_label()
 
     def load_custom_labels(self):
         # Save json to test
@@ -568,8 +573,40 @@ class EditStreamDialog(QtWidgets.QDialog, ui_stream_config_dialog):
                     cha_checkbox = cell_widget.findChild(QtWidgets.QCheckBox,
                                                          'cha_checkbox')
                     cha_checkbox.setChecked(False)
+    def update_cha_info_dict(self):
+        ch_label = self.comboBox_channel_label_field.currentText()
+        for i, ch in enumerate(self.cha_info):
+            if self.lsl_stream_info.lsl_type == 'EEG':
+                order = [ch_label, 'medusa_label', 'x_pos', 'y_pos','selected']
+                if 'x_pos' not in ch.keys():
+                    ch['x_pos'] = None
+                    ch['y_pos'] = None
+                    ch['selected'] = False
+
+            else:
+                order = [ch_label, 'medusa_label', 'selected']
+                if 'selected' not in ch.keys():
+                    ch['selected'] = False
+
+        # for i, ch in enumerate(self.cha_info):
+        #     # # Check if is the first time the function is called (add new keys)
+        #     # if 'medusa_label' not in self.cha_info[i].keys():
+        #         ch['medusa_label'] = ch[ch_label]
+        #         ch['x_pos'] = None
+        #         ch['y_pos'] = None
+        #         ch['selected'] = False
+            ch_ro = {k: ch[k] for k in order if k in ch}
+            ch_ro.update({k: v for k, v in ch.items() if k not in order})
+            self.cha_info[i] = ch_ro
+
+    def update_cha_label(self):
+        ch_label = self.comboBox_channel_label_field.currentText()
+        for i, ch in enumerate(self.cha_info):
+            ch['medusa_label'] = ch[ch_label]
+        self.update_channels_table()
 
     def update_channels_table(self):
+        self.update_cha_info_dict()
         self.tableView_ch_summary.clearSpans()
 
         # Crear el modelo
@@ -580,16 +617,20 @@ class EditStreamDialog(QtWidgets.QDialog, ui_stream_config_dialog):
 
             keys = list(self.cha_info[0].keys())
 
+            model.setColumnCount(len(keys))
+            # model.setColumnCount(len(keys) + 1)
+            # model.setHorizontalHeaderItem(0, QtGui.QStandardItem("Medusa Labels"))
 
-            model.setColumnCount(len(keys) + 1)
-            model.setHorizontalHeaderItem(0, QtGui.QStandardItem("Medusa Labels"))
-
-            for col, key in enumerate(keys, start=1):
+            for col, key in enumerate(keys):
                 model.setHorizontalHeaderItem(col, QtGui.QStandardItem(key))
 
+            # for col, key in enumerate(keys, start=1):
+            #     model.setHorizontalHeaderItem(col, QtGui.QStandardItem(key))
+
             for row_data in self.cha_info:
-                row_items = [QtGui.QStandardItem(
-                    str(row_data.get(self.comboBox_channel_label_field.currentText(), "")))]
+                # row_items = [QtGui.QStandardItem(
+                #     str(row_data.get(self.comboBox_channel_label_field.currentText(), "")))]
+                row_items = []
 
                 for key in keys:
                     value = row_data.get(key, "")
@@ -656,26 +697,11 @@ class EditStreamDialog(QtWidgets.QDialog, ui_stream_config_dialog):
         return cha_idx
 
     def get_checked_channels_idx(self):
-        # Get channel field
-        channel_label_field = self.comboBox_channel_label_field.currentText()
-        # Iterate table widgets
+        # Iterate channels
         cha_idx = []
-        idx = 0
-        for i in range(self.tableWidget_channels.rowCount()):
-            for j in range(self.tableWidget_channels.columnCount()):
-                cell_widget = self.tableWidget_channels.cellWidget(i, j)
-                if cell_widget is not None:
-                    # Get widgets
-                    cha_checkbox = cell_widget.findChild(QtWidgets.QCheckBox,
-                                                         'cha_checkbox')
-                    cha_line_edit = cell_widget.findChild(QtWidgets.QLineEdit,
-                                                          'cha_line_edit')
-                    if cha_checkbox.isChecked():
-                        cha_idx.append(idx)
-                    # Update channel label
-                    self.cha_info[idx][channel_label_field] = \
-                        cha_line_edit.text()
-                    idx += 1
+        for idx,channel in enumerate(self.cha_info):
+            if channel['selected']:
+                cha_idx.append(idx)
         return cha_idx
 
     def get_lsl_stream_info(self):
