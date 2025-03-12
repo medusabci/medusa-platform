@@ -146,12 +146,12 @@ class LSLConfigDialog(QtWidgets.QDialog, ui_main_dialog):
                     self.available_streams.append(lsl_stream_wrapper)
                 except pylsl.util.TimeoutError:
                     ex = pylsl.util.TimeoutError(
-                        "An LSL stream outlet is unreachable, making it "
-                        "impossible to retrieve stream information. Possible "
-                        "causes include incorrect network configuration, a "
-                        "missing or inactive stream source, or firewall "
-                        "restrictions. Please check your network settings and "
-                        "ensure the stream source is active.")
+                        "An LSL stream outlet was detected, but the stream "
+                        "information could not be retrieved. Possible causes "
+                        "include incorrect network configuration, a missing or "
+                        "inactive stream source, or firewall restrictions. "
+                        "Please check your network settings and ensure the "
+                        "stream source is active.")
                     self.handle_exception(ex)
         except exceptions.LSLStreamNotFound as e:
             if not first_search:
