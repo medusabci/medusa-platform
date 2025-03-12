@@ -4,6 +4,7 @@ import sys, os, json, traceback, math
 # External imports
 from PySide6.QtUiTools import loadUiType
 from PySide6 import QtGui, QtWidgets
+import pylsl
 # Medusa imports
 from gui import gui_utils as gu
 from gui.qt_widgets import dialogs
@@ -136,12 +137,22 @@ class LSLConfigDialog(QtWidgets.QDialog, ui_main_dialog):
             # There are streams available
             self.available_streams = []
             for s, lsl_stream in enumerate(streams):
-                lsl_stream_wrapper = lsl_utils.LSLStreamWrapper(lsl_stream)
-                lsl_stream_wrapper.set_inlet(
-                    proc_clocksync=False, proc_dejitter=False,
-                    proc_monotonize=False, proc_threadsafe=True)
-                self.insert_available_stream_in_table(lsl_stream_wrapper)
-                self.available_streams.append(lsl_stream_wrapper)
+                try:
+                    lsl_stream_wrapper = lsl_utils.LSLStreamWrapper(lsl_stream)
+                    lsl_stream_wrapper.set_inlet(
+                        proc_clocksync=False, proc_dejitter=False,
+                        proc_monotonize=False, proc_threadsafe=True)
+                    self.insert_available_stream_in_table(lsl_stream_wrapper)
+                    self.available_streams.append(lsl_stream_wrapper)
+                except pylsl.util.TimeoutError:
+                    ex = pylsl.util.TimeoutError(
+                        "An LSL stream outlet is unreachable, making it "
+                        "impossible to retrieve stream information. Possible "
+                        "causes include incorrect network configuration, a "
+                        "missing or inactive stream source, or firewall "
+                        "restrictions. Please check your network settings and "
+                        "ensure the stream source is active.")
+                    self.handle_exception(ex)
         except exceptions.LSLStreamNotFound as e:
             if not first_search:
                 self.handle_exception(e)

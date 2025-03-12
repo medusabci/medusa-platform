@@ -1,5 +1,6 @@
 # BUILT-IN MODULES
 import time, socket
+import warnings
 
 import numpy as np
 # EXTERNAL MODULES
@@ -219,7 +220,7 @@ class LSLStreamWrapper(components.SerializableComponent):
         self.processing_flags = processing_flags
         self.lsl_stream_inlet = pylsl.StreamInlet(
             self.lsl_stream, processing_flags=processing_flags)
-        self.lsl_stream_info = self.lsl_stream_inlet.info()
+        self.lsl_stream_info = self.lsl_stream_inlet.info(timeout=1)
         # LSL parameters
         self.lsl_name = self.lsl_stream_info.name()
         self.lsl_type = self.lsl_stream_info.type()
@@ -235,6 +236,12 @@ class LSLStreamWrapper(components.SerializableComponent):
         self.lsl_stream_info_json_format = None
         # Check lsl stream info format
         self.lsl_stream_info_to_json()
+        # Check errors
+        if self.fs is None:
+            warnings.warn(
+                f"The stream '{self.lsl_name}' has an undefined sample rate. "
+                "This may affect processing that requires a fixed sampling rate.")
+            self.fs = 0
 
     def lsl_stream_info_to_json(self):
         # Custom corrections for different manufacturers
@@ -532,15 +539,18 @@ class LSLStreamReceiver:
         self.auto_mode = auto_mode
         # Min chunk size cannot be None. By default, sets the minimum update
         # rate to 10 ms to avoid excessive computing load
-        self.min_chunk_size = max(int(0.01 * self.fs), 1) \
-            if min_chunk_size is None else min_chunk_size
+        if min_chunk_size is None:
+            min_chunk_size = max(int(0.01 * self.fs), 1)
+        self.min_chunk_size = min_chunk_size
         # Max chunk size cannot be None. Default max chunk size 2 *
         # min_chunk_size. Set automode=True to update this value on demand
-        self.max_chunk_size = max(int(2*self.min_chunk_size), int(self.fs)) \
-            if max_chunk_size is None else max_chunk_size
+        if max_chunk_size is None:
+            max_chunk_size = max(int(2*self.min_chunk_size), int(self.fs))
+        self.max_chunk_size = max_chunk_size
         # Timeout cannot be None in order to avoid blocking processes
-        self.timeout = 1.5 * self.max_chunk_size / self.fs \
-            if timeout is None else timeout
+        if timeout is None:
+            timeout = 1.5 * self.max_chunk_size / self.fs
+        self.timeout = timeout
         # print('LSL stream: %s\nmin_chunk_size: %i\nmax_chunk_size: '
         #       '%i\ntimeout: %.2f' % (self.lsl_stream.lsl_name,
         #                              self.min_chunk_size,
