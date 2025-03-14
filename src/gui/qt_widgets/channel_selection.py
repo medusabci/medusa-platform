@@ -605,7 +605,7 @@ class LSLEEGChannelSelection(GeneralChannelSelection):
         else:
             cha_info = self.get_ch_dict()
             self.close_signal.emit(cha_info)
-            self.plotLayout.deleteLater()
+            self.ui.plotLayout.deleteLater()
             event.accept()
 
 class EEGChannelSelectionPlot(SerializableComponent):
