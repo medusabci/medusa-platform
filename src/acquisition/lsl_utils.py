@@ -236,12 +236,6 @@ class LSLStreamWrapper(components.SerializableComponent):
         self.lsl_stream_info_json_format = None
         # Check lsl stream info format
         self.lsl_stream_info_to_json()
-        # Check errors
-        if self.fs is None:
-            warnings.warn(
-                f"The stream '{self.lsl_name}' has an undefined sample rate. "
-                "This may affect processing that requires a fixed sampling rate.")
-            self.fs = 0
 
     def lsl_stream_info_to_json(self):
         # Custom corrections for different manufacturers
@@ -549,7 +543,8 @@ class LSLStreamReceiver:
         self.max_chunk_size = max_chunk_size
         # Timeout cannot be None in order to avoid blocking processes
         if timeout is None:
-            timeout = 1.5 * self.max_chunk_size / self.fs
+            timeout = 1.5 * self.max_chunk_size / self.fs \
+                if self.fs > 0 else np.inf
         self.timeout = timeout
         # print('LSL stream: %s\nmin_chunk_size: %i\nmax_chunk_size: '
         #       '%i\ntimeout: %.2f' % (self.lsl_stream.lsl_name,
@@ -560,7 +555,8 @@ class LSLStreamReceiver:
             np.mean([time.time() - pylsl.local_clock() for _ in range(10)])
         # Calculate LSL clock offset
         self.lsl_clock_offset = \
-            np.mean([self.lsl_stream.lsl_stream_inlet.time_correction() for _ in range(10)])
+            np.mean([self.lsl_stream.lsl_stream_inlet.time_correction()
+                     for _ in range(10)])
         # Aliasing correction
         self.aliasing_correction = False
 
@@ -600,7 +596,8 @@ class LSLStreamReceiver:
                 s_avlbl = self.lsl_stream.lsl_stream_inlet.samples_available()
                 if s_avlbl > self.max_chunk_size:
                     self.max_chunk_size = s_avlbl
-                    self.timeout = 1.5 * self.max_chunk_size / self.fs
+                    self.timeout = 1.5 * self.max_chunk_size / self.fs \
+                        if self.fs > 0 else np.inf
                     # print('LSL stream parameters updated: '
                     #       '%s\nmin_chunk_size: '
                     #       '%i\nmax_chunk_size: '

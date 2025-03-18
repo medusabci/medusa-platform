@@ -37,7 +37,6 @@ class LSLConfigDialog(QtWidgets.QDialog, ui_main_dialog):
         try:
             super().__init__()
             self.setupUi(self)
-            self.notifications = NotificationStack(parent=self)
             self.resize(600, 400)
             # Initialize the gui application
             self.dir = os.path.dirname(__file__)
@@ -145,7 +144,7 @@ class LSLConfigDialog(QtWidgets.QDialog, ui_main_dialog):
                     self.insert_available_stream_in_table(lsl_stream_wrapper)
                     self.available_streams.append(lsl_stream_wrapper)
                 except pylsl.util.TimeoutError:
-                    ex = pylsl.util.TimeoutError(
+                    ex = exceptions.LSLStreamTimeout(
                         "An LSL stream outlet was detected, but the stream "
                         "information could not be retrieved. Possible causes "
                         "include incorrect network configuration, a missing or "
@@ -316,7 +315,7 @@ class LSLConfigDialog(QtWidgets.QDialog, ui_main_dialog):
 
     def handle_exception(self, ex):
         traceback.print_exc()
-        dialogs.error_dialog(str(ex), 'Error', self.theme_colors)
+        dialogs.error_dialog(str(ex), ex.__class__.__name__, self.theme_colors)
 
 
 class EditStreamDialog(QtWidgets.QDialog, ui_stream_config_dialog):
@@ -327,7 +326,6 @@ class EditStreamDialog(QtWidgets.QDialog, ui_stream_config_dialog):
             # Super call
             super().__init__()
             self.setupUi(self)
-            self.notifications = NotificationStack(parent=self)
             # Set style
             self.theme_colors = gu.get_theme_colors('dark') if \
                 theme_colors is None else theme_colors
@@ -351,6 +349,13 @@ class EditStreamDialog(QtWidgets.QDialog, ui_stream_config_dialog):
                 self.lsl_stream_info.update_medusa_parameters_from_lslwrapper(
                     lsl_stream_info)
                 self.cha_info = self.lsl_stream_info.cha_info
+            # Check errors
+            if self.lsl_stream_info.fs <= 0:
+                self.handle_exception(exceptions.IncorrectLSLConfig(
+                    f"The sample rate of the stream "
+                    f"'{self.lsl_stream_info.lsl_name}' "
+                    f"is not defined. This may affect processing and "
+                    f"timeouts that requires a fixed sampling rate."))
             self.working_lsl_streams = working_lsl_streams
             # Init widgets
             self.init_widgets()
@@ -688,4 +693,4 @@ class EditStreamDialog(QtWidgets.QDialog, ui_stream_config_dialog):
 
     def handle_exception(self, ex):
         traceback.print_exc()
-        dialogs.error_dialog(str(ex), 'Error', self.theme_colors)
+        dialogs.error_dialog(str(ex), ex.__class__.__name__, self.theme_colors)

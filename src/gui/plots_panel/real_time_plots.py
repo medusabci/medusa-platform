@@ -737,7 +737,7 @@ class TimePlotMultichannel(RealTimePlotPyQtGraph):
                                   width=self.marker_width,
                                   style=Qt.SolidLine)
             self.marker = pg.InfiniteLine(pos=0, angle=90, pen=marker_pen)
-            self.pointer = 0
+            self.pointer = -1
         # X-axis
         if self.visualization_settings['x_axis']['display_grid']:
             alpha = self.visualization_settings['x_axis']['display_grid']
@@ -776,37 +776,40 @@ class TimePlotMultichannel(RealTimePlotPyQtGraph):
             if self.visualization_settings['mode'] == 'geek':
                 # Set timestamps
                 x = self.time_in_graph
+                # Range
+                x_range = (x[0], x[-1])
                 # Time ticks
                 x_ticks_pos = []
                 x_ticks_val = []
                 if self.visualization_settings['x_axis']['display_grid']:
-                    x_ticks_pos = np.arange(x[0], x[-1],
-                                            step=self.visualization_settings[
-                                                'x_axis']['line_separation'])
+                    step = self.visualization_settings[
+                        'x_axis']['line_separation']
+                    x_ticks_pos = np.arange(x[0], x[-1], step=step).tolist()
                     x_ticks_val = ['%.1f' % v for v in x_ticks_pos]
                 # Set ticks
                 self.x_axis.setTicks([list(zip(x_ticks_pos, x_ticks_val))])
             elif self.visualization_settings['mode'] == 'clinical':
                 # Set timestamps
+                x = np.mod(self.time_in_graph, self.win_t)
+                # Range
                 n_win = self.time_in_graph.max() // self.win_t
-                x = self.time_in_graph if n_win <= 0 else \
-                    np.mod(self.time_in_graph, self.win_t)
+                x_range = (0, self.win_t) if n_win==0 else (x[0], x[-1])
                 # Time ticks
                 x_ticks_pos = []
                 x_ticks_val = []
                 if self.visualization_settings['x_axis']['display_grid']:
-                    x_ticks_pos = np.arange(
-                        x[0], x[-1], step=self.visualization_settings['x_axis'][
-                            'line_separation']).tolist()
+                    step = self.visualization_settings[
+                        'x_axis']['line_separation']
+                    x_ticks_pos = np.arange(x[0], x[-1], step=step).tolist()
                     x_ticks_val = ['' for v in x_ticks_pos]
                 # Pointer
-                x_ticks_pos.append(x[self.pointer-1])
-                x_ticks_val.append('%.1f' % self.time_in_graph[self.pointer-1])
+                x_ticks_pos.append(x[self.pointer])
+                x_ticks_val.append('%.1f' % self.time_in_graph[self.pointer])
                 self.x_axis.setTicks([list(zip(x_ticks_pos, x_ticks_val))])
             else:
                 raise ValueError
             # Set range
-            self.plot_item.setXRange(x[0], x[-1], padding=0)
+            self.plot_item.setXRange(x_range[0], x_range[1], padding=0)
         else:
             self.x_axis.setTicks([])
             self.plot_item.setXRange(0, 0, padding=0)
@@ -829,13 +832,15 @@ class TimePlotMultichannel(RealTimePlotPyQtGraph):
             max_win_t = (n_win+1) * self.win_t
             # Check overflow
             if chunk_times[-1] > max_win_t:
-                idx_overflow = chunk_times >= max_win_t
+                idx_overflow = chunk_times > max_win_t
                 # Append part of the chunk at the end
                 time_in_graph = np.insert(
-                    self.time_in_graph, self.pointer,
+                    self.time_in_graph,
+                    self.pointer+1,
                     chunk_times[np.logical_not(idx_overflow)], axis=0)
                 sig_in_graph = np.insert(
-                    self.sig_in_graph, self.pointer,
+                    self.sig_in_graph,
+                    self.pointer+1,
                     chunk_signal[np.logical_not(idx_overflow)], axis=0)
                 # Append part of the chunk at the beginning
                 time_in_graph = np.insert(
@@ -844,24 +849,40 @@ class TimePlotMultichannel(RealTimePlotPyQtGraph):
                 sig_in_graph = np.insert(
                     sig_in_graph, 0,
                     chunk_signal[idx_overflow], axis=0)
-                self.pointer = len(chunk_times[idx_overflow])
+                self.pointer = len(chunk_times[idx_overflow]) - 1
             else:
                 # Append chunk at pointer
                 time_in_graph = np.insert(self.time_in_graph,
-                                          self.pointer,
+                                          self.pointer+1,
                                           chunk_times, axis=0)
                 sig_in_graph = np.insert(self.sig_in_graph,
-                                         self.pointer,
+                                         self.pointer+1,
                                          chunk_signal, axis=0)
                 self.pointer += len(chunk_times)
             # Check old samples
-            max_t = time_in_graph[self.pointer-1]
+            max_t = time_in_graph[self.pointer]
             idx_old = time_in_graph < (max_t - self.win_t)
-            time_in_graph = np.delete(time_in_graph, idx_old, axis=0)
-            sig_in_graph = np.delete(sig_in_graph, idx_old, axis=0)
+            if np.any(idx_old):
+                time_in_graph = np.delete(time_in_graph, idx_old, axis=0)
+                sig_in_graph = np.delete(sig_in_graph, idx_old, axis=0)
             # Update
             self.time_in_graph = time_in_graph
             self.sig_in_graph = sig_in_graph
+            # ============================DEBUG=============================== #
+            # if np.sum(np.diff(time_in_graph) < 0) > 1:
+            #     warnings.warn(
+            #         'Unordered data!!'
+            #         f'\nPointer position: {self.pointer}'
+            #         f'\nTime at pointer: {max_t}'
+            #         f'\nMax time: {np.max(time_in_graph)}'
+            #         f'\nOld positions (time < '
+            #         f'{(max_t - self.win_t)}): '
+            #         f'{np.where(time_in_graph < (max_t - self.win_t))}')
+            # print(f'Pointer no correction: {pointer_no_corr}')
+            # print(f'Pointer with correction: {self.pointer}')
+            # print(idx_old)
+            # print(time_in_graph)
+            # ================================================================ #
         return self.time_in_graph, self.sig_in_graph
 
     def set_data(self):
@@ -870,12 +891,10 @@ class TimePlotMultichannel(RealTimePlotPyQtGraph):
             x = self.time_in_graph
         elif self.visualization_settings['mode'] == 'clinical':
             max_t = self.time_in_graph.max(initial=0)
-            n_win = max_t // self.win_t
-            x = self.time_in_graph if n_win <= 0 else \
-                np.mod(self.time_in_graph, self.win_t)
+            x = np.mod(self.time_in_graph, self.win_t)
             # Marker
             if max_t >= self.win_t:
-                self.marker.setPos(x[self.pointer-1])
+                self.marker.setPos(x[self.pointer])
         else:
             raise ValueError
         # Set data
@@ -1105,7 +1124,7 @@ class TimePlot(RealTimePlotPyQtGraph):
                                   width=self.marker_width,
                                   style=Qt.SolidLine)
             self.marker = pg.InfiniteLine(pos=0, angle=90, pen=marker_pen)
-            self.pointer = 0
+            self.pointer = -1
         # X-axis
         if self.visualization_settings['x_axis']['display_grid']:
             alpha = self.visualization_settings['x_axis']['display_grid']
@@ -1127,37 +1146,40 @@ class TimePlot(RealTimePlotPyQtGraph):
             if self.visualization_settings['mode'] == 'geek':
                 # Set timestamps
                 x = self.time_in_graph
+                # Range
+                x_range = (x[0], x[-1])
                 # Time ticks
                 x_ticks_pos = []
                 x_ticks_val = []
                 if self.visualization_settings['x_axis']['display_grid']:
-                    x_ticks_pos = np.arange(x[0], x[-1],
-                                            step=self.visualization_settings[
-                                                'x_axis']['line_separation'])
+                    step = self.visualization_settings[
+                        'x_axis']['line_separation']
+                    x_ticks_pos = np.arange(x[0], x[-1], step=step).tolist()
                     x_ticks_val = ['%.1f' % v for v in x_ticks_pos]
                 # Set ticks
                 self.x_axis.setTicks([list(zip(x_ticks_pos, x_ticks_val))])
             elif self.visualization_settings['mode'] == 'clinical':
                 # Set timestamps
+                x = np.mod(self.time_in_graph, self.win_t)
+                # Range
                 n_win = self.time_in_graph.max() // self.win_t
-                x = self.time_in_graph if n_win <= 0 else \
-                    np.mod(self.time_in_graph, self.win_t)
+                x_range = (0, self.win_t) if n_win == 0 else (x[0], x[-1])
                 # Time ticks
                 x_ticks_pos = []
                 x_ticks_val = []
                 if self.visualization_settings['x_axis']['display_grid']:
-                    x_ticks_pos = np.arange(
-                        x[0], x[-1], step=self.visualization_settings['x_axis'][
-                            'line_separation']).tolist()
+                    step = self.visualization_settings[
+                        'x_axis']['line_separation']
+                    x_ticks_pos = np.arange(x[0], x[-1], step=step).tolist()
                     x_ticks_val = ['' for v in x_ticks_pos]
                 # Pointer
-                x_ticks_pos.append(x[self.pointer-1])
-                x_ticks_val.append('%.1f' % self.time_in_graph[self.pointer-1])
+                x_ticks_pos.append(x[self.pointer])
+                x_ticks_val.append('%.1f' % self.time_in_graph[self.pointer])
                 self.x_axis.setTicks([list(zip(x_ticks_pos, x_ticks_val))])
             else:
                 raise ValueError
-            # Set range
-            self.plot_item.setXRange(x[0], x[-1], padding=0)
+                # Set range
+                self.plot_item.setXRange(x_range[0], x_range[1], padding=0)
         else:
             self.x_axis.setTicks([])
             self.plot_item.setXRange(0, 0, padding=0)
@@ -1183,10 +1205,12 @@ class TimePlot(RealTimePlotPyQtGraph):
                 idx_overflow = chunk_times >= max_win_t
                 # Append part of the chunk at the end
                 time_in_graph = np.insert(
-                    self.time_in_graph, self.pointer,
+                    self.time_in_graph,
+                    self.pointer+1,
                     chunk_times[np.logical_not(idx_overflow)], axis=0)
                 sig_in_graph = np.insert(
-                    self.sig_in_graph, self.pointer,
+                    self.sig_in_graph,
+                    self.pointer+1,
                     chunk_signal[np.logical_not(idx_overflow)], axis=0)
                 # Append part of the chunk at the beginning
                 time_in_graph = np.insert(
@@ -1195,21 +1219,22 @@ class TimePlot(RealTimePlotPyQtGraph):
                 sig_in_graph = np.insert(
                     sig_in_graph, 0,
                     chunk_signal[idx_overflow], axis=0)
-                self.pointer = len(chunk_times[idx_overflow])
+                self.pointer = len(chunk_times[idx_overflow]) - 1
             else:
                 # Append chunk at pointer
                 time_in_graph = np.insert(self.time_in_graph,
-                                          self.pointer,
+                                          self.pointer+1,
                                           chunk_times, axis=0)
                 sig_in_graph = np.insert(self.sig_in_graph,
-                                         self.pointer,
+                                         self.pointer+1,
                                          chunk_signal, axis=0)
                 self.pointer += len(chunk_times)
             # Check old samples
-            max_t = time_in_graph[self.pointer-1]
+            max_t = time_in_graph[self.pointer]
             idx_old = time_in_graph < (max_t - self.win_t)
-            time_in_graph = np.delete(time_in_graph, idx_old, axis=0)
-            sig_in_graph = np.delete(sig_in_graph, idx_old, axis=0)
+            if np.any(idx_old):
+                time_in_graph = np.delete(time_in_graph, idx_old, axis=0)
+                sig_in_graph = np.delete(sig_in_graph, idx_old, axis=0)
             # Update
             self.time_in_graph = time_in_graph
             self.sig_in_graph = sig_in_graph
@@ -1226,7 +1251,7 @@ class TimePlot(RealTimePlotPyQtGraph):
                 np.mod(self.time_in_graph, self.win_t)
             # Marker
             if max_t >= self.win_t:
-                self.marker.setPos(x[self.pointer-1])
+                self.marker.setPos(x[self.pointer])
         else:
             raise ValueError
         # Set data

@@ -313,7 +313,6 @@ class NoLSLStreamsAvailable(Exception):
                   'before this action.'
         super().__init__(msg)
 
-
 class LSLStreamTimeout(Exception):
 
     """Raise to indicate that LSL timeout was triggered while receiving data

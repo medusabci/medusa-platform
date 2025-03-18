@@ -17,7 +17,7 @@
    <string>MainWindow</string>
   </property>
   <property name="toolTip">
-   <string>Activate to re-import app modules at every action. This allows to see code changes without restarting the whole platform.</string>
+   <string/>
   </property>
   <widget class="QWidget" name="centralwidget">
    <layout class="QVBoxLayout" name="verticalLayout_3"/>
@@ -49,7 +49,7 @@
      <x>0</x>
      <y>0</y>
      <width>1037</width>
-     <height>26</height>
+     <height>21</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuInfo_2">
