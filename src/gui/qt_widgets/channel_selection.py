@@ -23,8 +23,10 @@ from functools import partial
 
 
 # Load the .ui files
-ui_eeg_file = loadUiType(os.path.dirname(__file__) + "/channel_selection_eeg.ui")[0]
-ui_general_file = loadUiType(os.path.dirname(__file__) + "/channel_selection_general.ui")[0]
+dir_path = os.path.dirname(__file__)
+ui_eeg_file = loadUiType(f"{dir_path}/channel_selection_eeg.ui")[0]
+ui_general_file = loadUiType(f"{dir_path}/channel_selection_general.ui")[0]
+
 
 class GeneralChannelSelection(QDialog):
     """This class allows you to control the GUI of the general channel
@@ -39,7 +41,7 @@ class GeneralChannelSelection(QDialog):
         self.theme_colors = gui_utils.get_theme_colors('dark') if \
             theme_colors is None else theme_colors
         self.stl = gui_utils.set_css_and_theme(self, self.theme_colors)
-        self.setWindowIcon(QIcon('gui\images/medusa_task_icon.png'))
+        self.setWindowIcon(QIcon('gui/images/medusa_task_icon.png'))
         self.setWindowTitle('MEDUSA Channel Selection')
         self.notifications = NotificationStack(parent=self, timer_ms=500)
         self.changes_made = False
@@ -264,17 +266,19 @@ class LSLGeneralChannelSelection(GeneralChannelSelection):
             self.ch_checkboxs = []
             self.init_table()
 
+
 class LSLEEGChannelSelection(GeneralChannelSelection):
     close_signal = Signal(object)
+
     def __init__(self,cha_field,lsl_cha_info):
         # Initialize variables
         super().__init__(cha_field=cha_field,
-                        lsl_cha_info=lsl_cha_info,
+                         lsl_cha_info=lsl_cha_info,
                          ui_file=ui_eeg_file)
 
         self.channel_set = meeg.EEGChannelSet()
-        self.channel_set.set_standard_montage(self.ch_labels,
-                                              allow_unlocated_channels=True)
+        self.channel_set.set_standard_montage(
+            self.ch_labels, allow_unlocated_channels=True)
         self.update_ch_set(self.lsl_cha_info)
 
         # Initialize control
@@ -608,11 +612,13 @@ class LSLEEGChannelSelection(GeneralChannelSelection):
             self.ui.plotLayout.deleteLater()
             event.accept()
 
+
 class EEGChannelSelectionPlot(SerializableComponent):
     """This class controls the interactive topographic representation.
         After selection, a dictionary with an EEGChannelSet consisting of
         the selected channels, the selected reference and the selected
         ground is returned."""
+
     def __init__(self, channel_set, channels_selected=None):
         # Parameters
         self.ch_labels = channel_set.l_cha
@@ -656,9 +662,10 @@ class EEGChannelSelectionPlot(SerializableComponent):
         """Separates located from unlocated channels"""
         for ch in self.channel_set.channels:
             if 'r' in ch.keys() or 'x' in ch.keys():
-                self.located_channel_set.add_channel(ch,reference=None)
+                self.located_channel_set.add_channel(ch, reference=None)
             else:
                 self.unlocated_channels.append(ch)
+
     def init_plots(self):
         # Plot Channel Plot
         self.check_unlocated_channels()
@@ -726,17 +733,14 @@ class EEGChannelSelectionPlot(SerializableComponent):
                 handle_circ = self.axes_unlocated.add_patch(patch)
                 self.unlocated_handles['ch-contours'].append(handle_circ)
                 # Plot channels points
-                handle_point = self.axes_unlocated.scatter(0.5, -0.5-ch_idx, linewidths=1,
-                                      facecolors='w',
-                                      edgecolors='k', zorder=12)
+                handle_point = self.axes_unlocated.scatter(
+                    0.5, -0.5-ch_idx, linewidths=1,
+                    facecolors='w', edgecolors='k', zorder=12)
                 self.unlocated_handles['ch-points'] = handle_point
                 # Plot channels labels
-                handle_label = self.axes_unlocated.text(0.75,
-                                   -0.5-ch_idx-0.125,
-                                   ch,
-                                   fontsize=10,
-                                   color='w',
-                                   zorder=11)
+                handle_label = self.axes_unlocated.text(
+                    0.75, -0.5-ch_idx-0.125, ch,
+                    fontsize=10, color='w', zorder=11)
                 self.unlocated_handles['ch-labels'].append(handle_label)
 
                 # Save coordinates
@@ -747,14 +751,15 @@ class EEGChannelSelectionPlot(SerializableComponent):
                 self.unlocated_coords['ch_x'].append(0.5)
                 self.unlocated_coords['ch_y'].append(-0.5 - ch_idx)
 
-
             # Number of channels to display
             max_data = min([len(self.unlocated_ch_labels),5])
             self.axes_unlocated.set_aspect('equal')
             self.axes_unlocated.set_xlim(0, 1)
             self.axes_unlocated.set_ylim(- max_data, 0)
+
             # Actualizar visibilidad de las etiquetas según los límites
             self.update_text_visibility()
+
         self.axes_unlocated.set_title('Unlocated \nChannels', fontsize=11,
                                       color='w')
         self.fig_unlocated.canvas.draw_idle()
@@ -768,6 +773,7 @@ class EEGChannelSelectionPlot(SerializableComponent):
             label_y = handle_label.get_position()[1]
             # Mostrar solo si la etiqueta está dentro de los límites
             handle_label.set_visible(y_min <= label_y <= y_max)
+
     def scroll_up(self, event):
         # Desplazar hacia arriba si no estamos en el inicio
         if self.start_row < 0:
@@ -788,26 +794,34 @@ class EEGChannelSelectionPlot(SerializableComponent):
         self.axes_unlocated.set_ylim(y_min, y_max)
         self.update_text_visibility()
         self.fig_unlocated.canvas.draw_idle()
+
     def set_channel_location(self):
         """For an easy treat of channel coordinates"""
         self.channel_location = dict()
         if 'r' in self.located_channel_set.channels[0].keys():
-            self.channel_location['radius'] = [c['r'] for c in self.located_channel_set.channels]
-            self.channel_location['theta'] = [c['theta'] for c in self.located_channel_set.channels]
+            self.channel_location['radius'] = \
+                [c['r'] for c in self.located_channel_set.channels]
+            self.channel_location['theta'] = \
+                [c['theta'] for c in self.located_channel_set.channels]
 
-            self.channel_location['ch_x'] = np.array(self.channel_location['radius']) * np.cos(
-                self.channel_location['theta'])
-            self.channel_location['ch_y'] = np.array(self.channel_location['radius']) * np.sin(
-                self.channel_location['theta'])
+            self.channel_location['ch_x'] = (
+                    np.array(self.channel_location['radius']) * np.cos(
+                self.channel_location['theta']))
+            self.channel_location['ch_y'] = (
+                    np.array(self.channel_location['radius']) * np.sin(
+                self.channel_location['theta']))
         else:
-            self.channel_location['ch_x'] = [c['x'] for c in self.located_channel_set.channels]
-            self.channel_location['ch_y'] = [c['y'] for c in
-                                             self.located_channel_set.channels]
+            self.channel_location['ch_x'] = \
+                [c['x'] for c in self.located_channel_set.channels]
+            self.channel_location['ch_y'] = \
+                [c['y'] for c in self.located_channel_set.channels]
 
-            self.channel_location['radius'] = np.sqrt(np.power(self.channel_location['ch_x'],2) +
-                                                      np.power(self.channel_location['ch_y'],2))
-            self.channel_location['theta'] = np.arctan2(np.array(self.channel_location['ch_y']),np.array(self.channel_location['ch_x']))
-
+            self.channel_location['radius'] = (
+                np.sqrt(np.power(self.channel_location['ch_x'],2) +
+                        np.power(self.channel_location['ch_y'],2)))
+            self.channel_location['theta'] = (
+                np.arctan2(np.array(self.channel_location['ch_y']),
+                           np.array(self.channel_location['ch_x'])))
 
     def set_channel_selection_dict(self):
         """Initialize the state dict"""
@@ -855,16 +869,19 @@ class EEGChannelSelectionPlot(SerializableComponent):
         ch_idx = self.l_cha.index(ch_label)
         self.channels_selected["Selected"][ch_idx] = not \
         self.channels_selected["Selected"][ch_idx]
+
     def check_channel_clicked(self, coord_click, figure):
         """ Checks if mouse was clicked inside the channel area"""
         if (coord_click[0] is None) or (coord_click[1] is None):
             return None
         distance = None
+
         if figure == 'head':
             if self.located_channel_set.channels != None:
                 r = np.sqrt(coord_click[0] ** 2 + coord_click[1] ** 2) * \
                     np.ones((len(self.located_channel_set.channels)))
-                theta = np.arctan2(coord_click[1], coord_click[0]) * np.ones((len(self.located_channel_set.channels)))
+                theta = (np.arctan2(coord_click[1], coord_click[0]) *
+                         np.ones((len(self.located_channel_set.channels))))
                 distance = (r ** 2 + np.power(self.channel_location['radius'], 2) -
                             2 * r * self.channel_location['radius'] *
                             np.cos(theta - self.channel_location[
@@ -1015,7 +1032,6 @@ class EEGChannelSelectionPlot(SerializableComponent):
                         self.select_action(
                             self.channels_selected['Labels'][idx],
                             'unlocated')
-
                 #
                 # if self.located_channel_set.channels is None or\
                 #         self.channels_selected['Labels'][idx] in \
@@ -1028,19 +1044,15 @@ class EEGChannelSelectionPlot(SerializableComponent):
                 #         self.select_action(self.channels_selected['Labels'][idx],
                 #                            'head')
 
-
-
-
-
     def get_channels_selection_from_gui(self):
         """Updates the final_channel_selection dict. It makes possible to get from widget
            the selected channels as a EEGChannelSet object"""
         self.final_channel_selection = dict()
         saved_channel_set = meeg.EEGChannelSet()
-        saved_channel_set.set_standard_montage(l_cha=list(self.channels_selected['Labels']
-                                                          [self.channels_selected['Selected']]),
-                                               montage='10-05',
-                                               allow_unlocated_channels=True)
+        saved_channel_set.set_standard_montage(
+            l_cha=list(self.channels_selected['Labels'][self.channels_selected['Selected']]),
+            montage='10-05',
+            allow_unlocated_channels=True)
         self.final_channel_selection['Used'] = saved_channel_set
 
     def to_serializable_obj(self):
@@ -1062,10 +1074,3 @@ class CustomDoubleSpinBox(QDoubleSpinBox):
     def wheelEvent(self, event):
         # No hacer nada en la rueda del ratón
         event.ignore()
-
-if __name__ == '__main__':
-    # self.show must be uncommented
-    app = QApplication([])
-    mw = LSLChannelSelection(ch_labels=['C3','Cz','C4',
-                                                              'Cbz','Cb1','Cb2','CH1','CH2','CH3','CH4'])
-    app.exec_()

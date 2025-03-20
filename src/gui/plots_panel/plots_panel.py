@@ -50,8 +50,6 @@ class PlotsPanelWidget(QWidget):
         self.setLayout(main_layout)
         # Set up
         self.set_up_tool_bar_plot()
-        init_grid_layout = self.add_tab('')
-        init_grid_layout.addWidget(QLabel('Empty tab'), 0, 0)
         # Initial configuration
         self.plots_panel_config = None
         self.plots_config_file_path = plots_config_file_path

@@ -32,42 +32,6 @@
    <item row="1" column="1">
     <layout class="QVBoxLayout" name="verticalLayout">
      <item>
-      <widget class="QPushButton" name="used_btn">
-       <property name="font">
-        <font>
-         <weight>50</weight>
-         <bold>false</bold>
-        </font>
-       </property>
-       <property name="styleSheet">
-        <string notr="true">background-color: rgb(118, 186, 27);</string>
-       </property>
-       <property name="text">
-        <string>Used</string>
-       </property>
-      </widget>
-     </item>
-     <item>
-      <widget class="QPushButton" name="ground_btn">
-       <property name="styleSheet">
-        <string notr="true">background-color: rgb(255, 244, 79);</string>
-       </property>
-       <property name="text">
-        <string>Ground</string>
-       </property>
-      </widget>
-     </item>
-     <item>
-      <widget class="QPushButton" name="reference_btn">
-       <property name="styleSheet">
-        <string notr="true">background-color: rgb(0, 189, 254);</string>
-       </property>
-       <property name="text">
-        <string>Reference</string>
-       </property>
-      </widget>
-     </item>
-     <item>
       <layout class="QVBoxLayout" name="unlocatedChannelsLayout"/>
      </item>
     </layout>
