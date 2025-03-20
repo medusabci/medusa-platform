@@ -183,7 +183,7 @@ class LSLStreamWrapper(components.SerializableComponent):
         self.lsl_cha_format = None
         self.lsl_uid = None
         self.lsl_source_id = None
-        self.fs = None
+        self.lsl_fs = None
         self.time_correction = None
         self.hostname = None
         self.local_stream = None
@@ -199,6 +199,7 @@ class LSLStreamWrapper(components.SerializableComponent):
         self.selected_channels_idx = None
         self.n_cha = None
         self.l_cha = None
+        self.fs = None
 
     def set_inlet(self, proc_clocksync=False, proc_dejitter=False,
                   proc_monotonize=False, proc_threadsafe=True):
@@ -336,10 +337,8 @@ class LSLStreamWrapper(components.SerializableComponent):
         return self.lsl_stream_info_json_format['desc'][desc_field]
 
     def set_medusa_parameters(self, medusa_uid, medusa_type,
-                              desc_channels_field,
-                              channel_label_field,
-                              cha_info,
-                              selected_channels_idx):
+                              desc_channels_field, channel_label_field,
+                              cha_info, selected_channels_idx, fs, lsl_fs):
         """Decodes the channels from the extended description of the stream,
         in XML format, contained in lsl_stream_info
 
@@ -366,8 +365,9 @@ class LSLStreamWrapper(components.SerializableComponent):
         # Select channels
         sel_cha_info = [cha_info[i] for i in selected_channels_idx]
         n_cha = len(selected_channels_idx)
-        l_cha = [info[channel_label_field] for info in sel_cha_info] \
+        l_cha = [info['medusa_label'] for info in sel_cha_info] \
             if channel_label_field is not None else list(range(n_cha))
+
         # Update parameters
         self.update_medusa_parameters(
             medusa_params_initialized=True,
@@ -378,7 +378,9 @@ class LSLStreamWrapper(components.SerializableComponent):
             cha_info=cha_info,
             selected_channels_idx=selected_channels_idx,
             n_cha=n_cha,
-            l_cha=l_cha)
+            l_cha=l_cha,
+            fs=fs,
+            lsl_fs=lsl_fs)
 
     def update_medusa_parameters_from_lslwrapper(self, lsl_stream_wrapper):
         """Use this function to manually update the medusa params from one
@@ -393,13 +395,15 @@ class LSLStreamWrapper(components.SerializableComponent):
             lsl_stream_wrapper.cha_info,
             lsl_stream_wrapper.selected_channels_idx,
             lsl_stream_wrapper.n_cha,
-            lsl_stream_wrapper.l_cha
-        )
+            lsl_stream_wrapper.l_cha,
+            lsl_stream_wrapper.fs,
+            lsl_stream_wrapper.lsl_fs)
 
     def update_medusa_parameters(self, medusa_params_initialized, medusa_uid,
                                  medusa_type, desc_channels_field,
                                  channel_label_field, cha_info,
-                                 selected_channels_idx, n_cha, l_cha):
+                                 selected_channels_idx, n_cha, l_cha, fs,
+                                 lsl_fs):
         """Use this function to manually update the medusa params"""
         if not medusa_params_initialized:
             raise ValueError('The medusa parameters have not been '
@@ -415,6 +419,8 @@ class LSLStreamWrapper(components.SerializableComponent):
         self.selected_channels_idx = selected_channels_idx
         self.n_cha = n_cha
         self.l_cha = l_cha
+        self.fs = fs
+        self.lsl_fs = lsl_fs
 
     def to_serializable_obj(self):
         # TODO: The dictionary is copied by hand due to problems with
@@ -432,7 +438,7 @@ class LSLStreamWrapper(components.SerializableComponent):
         class_dict['lsl_cha_format'] = self.lsl_cha_format
         class_dict['lsl_uid'] = self.lsl_uid
         class_dict['lsl_source_id'] = self.lsl_source_id
-        class_dict['fs'] = self.fs
+        class_dict['lsl_fs'] = self.lsl_fs
         class_dict['hostname'] = self.hostname
         class_dict['lsl_stream_info_xml'] = self.lsl_stream_info_xml
         # Additional Medusa parameters
@@ -446,6 +452,7 @@ class LSLStreamWrapper(components.SerializableComponent):
         class_dict['selected_channels_idx'] = self.selected_channels_idx
         class_dict['n_cha'] = self.n_cha
         class_dict['l_cha'] = self.l_cha
+        class_dict['fs'] = self.fs
         return class_dict
 
     @classmethod
@@ -457,7 +464,7 @@ class LSLStreamWrapper(components.SerializableComponent):
                 type=dict_data['lsl_type'],
                 source_id=dict_data['lsl_source_id'],
                 channel_count=dict_data['lsl_n_cha'],
-                nominal_srate=dict_data['fs']
+                nominal_srate=dict_data['lsl_fs']
             )
         else:
             lsl_stream = get_lsl_streams(
@@ -467,7 +474,7 @@ class LSLStreamWrapper(components.SerializableComponent):
                 uid=dict_data['lsl_uid'],
                 source_id=dict_data['lsl_source_id'],
                 channel_count=dict_data['lsl_n_cha'],
-                nominal_srate=dict_data['fs']
+                nominal_srate=dict_data['lsl_fs']
             )
         # Create LSLWrapper
         clocksync = dict_data['lsl_proc_clocksync']
@@ -490,7 +497,8 @@ class LSLStreamWrapper(components.SerializableComponent):
             selected_channels_idx=dict_data['selected_channels_idx'],
             n_cha=dict_data['n_cha'],
             l_cha=dict_data['l_cha'],
-        )
+            fs=dict_data['fs'],
+            lsl_fs=dict_data['lsl_fs'])
         return instance
 
 
