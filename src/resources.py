@@ -475,10 +475,9 @@ class LSLStreamAppWorker(th.Thread):
         # Create data class
         if lsl_stream.medusa_type == 'EEG':
             times, signal = self.get_data()
-            channel_set = meeg.EEGChannelSet()
-            channel_set.set_standard_montage(
-                l_cha=self.receiver.l_cha,
-                allow_unlocated_channels=True)
+            channel_set, __ = (
+                lsl_utils.lsl_channel_info_to_eeg_channel_set(
+                self.receiver.info_cha))
             stream_data = meeg.EEG(
                 times=times,
                 signal=signal,

@@ -3,9 +3,11 @@ import time, socket
 import warnings
 
 import numpy as np
+
 # EXTERNAL MODULES
 import pylsl
 from medusa import components
+from medusa import meeg
 
 # MEDUSA MODULES
 import exceptions
@@ -713,3 +715,38 @@ class LSLStreamReceiver:
 
         def get_ms(self):
             return (time.time() - self.start_time) * 1000.0
+
+
+def lsl_channel_info_to_eeg_channel_set(channels_info,
+                                        allow_unlocated_channels=True,
+                                        discard_unlocated_channels=False):
+    """Function to convert the standard channels info dict to EEGChannelSet
+    Parameters
+    ----------
+    channels_info: dict
+        List of dictionaries describing the channels with the following keys:
+            - label: label of the channel in LSL protocol
+            - medusa_label: label of the channel in MEDUSA
+            - x: x coordinate
+            - y: y coordinate
+    """
+    # todo: set reference info and check channel dict
+    # Channel set from channel info dict
+    sel_cha = []
+    channel_set = meeg.EEGChannelSet()
+    for c, cha_info in enumerate(channels_info):
+        # Check
+        if not allow_unlocated_channels and cha_info['x_pos'] is None:
+            raise meeg.UnlocatedChannel(l_cha=cha_info['medusa_label'])
+        if discard_unlocated_channels and cha_info['x_pos'] is None:
+            continue
+        # Channel info
+        mds_cha_info = {
+            'label': cha_info['medusa_label'],
+            'x': cha_info['x_pos'],
+            'y': cha_info['y_pos']
+        }
+        channel_set.add_channel(channel=mds_cha_info,
+                                reference=None)
+        sel_cha.append(c)
+    return channel_set, sel_cha

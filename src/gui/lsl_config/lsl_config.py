@@ -567,12 +567,10 @@ class EditStreamDialog(QtWidgets.QDialog, ui_stream_config_dialog):
             channel_selection.close_signal.connect(self.config_finished)
             channel_selection.exec_()
 
-    def config_finished(self,data):
+    def config_finished(self, data):
         # Update LSL cha info
         self.cha_info = data
-
         self.update_channels_table()
-
 
     def on_read_channels_info(self):
         current_desc_field = \
@@ -772,3 +770,4 @@ class EditStreamDialog(QtWidgets.QDialog, ui_stream_config_dialog):
     def handle_exception(self, ex):
         traceback.print_exc()
         dialogs.error_dialog(str(ex), ex.__class__.__name__, self.theme_colors)
+

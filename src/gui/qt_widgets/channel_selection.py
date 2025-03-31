@@ -33,7 +33,6 @@ class GeneralChannelSelection(QDialog):
        selection widget."""
     def __init__(self, cha_field,lsl_cha_info, ui_file):
         super().__init__()
-        self
         self.ui = ui_file()
         self.ui.setupUi(self)
         # Initialize the gui application
@@ -268,6 +267,7 @@ class LSLGeneralChannelSelection(GeneralChannelSelection):
 
 
 class LSLEEGChannelSelection(GeneralChannelSelection):
+
     close_signal = Signal(object)
 
     def __init__(self,cha_field,lsl_cha_info):
@@ -550,11 +550,10 @@ class LSLEEGChannelSelection(GeneralChannelSelection):
                        else:
                            msg_error = "The json file must include for all " \
                                        "channels the following labels: " \
-                                       "“medusa_label”, ‘selected’, “x_pos” " \
-                                       "and ‘y_pos’."
+                                       "“medusa_label”, “selected”, “x_pos” " \
+                                       "and “y_pos”."
                            self.show_warning(msg_error)
                            return
-
 
             else:
                 msg_error = "The json file is empty."
@@ -595,6 +594,7 @@ class LSLEEGChannelSelection(GeneralChannelSelection):
             self.table_keys = []
             self.ch_checkboxs = []
             self.init_table()
+
     def closeEvent(self, event):
         """ Overrides the closeEvent in order to show the confirmation dialog.
         """

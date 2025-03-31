@@ -148,6 +148,7 @@ class TopographyPlot(RealTimePlot):
         super().__init__(uid, plot_state, medusa_interface, theme_colors)
         # Graph variables
         self.channel_set = None
+        self.sel_channels = None
         self.win_s = None
         self.interp_p = None
         self.cmap = None
@@ -241,11 +242,11 @@ class TopographyPlot(RealTimePlot):
         return self.time_in_graph.copy(), self.sig_in_graph.copy()
 
     def init_plot(self):
-        # Create widget
-        self.channel_set = meeg.EEGChannelSet()
-        self.channel_set.set_standard_montage(
-            l_cha=self.lsl_stream_info.l_cha,
-            montage=self.visualization_settings['channel_standard'])
+        # Create channel set
+        self.channel_set, self.sel_channels = (
+            lsl_utils.lsl_channel_info_to_eeg_channel_set(
+            self.lsl_stream_info.cha_info,
+            discard_unlocated_channels=True))
         # Initialize
         self.topo_plot = head_plots.TopographicPlot(
             axes=self.widget.figure.axes[0],
@@ -268,12 +269,13 @@ class TopographyPlot(RealTimePlot):
         self.win_s = int(self.signal_settings['psd']['time_window'] * self.fs)
         # Update view box menu
         self.time_in_graph = np.zeros(1)
-        self.sig_in_graph = np.zeros([1, self.lsl_stream_info.n_cha])
+        self.sig_in_graph = np.zeros([1, len(self.sel_channels)])
 
     def update_plot(self, chunk_times, chunk_signal):
         try:
             # print('Chunk received at: %.6f' % time.time())
             # Append new data and get safe copy
+            chunk_signal = chunk_signal[:, self.sel_channels]
             x_in_graph, sig_in_graph = \
                 self.append_data(chunk_times, chunk_signal)
             # Compute PSD
@@ -317,6 +319,7 @@ class ConnectivityPlot(RealTimePlot):
         super().__init__(uid, plot_state, medusa_interface, theme_colors)
         # Graph variables
         self.channel_set = None
+        self.sel_channels = None
         self.win_s = None
         self.interp_p = None
         self.cmap = None
@@ -415,11 +418,11 @@ class ConnectivityPlot(RealTimePlot):
         return self.time_in_graph.copy(), self.sig_in_graph.copy()
 
     def init_plot(self):
-        # Create widget
-        self.channel_set = meeg.EEGChannelSet()
-        self.channel_set.set_standard_montage(
-            l_cha=self.lsl_stream_info.l_cha,
-            montage=self.visualization_settings['channel_standard'])
+        # Create channel set
+        self.channel_set, self.sel_channels = (
+            lsl_utils.lsl_channel_info_to_eeg_channel_set(
+                self.lsl_stream_info.cha_info,
+                discard_unlocated_channels=True))
         # Initialize
         self.conn_plot = head_plots.ConnectivityPlot(
             axes=self.widget.figure.axes[0],
@@ -440,7 +443,7 @@ class ConnectivityPlot(RealTimePlot):
             self.signal_settings['connectivity']['time_window'] * self.fs)
         # Update view box menu
         self.time_in_graph = np.zeros(1)
-        self.sig_in_graph = np.zeros([1, self.lsl_stream_info.n_cha])
+        self.sig_in_graph = np.zeros([1, len(self.sel_channels)])
         if self.signal_settings['connectivity']['conn_metric'] == 'aec':
             self.clim = [-1, 1]
         else:
@@ -449,6 +452,7 @@ class ConnectivityPlot(RealTimePlot):
     def update_plot(self, chunk_times, chunk_signal):
         try:
             # Append new data and get safe copy
+            chunk_signal = chunk_signal[:, self.sel_channels]
             x_in_graph, sig_in_graph = \
                 self.append_data(chunk_times, chunk_signal)
             # Compute connectivity
