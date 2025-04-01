@@ -503,21 +503,24 @@ class SpectrogramPlot(RealTimePlot):
         # Internal variables
         self.win_t = None
         self.win_s = None
+        self.win_t_spec = None
+        self.win_s_spec = None
         self.time_in_graph = None
         self.sig_in_graph = None
 
         # Spectrogram-specific handles
         self.ax = None         # Matplotlib axes
         self.im = None         # The image (imshow) handle
-        self.spectrogram_plot = None
 
         # Create figure & widget
         fig = Figure()
         fig.add_subplot(111)
         fig.tight_layout()
         fig.patch.set_color(self.theme_colors['THEME_BG_DARK'])
+        fig.subplots_adjust(left=0.03, right=0.995, top=0.99, bottom=0.03)
         self.widget = FigureCanvasQTAgg(fig)
         self.widget.figure.set_size_inches(0, 0)
+        self.widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
         # Custom menu
         self.plot_menu = None
@@ -594,7 +597,7 @@ class SpectrogramPlot(RealTimePlot):
                 'order': 5
             },
             'notch_filter': {
-                'apply': True,
+                'apply': False,
                 'freq': 50,
                 'bandwidth': [-0.5, 0.5],
                 'order': 5
@@ -608,12 +611,14 @@ class SpectrogramPlot(RealTimePlot):
                 'apply': False,
                 'factor': 2
             },
-            # Spectrogram-related parameters
             'spectrogram': {
                 'time_window': 5,        # seconds of data kept in the buffer
-                'window': 'hann',        # type of window function
-                'overlap_pct': 50,       # overlap as % of segment length
-                'scaling': 'psd',        # 'psd' or 'magnitude'
+                'overlap_pct': 75,       # overlap as % of segment length
+                'scale_to': 'psd',       # 'psd' or 'magnitude'
+                'smooth': True,
+                'smooth_sigma': 2,
+                'apply_detrend': True,
+                'apply_normalization': True,
                 'log_power': True
             }
         }
@@ -622,16 +627,15 @@ class SpectrogramPlot(RealTimePlot):
         visualization_settings = {
             'mode': 'geek',
             'init_channel_label': None,
-            'title': 'Spectrogram',
             'display_grid': True,
             'x_axis': {
                 'seconds_displayed': 10,
-                'line_separation': 1,
+                'tick_separation': 1,
                 'label': '<b>Time</b> (s)'
             },
             'y_axis': {
-                'range': [0.1, 30],
-                'line_separation': 1,
+                'range': [0, 30],
+                'tick_separation': 5,
                 'label': '<b>Frequency</b> (Hz)'
             },
             'z_axis': {
@@ -650,11 +654,10 @@ class SpectrogramPlot(RealTimePlot):
         """ This function changes the channel used to compute the PSD displayed
         in the graph.
 
-        :param cha: sample frecuency in Hz
+        :param cha: sample frequency in Hz
         """
         self.curr_cha = cha
-        self.ax.set_title(f'{self.visualization_settings["title"]}. '
-                          f'Channel {self.lsl_stream_info.l_cha[cha]}',
+        self.ax.set_title(f'{self.lsl_stream_info.l_cha[cha]}',
                           color=self.theme_colors['THEME_TEXT_LIGHT'])
 
     def init_plot(self):
@@ -672,7 +675,8 @@ class SpectrogramPlot(RealTimePlot):
 
         # Spectrogram window
         self.win_t_spec = self.signal_settings['spectrogram']['time_window']
-        self.win_s_spec = int(self.signal_settings['spectrogram']['time_window'] * self.fs)
+        self.win_s_spec = (
+            int(self.signal_settings['spectrogram']['time_window'] * self.fs))
 
         # Initialize buffers
         self.time_in_graph = np.zeros(0)
@@ -685,8 +689,14 @@ class SpectrogramPlot(RealTimePlot):
 
         # Prepare a single axes for the spectrogram
         self.ax = self.widget.figure.axes[0]
-        self.ax.set_xlabel('Time (s)', color=self.theme_colors['THEME_TEXT_LIGHT'])
-        self.ax.set_ylabel('Frequency (Hz)', color=self.theme_colors['THEME_TEXT_LIGHT'])
+        self.ax.set_xlabel('Time (s)',
+                           color=self.theme_colors['THEME_TEXT_LIGHT'])
+        self.ax.set_ylabel('Frequency (Hz)',
+                           color=self.theme_colors['THEME_TEXT_LIGHT'])
+        self.ax.spines['left'].set_visible(False)
+        self.ax.spines['right'].set_visible(False)
+        self.ax.spines['top'].set_visible(False)
+        self.ax.spines['bottom'].set_visible(False)
 
         # Set initial channel
         init_cha_label = self.visualization_settings['init_channel_label']
@@ -704,20 +714,36 @@ class SpectrogramPlot(RealTimePlot):
             aspect='auto',
             origin='lower'
         )
-        # self.ax.set_xticks([])
-        # self.ax.set_yticks([])
+        self.im.set_extent((0, width, self.y_range[0], self.y_range[1]))
+        self.draw_y_axis_ticks()
+        self.ax.tick_params(axis='x', colors=self.theme_colors['THEME_TEXT_LIGHT'])
+        self.ax.tick_params(axis='y', colors=self.theme_colors['THEME_TEXT_LIGHT'])
         self.widget.draw()
 
     def draw_y_axis_ticks(self):
+        # Settings
+        display_grid = self.visualization_settings.get('display_grid', True)
+        tick_sep = self.visualization_settings[
+            'y_axis'].get('tick_separation', 1.0)
+        # Time ticks
+        y_ticks_pos = np.arange(self.y_range[0], self.y_range[1],
+                                step=tick_sep).tolist()
+        y_ticks_val = [f'{val:.1f}' for val in y_ticks_pos]
+        if display_grid:
+            self.ax.grid(True, color=self.theme_colors['THEME_TEXT_LIGHT'],
+                         linestyle='-', linewidth=0.5)
+        # Set limits, ticks, and labels
         self.ax.set_ylim(self.y_range[0], self.y_range[1])
+        self.ax.set_yticks(y_ticks_pos)
+        self.ax.set_yticklabels(y_ticks_val)
 
     def draw_x_axis_ticks(self):
         if len(self.time_in_graph) > 0:
             # Settings
             mode = self.visualization_settings.get('mode', 'geek')
             display_grid = self.visualization_settings.get('display_grid', True)
-            line_sep = self.visualization_settings[
-                'x_axis'].get('line_separation', 1.0)
+            tick_sep = self.visualization_settings[
+                'x_axis'].get('tick_separation', 1.0)
 
             if mode == 'geek':
                 # Set timestamps
@@ -725,12 +751,9 @@ class SpectrogramPlot(RealTimePlot):
                 # Range
                 x_range = (x[0], x[-1])
                 # Time ticks
-                x_ticks_pos = []
-                x_ticks_val = []
-                if display_grid:
-                    x_ticks_pos = np.arange(x[0], x[-1], step=line_sep).tolist()
-                    x_ticks_val = [f'{val:.1f}' for val in x_ticks_pos]
-                    # Set limits, ticks, and labels
+                x_ticks_pos = np.arange(x[0], x[-1], step=tick_sep).tolist()
+                x_ticks_val = [f'{val:.1f}' for val in x_ticks_pos]
+                # Set limits, ticks, and labels
                 self.ax.set_xlim(x_range[0], x_range[1])
                 self.ax.set_xticks(x_ticks_pos)
                 self.ax.set_xticklabels(x_ticks_val)
@@ -747,7 +770,8 @@ class SpectrogramPlot(RealTimePlot):
                 if self.visualization_settings['x_axis']['display_grid']:
                     step = self.visualization_settings[
                         'x_axis']['line_separation']
-                    x_ticks_pos = np.arange(x[0], x[-1], step=step).tolist()
+                    x_ticks_pos = np.arange(x[0], x[-1]+1e-12,
+                                            step=step).tolist()
                     x_ticks_val = ['' for v in x_ticks_pos]
                 # Add pointer tick
                 x_ticks_pos.append(x[self.pointer])
@@ -758,8 +782,10 @@ class SpectrogramPlot(RealTimePlot):
                 self.ax.set_xticklabels(x_ticks_val)
             else:
                 raise ValueError
-            # If you want to show or hide the grid:
-            self.ax.grid(display_grid, linestyle='--', alpha=0.6)
+
+            if display_grid:
+                self.ax.grid(True, color=self.theme_colors['THEME_TEXT_LIGHT'],
+                             linestyle='-', linewidth=2)
         else:
             self.ax.set_xticks([])
             self.ax.set_xlim(0, 0)
@@ -858,11 +884,15 @@ class SpectrogramPlot(RealTimePlot):
                 sig_in_graph[:, 0], self.fs,
                 time_window=time_window,
                 overlap_pct=self.signal_settings['spectrogram']['overlap_pct'],
-                smooth=True,
-                smooth_sigma=2,
-                apply_detrend=True,
-                apply_normalization=True,
-                scale_to=self.signal_settings['spectrogram']['scaling'])
+                smooth=self.signal_settings['spectrogram'][
+                    'smooth'],
+                smooth_sigma=self.signal_settings['spectrogram'][
+                    'smooth_sigma'],
+                apply_detrend=self.signal_settings['spectrogram'][
+                    'apply_detrend'],
+                apply_normalization=self.signal_settings['spectrogram'][
+                    'apply_normalization'],
+                scale_to=self.signal_settings['spectrogram']['scale_to'])
 
             # Optionally convert to log scale
             if self.signal_settings['spectrogram']['log_power']:
@@ -870,8 +900,10 @@ class SpectrogramPlot(RealTimePlot):
 
             # Update the image
             self.im.set_data(spec)
-            self.im.set_extent([t_in_graph[0], t_in_graph[-1],
-                                self.y_range[0], self.y_range[1]])
+            self.im.set_extent([t_in_graph[0], t_in_graph[-1], f[0], f[-1]])
+
+            self.draw_x_axis_ticks()
+            self.draw_y_axis_ticks()
 
             # Set color limits if desired
             if self.visualization_settings['z_axis']['clim'] is not None:
