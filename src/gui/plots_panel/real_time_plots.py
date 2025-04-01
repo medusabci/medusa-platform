@@ -517,7 +517,6 @@ class SpectrogramPlot(RealTimePlot):
         fig.add_subplot(111)
         fig.tight_layout()
         fig.patch.set_color(self.theme_colors['THEME_BG_DARK'])
-        fig.subplots_adjust(left=0.03, right=0.995, top=0.99, bottom=0.03)
         self.widget = FigureCanvasQTAgg(fig)
         self.widget.figure.set_size_inches(0, 0)
         self.widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
@@ -612,8 +611,8 @@ class SpectrogramPlot(RealTimePlot):
                 'factor': 2
             },
             'spectrogram': {
-                'time_window': 5,        # seconds of data kept in the buffer
-                'overlap_pct': 75,       # overlap as % of segment length
+                'time_window': 3,        # seconds of data kept in the buffer
+                'overlap_pct': 90,       # overlap as % of segment length
                 'scale_to': 'psd',       # 'psd' or 'magnitude'
                 'smooth': True,
                 'smooth_sigma': 2,
@@ -627,20 +626,31 @@ class SpectrogramPlot(RealTimePlot):
         visualization_settings = {
             'mode': 'geek',
             'init_channel_label': None,
-            'display_grid': True,
+            'display_grid': False,
+            'title_label_size': 10,
             'x_axis': {
-                'seconds_displayed': 10,
+                'seconds_displayed': 20,
                 'tick_separation': 1,
-                'label': '<b>Time</b> (s)'
+                'tick_label_size': 8,
+                'label': '<b>Time</b> (s)',
+                'label_size': 8
             },
             'y_axis': {
                 'range': [0, 30],
                 'tick_separation': 5,
-                'label': '<b>Frequency</b> (Hz)'
+                'tick_label_size': 8,
+                'label': '<b>Frequency</b> (Hz)',
+                'label_size': 8
             },
             'z_axis': {
                 'cmap': 'inferno',
                 'clim': None,   # None or (min, max)
+            },
+            'plot_adjustment': {
+                'left': 0.03,
+                'right': 0.995,
+                'top': 0.94,
+                'bottom': 0.1
             }
         }
         return signal_settings, visualization_settings
@@ -657,8 +667,10 @@ class SpectrogramPlot(RealTimePlot):
         :param cha: sample frequency in Hz
         """
         self.curr_cha = cha
-        self.ax.set_title(f'{self.lsl_stream_info.l_cha[cha]}',
-                          color=self.theme_colors['THEME_TEXT_LIGHT'])
+        self.ax.set_title(
+            f'{self.lsl_stream_info.l_cha[cha]}',
+            color=self.theme_colors['THEME_TEXT_LIGHT'],
+            fontsize=self.visualization_settings['title_label_size'])
 
     def init_plot(self):
         """
@@ -689,14 +701,21 @@ class SpectrogramPlot(RealTimePlot):
 
         # Prepare a single axes for the spectrogram
         self.ax = self.widget.figure.axes[0]
-        self.ax.set_xlabel('Time (s)',
-                           color=self.theme_colors['THEME_TEXT_LIGHT'])
-        self.ax.set_ylabel('Frequency (Hz)',
-                           color=self.theme_colors['THEME_TEXT_LIGHT'])
+        self.ax.set_xlabel(
+            'Time (s)', color=self.theme_colors['THEME_TEXT_LIGHT'],
+            fontsize=self.visualization_settings['y_axis']['label_size'])
+        self.ax.set_ylabel(
+            'Frequency (Hz)', color=self.theme_colors['THEME_TEXT_LIGHT'],
+            fontsize=self.visualization_settings['y_axis']['label_size'])
         self.ax.spines['left'].set_visible(False)
         self.ax.spines['right'].set_visible(False)
         self.ax.spines['top'].set_visible(False)
         self.ax.spines['bottom'].set_visible(False)
+        self.widget.figure.subplots_adjust(
+            left=self.visualization_settings['plot_adjustment']['left'],
+            right=self.visualization_settings['plot_adjustment']['right'],
+            top=self.visualization_settings['plot_adjustment']['top'],
+            bottom=self.visualization_settings['plot_adjustment']['bottom'])
 
         # Set initial channel
         init_cha_label = self.visualization_settings['init_channel_label']
@@ -716,8 +735,12 @@ class SpectrogramPlot(RealTimePlot):
         )
         self.im.set_extent((0, width, self.y_range[0], self.y_range[1]))
         self.draw_y_axis_ticks()
-        self.ax.tick_params(axis='x', colors=self.theme_colors['THEME_TEXT_LIGHT'])
-        self.ax.tick_params(axis='y', colors=self.theme_colors['THEME_TEXT_LIGHT'])
+        self.ax.tick_params(
+            axis='x', colors=self.theme_colors['THEME_TEXT_LIGHT'],
+            labelsize=self.visualization_settings['x_axis']['tick_label_size'])
+        self.ax.tick_params(
+            axis='y', colors=self.theme_colors['THEME_TEXT_LIGHT'],
+            labelsize=self.visualization_settings['y_axis']['tick_label_size'])
         self.widget.draw()
 
     def draw_y_axis_ticks(self):
@@ -726,7 +749,7 @@ class SpectrogramPlot(RealTimePlot):
         tick_sep = self.visualization_settings[
             'y_axis'].get('tick_separation', 1.0)
         # Time ticks
-        y_ticks_pos = np.arange(self.y_range[0], self.y_range[1],
+        y_ticks_pos = np.arange(self.y_range[0], self.y_range[1]+1e-12,
                                 step=tick_sep).tolist()
         y_ticks_val = [f'{val:.1f}' for val in y_ticks_pos]
         if display_grid:
@@ -770,8 +793,7 @@ class SpectrogramPlot(RealTimePlot):
                 if self.visualization_settings['x_axis']['display_grid']:
                     step = self.visualization_settings[
                         'x_axis']['line_separation']
-                    x_ticks_pos = np.arange(x[0], x[-1]+1e-12,
-                                            step=step).tolist()
+                    x_ticks_pos = np.arange(x[0], x[-1], step=step).tolist()
                     x_ticks_val = ['' for v in x_ticks_pos]
                 # Add pointer tick
                 x_ticks_pos.append(x[self.pointer])
@@ -881,7 +903,7 @@ class SpectrogramPlot(RealTimePlot):
 
             # Compute spectrogram
             spec, t, f = fourier_spectrogram(
-                sig_in_graph[:, 0], self.fs,
+                sig_in_graph[:, self.curr_cha], self.fs,
                 time_window=time_window,
                 overlap_pct=self.signal_settings['spectrogram']['overlap_pct'],
                 smooth=self.signal_settings['spectrogram'][
