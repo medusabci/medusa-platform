@@ -48,7 +48,7 @@ def select_entry_combobox_with_data(combobox, entry_data, force_selection=False,
 
 
 # --------------------------- COLOR CONVERSION ------------------------------- #
-def hex_to_rgb(hex):
+def hex_to_rgb(hex, scale=False):
     """ Converts an hexadecimal color string to a RGB tuple.
 
     Parameters
@@ -63,10 +63,13 @@ def hex_to_rgb(hex):
     """
     hex = hex.lstrip('#')
     lv = len(hex)
-    return tuple(int(hex[i:i + lv // 3], 16) for i in range(0, lv, lv // 3))
+    rgb_tuple = tuple(int(hex[i:i + lv // 3], 16) for i in range(0, lv, lv // 3))
+    if scale:
+        rgb_tuple = [c/255 for c in rgb_tuple]
+    return rgb_tuple
 
 
-def rgb_to_hex(color):
+def rgb_to_hex(rgb_tuple, scaled=False):
     """ Converts a RGB/RGBA color into a hexadecimal string
 
         Parameters
@@ -79,6 +82,8 @@ def rgb_to_hex(color):
         hex: string
             Hexadecimal RGB/RGBA string (e.g., '#AABBCC' or '#AABBCCFF').
     """
+    if scaled:
+        rgb_tuple = [c + 255 for c in rgb_tuple]
     return ('#' + ''.join(['%02x' for i in range(len(color))])) % color
 
 
