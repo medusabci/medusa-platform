@@ -611,7 +611,7 @@ class SpectrogramPlot(RealTimePlot):
                 'factor': 2
             },
             'spectrogram': {
-                'time_window': 3,        # seconds of data kept in the buffer
+                'time_window': 5,        # seconds of data kept in the buffer
                 'overlap_pct': 90,       # overlap as % of segment length
                 'scale_to': 'psd',       # 'psd' or 'magnitude'
                 'smooth': True,
@@ -629,7 +629,7 @@ class SpectrogramPlot(RealTimePlot):
             'display_grid': False,
             'title_label_size': 10,
             'x_axis': {
-                'seconds_displayed': 20,
+                'seconds_displayed': 30,
                 'tick_separation': 1,
                 'tick_label_size': 8,
                 'label': '<b>Time</b> (s)',
@@ -731,8 +731,7 @@ class SpectrogramPlot(RealTimePlot):
         self.im = self.ax.imshow(
             solid_color,
             aspect='auto',
-            origin='lower'
-        )
+            origin='lower')
         self.im.set_extent((0, width, self.y_range[0], self.y_range[1]))
         self.draw_y_axis_ticks()
         self.ax.tick_params(
