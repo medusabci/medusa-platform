@@ -1,17 +1,15 @@
 # PYTHON MODULES
 import glob
-import sys
 import multiprocessing as mp
 import json, traceback
 import ctypes
-import threading
 import webbrowser
 import datetime
 
 # EXTERNAL MODULES
 from PySide6.QtGui import *
 
-# MEDUSA general
+# MEDUSA
 import resources, exceptions, accounts_manager, app_manager
 import updates_manager
 import utils

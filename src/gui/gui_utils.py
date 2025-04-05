@@ -13,6 +13,31 @@ from gui.themes import themes
 # ------------------------------- QT UTILS ----------------------------------- #
 def select_entry_combobox_with_text(combobox, entry_text, force_selection=False,
                                     throw_error=False, case_sensitive=True):
+    """
+    Selects an entry in a QComboBox based on its visible text.
+
+    Parameters
+    ----------
+    combobox : QComboBox
+        The combo box in which the entry will be selected.
+    entry_text : str
+        The visible text of the entry to be selected.
+    force_selection : bool, optional
+        If True and the entry is not found, selects the first entry by default. Default is False.
+    throw_error : bool, optional
+        If True and the entry is not found, raises a ValueError. Default is False.
+    case_sensitive : bool, optional
+        If True, the search is case-sensitive. Default is True.
+
+    Raises
+    ------
+    ValueError
+        If `throw_error` is True and the entry is not found.
+
+    Returns
+    -------
+    None
+    """
     index = combobox.findText(entry_text) if case_sensitive else \
         combobox.findText(entry_text, Qt.MatchFixedString)
     if index >= 0:
@@ -29,6 +54,32 @@ def select_entry_combobox_with_text(combobox, entry_text, force_selection=False,
 
 def select_entry_combobox_with_data(combobox, entry_data, force_selection=False,
                                     forced_selection=None, throw_error=False):
+    """
+    Selects an entry in a QComboBox based on its associated user data.
+
+    Parameters
+    ----------
+    combobox : QComboBox
+        The combo box in which the entry will be selected.
+    entry_data : Any
+        The user data of the entry to be selected.
+    force_selection : bool, optional
+        If True and the entry is not found, selects a fallback entry. Default is False.
+    forced_selection : Any, optional
+        User data to select if `entry_data` is not found and `force_selection` is True.
+        If not found or None, selects the first entry. Default is None.
+    throw_error : bool, optional
+        If True and the entry is not found, raises a ValueError. Default is False.
+
+    Raises
+    ------
+    ValueError
+        If `throw_error` is True and the entry is not found.
+
+    Returns
+    -------
+    None
+    """
     index = combobox.findData(entry_data)
     if index >= 0:
         combobox.setCurrentIndex(index)
@@ -45,6 +96,7 @@ def select_entry_combobox_with_data(combobox, entry_data, force_selection=False,
                 raise ValueError('Entry text not valid')
             else:
                 return
+
 
 
 # --------------------------- COLOR CONVERSION ------------------------------- #

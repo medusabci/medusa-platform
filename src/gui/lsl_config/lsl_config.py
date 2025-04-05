@@ -13,14 +13,14 @@ from gui.qt_widgets.notifications import NotificationStack
 from acquisition import lsl_utils
 import exceptions
 import constants
-from gui.qt_widgets.channel_selection import LSLEEGChannelSelection, \
-    LSLGeneralChannelSelection
+from gui.lsl_config.channel_selection_dialogs import (
+    LSLEEGChannelSelection, LSLGeneralChannelSelection)
 
 # Load the .ui files
 ui_main_dialog = loadUiType(
     'gui/ui_files/lsl_config_dialog.ui')[0]
 ui_stream_config_dialog = loadUiType(
-    'gui/ui_files/lsl_config_medusa_params_dialog_new.ui')[0]
+    'gui/ui_files/lsl_config_medusa_params_dialog.ui')[0]
 
 
 class LSLConfigDialog(QtWidgets.QDialog, ui_main_dialog):
@@ -644,17 +644,18 @@ class EditStreamDialog(QtWidgets.QDialog, ui_stream_config_dialog):
                     order = [ch_label, 'medusa_label', 'x_pos', 'y_pos','selected']
                     if 'x_pos' not in ch.keys():
                         ch['x_pos'] = None
+                    if 'y_pos' not in ch.keys():
                         ch['y_pos'] = None
-                        ch['selected'] = False
-
+                    if 'selected' not in ch.keys():
+                        ch['selected'] = True
                 else:
                     order = [ch_label, 'medusa_label', 'selected']
-                    if 'selected' not in ch.keys():
-                        ch['selected'] = False
                     if 'x_pos' in ch.keys():
                         del ch['x_pos']
+                    if 'y_pos' in ch.keys():
                         del ch['y_pos']
-
+                    if 'selected' not in ch.keys():
+                        ch['selected'] = True
 
                 ch_ro = {k: ch[k] for k in order if k in ch}
                 ch_ro.update({k: v for k, v in ch.items() if k not in order})
