@@ -139,7 +139,6 @@ class GeneralChannelSelection(QDialog):
 class LSLGeneralChannelSelection(GeneralChannelSelection):
     """This class allows you to control the GUI of the general channel
        selection widget."""
-
     close_signal = Signal(object)
     def __init__(self, cha_field,lsl_cha_info):
         super().__init__(cha_field=cha_field,
