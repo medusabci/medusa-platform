@@ -5,6 +5,7 @@ import json, traceback
 import ctypes
 import webbrowser
 import datetime
+import sys
 
 # EXTERNAL MODULES
 from PySide6.QtGui import *

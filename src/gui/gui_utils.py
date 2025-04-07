@@ -136,7 +136,7 @@ def rgb_to_hex(rgb_tuple, scaled=False):
     """
     if scaled:
         rgb_tuple = [c + 255 for c in rgb_tuple]
-    return ('#' + ''.join(['%02x' for i in range(len(color))])) % color
+    return ('#' + ''.join(['%02x' for i in range(len(rgb_tuple))])) % rgb_tuple
 
 
 def rgb_to_hsv(rgb):
