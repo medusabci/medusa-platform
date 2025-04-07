@@ -29,6 +29,7 @@ from medusa.transforms import power_spectral_density, fourier_spectrogram
 from medusa.local_activation import spectral_parameteres
 from medusa.connectivity import amplitude_connectivity, phase_connectivity
 from medusa.plots import head_plots
+from medusa import components
 
 
 class RealTimePlot(ABC):
@@ -59,9 +60,28 @@ class RealTimePlot(ABC):
 
     def set_settings(self, signal_settings, plot_settings):
         """Set settings dicts"""
+        signal_settings = self.to_key_value_dict(signal_settings)
+        plot_settings = self.to_key_value_dict(plot_settings)
         self.check_settings(signal_settings, plot_settings)
         self.signal_settings = signal_settings
         self.visualization_settings = plot_settings
+
+    def to_key_value_dict(self, signal_dict):
+        """Simply the TreeDict dictionary into a dictionary managing just keys and default values"""
+        key_value_dict = {}
+
+        for setting in signal_dict:
+            key = setting["key"]
+
+            if "items" in setting:
+                key_value_items = {}
+                for item in setting["items"]:
+                    key_value_items[item["key"]] = self.to_key_value_dict(item["items"]) if "items" in item else item["default_value"]
+                key_value_dict[key] = key_value_items
+            else:
+                key_value_dict[key] = setting["default_value"]
+
+        return key_value_dict
 
     def get_settings(self):
         """Create de default settings dict"""
@@ -105,7 +125,7 @@ class RealTimePlot(ABC):
 
     @staticmethod
     @abstractmethod
-    def get_default_settings():
+    def get_default_settings(stream_info=None):
         """Create de default settings dict"""
         raise NotImplemented
 
@@ -181,55 +201,57 @@ class TopographyPlot(RealTimePlot):
             return True
 
     @staticmethod
-    def get_default_settings():
-        signal_settings = {
-            'update_rate': 0.2,
-            'frequency_filter': {
-                'apply': True,
-                'type': 'highpass',
-                'cutoff_freq': [1],
-                'order': 5
-            },
-            'notch_filter': {
-                'apply': True,
-                'freq': 50,
-                'bandwidth': [-0.5, 0.5],
-                'order': 5
-            },
-            're_referencing': {
-                'apply': False,
-                'type': 'car',
-                'channel': ''
-            },
-            'downsampling': {
-                'apply': False,
-                'factor': 2
-            },
-            'psd': {
-                'time_window': 5,
-                'welch_overlap_pct': 25,
-                'welch_seg_len_pct': 50,
-                'power_range': [8, 13]
-            }
-        }
-        visualization_settings = {
-            'title': '<b>TopoPlot</b>',
-            'channel_standard': '10-05',
-            'head_radius': 1.0,
-            'head_line_width': 4.0,
-            'head_skin_color': "#E8BEAC",
-            'plot_channel_labels': False,
-            'plot_channel_points': True,
-            'channel_radius_size': None,
-            'interpolate': True,
-            'extra_radius': 0, 'interp_neighbors': 3,
-            'interp_points': 100,
-            'interp_contour_width': 0.8,
-            'cmap': "YlGnBu_r",
-            'clim': None,
-            'label_color': 'w'
-        }
-        return signal_settings, visualization_settings
+    def get_default_settings(stream_info=None):
+        signal_settings = components.TreeDict()
+        signal_settings.add_item("update_rate", default_value=0.2, info="Update rate (s) of the plot", value_range=[0, None])
+        freq_filt = signal_settings.add_item("frequency_filter")
+        freq_filt.add_item("apply", default_value=True, info="Apply IIR filter in real-time")
+        freq_filt.add_item("type", default_value="highpass", value_options=["highpass", "lowpass", "bandpass", "stopband"], info="Filter type")
+        freq_filt.add_item("cutoff_freq", default_value=[1], info="List with one cutoff for highpass/lowpass, two for bandpass/stopband")
+        freq_filt.add_item("order", default_value=5, info="Order of the filter (the higher, the greater computational cost)", value_range=[1, None])
+        notch_filt = signal_settings.add_item("notch_filter")
+        notch_filt.add_item("apply", default_value=True, info="Apply notch filter to get rid of power line interference")
+        notch_filt.add_item("freq", default_value=50.0, info="Center frequency to be filtered", value_range=[0, None])
+        notch_filt.add_item("bandwidth", default_value=[-0.5, 0.5], info="List with relative limits of center frequency")
+        notch_filt.add_item("order", default_value=5, info="Order of the filter (the higher, the greater computational cost)", value_range=[1, None])
+        re_ref = signal_settings.add_item("re_referencing")
+        re_ref.add_item("apply", default_value=False, info="Change the reference of your signals")
+        re_ref.add_item("type", default_value="car", value_options=["car", "channel"], info="Type of re-referencing: Common Average Reference or channel subtraction")
+        if stream_info is not None:
+            re_ref.add_item("channel", default_value=stream_info.l_cha[0], info="Channel label for re-referencing if channel is selected", value_options=stream_info.l_cha)
+        else:
+            re_ref.add_item("channel", default_value= "", info="Channel label for re-referencing if channel is selected")
+        down_samp= signal_settings.add_item("downsampling")
+        down_samp.add_item("apply", default_value=False, info="Reduce the sample rate of the incoming LSL stream")
+        down_samp.add_item("factor", default_value=2.0, info="Downsampling factor", value_range=[0, None])
+        psd = signal_settings.add_item("psd")
+        psd.add_item("time_window", default_value=5.0, info="Time (s) in which the PSD will be estimated", value_range=[0, None])
+        psd.add_item("welch_overlap_pct", default_value=25.0, info="Percentage of segment overlapping", value_range=[0, 100])
+        psd.add_item("welch_seg_len_pct", default_value=50.0, info="Percentage of the window that will be used", value_range=[0, 100])
+        psd.add_item("power_range", default_value=[8, 13], info="Frequency range of PSD")
+
+        visualization_settings = components.TreeDict()
+        visualization_settings.add_item("title", default_value="<b>TopoPlot</b>", info="Title for the plot")
+        visualization_settings.add_item("channel_standard", default_value="10-05", info="EEG channel standard", value_options=["10-20", "10-10", "10-05"])
+        visualization_settings.add_item("head_radius", default_value=1.0, info="Head radius", value_range=[0, 1])
+        visualization_settings.add_item("head_line_width", default_value=4.0, info="Line width for the head, ears and nose.", value_range=[0, None])
+        visualization_settings.add_item("head_skin_color", default_value="#E8BEAC", info="Head skin color")
+        visualization_settings.add_item("plot_channel_labels", default_value=False, info="Click to display the channel labels")
+        visualization_settings.add_item("plot_channel_points", default_value=True, info="Click to display channel points")
+        chan_radius_size = visualization_settings.add_item("channel_radius_size")
+        chan_radius_size.add_item("auto", default_value=True, info="Click for automatic channel radius computation")
+        chan_radius_size.add_item("value", default_value=0.0, info="Radius of the circle customized", value_range=[0, None])
+        visualization_settings.add_item("interpolate", default_value=True, info="Click for interpolation in the visualization to occur")
+        visualization_settings.add_item("extra_radius", default_value=0.29, info="Extra radius of the plot surface", value_range=[0, 1])
+        visualization_settings.add_item("interp_neighbors", default_value=3, info="Number of nearest neighbors for interpolation", value_range=[1, None])
+        visualization_settings.add_item("interp_points", default_value=100, info="Number of interpolation points", value_range=[0, None])
+        visualization_settings.add_item("interp_contour_width", default_value=0.8, info="Line width of the contour lines", value_range=[0,None])
+        visualization_settings.add_item("cmap", default_value="YlGnBu_r", info="Matplotlib colormap")
+        clim = visualization_settings.add_item("clim")
+        clim.add_item("auto", default_value=True, info="Click for automatic color bar limits computation")
+        clim.add_item("values", default_value=[0.0, 1.0], info="Max and min bar limits customized")
+        visualization_settings.add_item("label_color", default_value="w", info="Label color")
+        return signal_settings.tree, visualization_settings.tree
 
     @staticmethod
     def check_settings(signal_settings, plot_settings):
@@ -251,6 +273,14 @@ class TopographyPlot(RealTimePlot):
             self.lsl_stream_info.cha_info,
             discard_unlocated_channels=True))
         # Initialize
+        if self.visualization_settings['channel_radius_size']['auto']:
+            channel_radius_size = None
+        else:
+            channel_radius_size = self.visualization_settings['channel_radius_size']['value']
+        if self.visualization_settings['clim']['auto']:
+            clim = None
+        else:
+            clim = tuple(self.visualization_settings['clim']['values'])
         self.topo_plot = head_plots.TopographicPlot(
             axes=self.widget.figure.axes[0],
             channel_set=self.channel_set,
@@ -259,14 +289,14 @@ class TopographyPlot(RealTimePlot):
             head_skin_color=self.visualization_settings['head_skin_color'],
             plot_channel_labels=self.visualization_settings['plot_channel_labels'],
             plot_channel_points=self.visualization_settings['plot_channel_points'],
-            channel_radius_size=self.visualization_settings['channel_radius_size'],
+            channel_radius_size=channel_radius_size,
             interpolate=self.visualization_settings['interpolate'],
             extra_radius=self.visualization_settings['extra_radius'],
             interp_neighbors=self.visualization_settings['interp_neighbors'],
             interp_points=self.visualization_settings['interp_points'],
             interp_contour_width=self.visualization_settings['interp_contour_width'],
             cmap=self.visualization_settings['cmap'],
-            clim=self.visualization_settings['clim'],
+            clim=clim,
             label_color=self.visualization_settings['label_color'])
         # Signal processing
         self.win_s = int(self.signal_settings['psd']['time_window'] * self.fs)
@@ -353,52 +383,55 @@ class ConnectivityPlot(RealTimePlot):
             return True
 
     @staticmethod
-    def get_default_settings():
-        signal_settings = {
-            'update_rate': 0.2,
-            'frequency_filter': {
-                'apply': True,
-                'type': 'highpass',
-                'cutoff_freq': [1],
-                'order': 5
-            },
-            'notch_filter': {
-                'apply': True,
-                'freq': 50,
-                'bandwidth': [-0.5, 0.5],
-                'order': 5
-            },
-            're_referencing': {
-                'apply': False,
-                'type': 'car',
-                'channel': ''
-            },
-            'downsampling': {
-                'apply': False,
-                'factor': 2
-            },
-            'connectivity': {
-                'time_window': 2,
-                'conn_metric': 'aec',
-                'threshold': 50,
-                'band_range': [8, 13]
-            }
-        }
-        visualization_settings = {
-            'title': '<b>ConnectivityPlot</b>',
-            'channel_standard': '10-05',
-            'head_radius': 1.0,
-            'head_line_width': 4.0,
-            'head_skin_color': "#E8BEAC",
-            'plot_channel_labels': False,
-            'plot_channel_points': True,
-            'channel_radius_size': 0,
-            'percentile_th': 85,
-            'cmap': "RdBu",
-            'clim': None,
-            'label_color': 'w'
-        }
-        return signal_settings, visualization_settings
+    def get_default_settings(stream_info=None):
+        signal_settings = components.TreeDict()
+        signal_settings.add_item("update_rate", default_value=0.2, info="Update rate (s) of the plot", value_range=[0, None])
+        freq_filt = signal_settings.add_item("frequency_filter")
+        freq_filt.add_item("apply", default_value=True, info="Apply IIR filter in real-time")
+        freq_filt.add_item("type", default_value="highpass", value_options=["highpass", "lowpass", "bandpass", "stopband"], info="Filter type")
+        freq_filt.add_item("cutoff_freq", default_value=[1], info="List with one cutoff for highpass/lowpass, two for bandpass/stopband")
+        freq_filt.add_item("order", default_value=5, info="Order of the filter (the higher, the greater computational cost)", value_range=[1, None])
+        notch_filt = signal_settings.add_item("notch_filter")
+        notch_filt.add_item("apply", default_value=True, info="Apply notch filter to get rid of power line interference")
+        notch_filt.add_item("freq", default_value=50.0, info="Center frequency to be filtered", value_range=[0, None])
+        notch_filt.add_item("bandwidth", default_value=[-0.5, 0.5], info="List with relative limits of center frequency")
+        notch_filt.add_item("order", default_value=5, info="Order of the filter (the higher, the greater computational cost)", value_range=[1, None])
+        re_ref = signal_settings.add_item("re_referencing")
+        re_ref.add_item("apply", default_value=False, info="Change the reference of your signals")
+        re_ref.add_item("type", default_value="car", value_options=["car", "channel"], info="Type of re-referencing: Common Average Reference or channel subtraction")
+        if stream_info is not None:
+            re_ref.add_item("channel", default_value=stream_info.l_cha[0],
+                            info="Channel label for re-referencing if channel is selected",
+                            value_options=stream_info.l_cha)
+        else:
+            re_ref.add_item("channel", default_value="", info="Channel label for re-referencing if channel is selected")
+        down_samp= signal_settings.add_item("downsampling")
+        down_samp.add_item("apply", default_value=False, info="Reduce the sample rate of the incoming LSL stream")
+        down_samp.add_item("factor", default_value=2.0, info="Downsampling factor", value_range=[0, None])
+        connectivity = signal_settings.add_item("connectivity")
+        connectivity.add_item("time_window", default_value=2.0, info="Time (s) window size", value_range=[0, None])
+        connectivity.add_item("conn_metric", default_value="aec", info="Connectivity metric", value_options=['aec','plv','pli','wpli'])
+        connectivity.add_item("threshold", default_value=50.0, info="Threshold for connectivity", value_range=[0, None])
+        connectivity.add_item("band_range", default_value=[8, 13], info="Frequency band")
+
+        visualization_settings = components.TreeDict()
+        visualization_settings.add_item("title", default_value="<b>ConnectivityPlot</b>", info="Title for the plot")
+        visualization_settings.add_item("channel_standard", default_value="10-05", info="EEG channel standard", value_options=["10-20", "10-10", "10-05"])
+        visualization_settings.add_item("head_radius", default_value=1.0, info="Head radius", value_range=[0, 1])
+        visualization_settings.add_item("head_line_width", default_value=4.0, info="Line width for the head, ears and nose.", value_range=[0, None])
+        visualization_settings.add_item("head_skin_color", default_value="#E8BEAC", info="Head skin color")
+        visualization_settings.add_item("plot_channel_labels", default_value=False, info="Click to display the channel labels")
+        visualization_settings.add_item("plot_channel_points", default_value=True, info="Click to display channel points")
+        chan_radius_size = visualization_settings.add_item("channel_radius_size")
+        chan_radius_size.add_item("auto", default_value=False, info="Click for automatic channel radius computation")
+        chan_radius_size.add_item("value", default_value=0.0, info="Radius of the circle customized", value_range=[0, None])
+        visualization_settings.add_item("percentile_th", default_value=85.0, info="Value to establish a representation threshold")
+        visualization_settings.add_item("cmap", default_value="RdBu", info="Matplotlib colormap")
+        clim = visualization_settings.add_item("clim")
+        clim.add_item("auto", default_value=True, info="Click for automatic color bar limits computation")
+        clim.add_item("values", default_value=[0.0, 1.0], info="Max and min bar limits customized")
+        visualization_settings.add_item("label_color", default_value="w", info="Label color")
+        return signal_settings.tree, visualization_settings.tree
 
     @staticmethod
     def check_settings(signal_settings, plot_settings):
@@ -427,6 +460,14 @@ class ConnectivityPlot(RealTimePlot):
                 self.lsl_stream_info.cha_info,
                 discard_unlocated_channels=True))
         # Initialize
+        if self.visualization_settings['channel_radius_size']['auto']:
+            channel_radius_size = None
+        else:
+            channel_radius_size = self.visualization_settings['channel_radius_size']['value']
+        if self.visualization_settings['clim']['auto']:
+            clim = None
+        else:
+            clim = tuple(self.visualization_settings['clim']['values'])
         self.conn_plot = head_plots.ConnectivityPlot(
             axes=self.widget.figure.axes[0],
             channel_set=self.channel_set,
@@ -435,10 +476,10 @@ class ConnectivityPlot(RealTimePlot):
             head_skin_color=self.visualization_settings['head_skin_color'],
             plot_channel_labels=self.visualization_settings['plot_channel_labels'],
             plot_channel_points=self.visualization_settings['plot_channel_points'],
-            channel_radius_size=self.visualization_settings['channel_radius_size'],
+            channel_radius_size=channel_radius_size,
             percentile_th=self.visualization_settings['percentile_th'],
             cmap=self.visualization_settings['cmap'],
-            clim=self.visualization_settings['clim'],
+            clim=clim,
             label_color=self.visualization_settings['label_color'],
         )
         # Signal processing
@@ -581,79 +622,79 @@ class SpectrogramPlot(RealTimePlot):
         return True
 
     @staticmethod
-    def get_default_settings():
+    def get_default_settings(stream_info=None):
         """
         Returns a tuple: (signal_settings, visualization_settings).
         Adjust or rename keys to your needs.
         """
         # Basic signal-processing settings
-        signal_settings = {
-            'update_rate': 0.2,
-            'frequency_filter': {
-                'apply': True,
-                'type': 'highpass',
-                'cutoff_freq': [1],
-                'order': 5
-            },
-            'notch_filter': {
-                'apply': False,
-                'freq': 50,
-                'bandwidth': [-0.5, 0.5],
-                'order': 5
-            },
-            're_referencing': {
-                'apply': False,
-                'type': 'car',
-                'channel': ''
-            },
-            'downsampling': {
-                'apply': False,
-                'factor': 2
-            },
-            'spectrogram': {
-                'time_window': 5,        # seconds of data kept in the buffer
-                'overlap_pct': 90,       # overlap as % of segment length
-                'scale_to': 'psd',       # 'psd' or 'magnitude'
-                'smooth': True,
-                'smooth_sigma': 2,
-                'apply_detrend': True,
-                'apply_normalization': True,
-                'log_power': True
-            }
-        }
+        signal_settings = components.TreeDict()
+        signal_settings.add_item("update_rate", default_value=0.2, info="Update rate (s) of the plot", value_range=[0, None])
+        freq_filt = signal_settings.add_item("frequency_filter")
+        freq_filt.add_item("apply", default_value=True, info="Apply IIR filter in real-time")
+        freq_filt.add_item("type", default_value="highpass", value_options=["highpass", "lowpass", "bandpass", "stopband"], info="Filter type")
+        freq_filt.add_item("cutoff_freq", default_value=[1], info="List with one cutoff for highpass/lowpass, two for bandpass/stopband")
+        freq_filt.add_item("order", default_value=5, info="Order of the filter (the higher, the greater computational cost)", value_range=[1, None])
+        notch_filt = signal_settings.add_item("notch_filter")
+        notch_filt.add_item("apply", default_value=False, info="Apply notch filter to get rid of power line interference")
+        notch_filt.add_item("freq", default_value=50.0, info="Center frequency to be filtered", value_range=[0, None])
+        notch_filt.add_item("bandwidth", default_value=[-0.5, 0.5], info="List with relative limits of center frequency")
+        notch_filt.add_item("order", default_value=5, info="Order of the filter (the higher, the greater computational cost)", value_range=[1, None])
+        re_ref = signal_settings.add_item("re_referencing")
+        re_ref.add_item("apply", default_value=False, info="Change the reference of your signals")
+        re_ref.add_item("type", default_value="car", value_options=["car", "channel"], info="Type of re-referencing: Common Average Reference or channel subtraction")
+        if stream_info is not None:
+            re_ref.add_item("channel", default_value=stream_info.l_cha[0],
+                            info="Channel label for re-referencing if channel is selected",
+                            value_options=stream_info.l_cha)
+        else:
+            re_ref.add_item("channel", default_value="", info="Channel label for re-referencing if channel is selected")
+        down_samp= signal_settings.add_item("downsampling")
+        down_samp.add_item("apply", default_value=False, info="Reduce the sample rate of the incoming LSL stream")
+        down_samp.add_item("factor", default_value=2.0, info="Downsampling factor", value_range=[0, None])
+        spectrogram = signal_settings.add_item("spectrogram")
+        spectrogram.add_item("time_window", default_value=5.0, info="Time (s) of data kept in the buffer", value_range=[0, None])
+        spectrogram.add_item("overlap_pct", default_value=90.0, info="Overlap (%) of segment length", value_range=[0,100])
+        spectrogram.add_item("scale_to", default_value="psd", info="", value_options=["psd", "magnitude"])
+        spectrogram.add_item("smooth", default_value=True, info="")
+        spectrogram.add_item("smooth_sigma", default_value=2.0, info="", value_range=[0, None])
+        spectrogram.add_item("apply_detrend", default_value=True, info="")
+        spectrogram.add_item("apply_normalization", default_value=True, info="")
+        spectrogram.add_item("log_power", default_value=True, info="")
 
-        # Visualization settings
-        visualization_settings = {
-            'mode': 'geek',
-            'init_channel_label': None,
-            'display_grid': False,
-            'title_label_size': 10,
-            'x_axis': {
-                'seconds_displayed': 30,
-                'tick_separation': 1,
-                'tick_label_size': 8,
-                'label': '<b>Time</b> (s)',
-                'label_size': 8
-            },
-            'y_axis': {
-                'range': [0, 30],
-                'tick_separation': 5,
-                'tick_label_size': 8,
-                'label': '<b>Frequency</b> (Hz)',
-                'label_size': 8
-            },
-            'z_axis': {
-                'cmap': 'inferno',
-                'clim': None,   # None or (min, max)
-            },
-            'plot_adjustment': {
-                'left': 0.03,
-                'right': 0.995,
-                'top': 0.94,
-                'bottom': 0.1
-            }
-        }
-        return signal_settings, visualization_settings
+        visualization_settings = components.TreeDict()
+        visualization_settings.add_item("mode", default_value="geek", info="Determine how events are visualized. Clinical, update in sweeping manner. Geek, signal appears continuously.", value_options=["clinical", "geek"])
+        if stream_info is not None:
+            visualization_settings.add_item("init_channel_label", default_value=stream_info.l_cha[0],
+                                            info="Channel selected for visualization",
+                                            value_options=stream_info.l_cha)
+        else:
+            visualization_settings.add_item("init_channel_label", default_value="", info="Channel selected for visualization")
+        visualization_settings.add_item("display_grid", default_value=False, info="Visibility of the grid")
+        visualization_settings.add_item("title_label_size", default_value=10.0, info="Title label size", value_range=[0, None])
+        x_ax = visualization_settings.add_item("x_axis")
+        x_ax.add_item("seconds_displayed", default_value=30.0, info="The time range (s) displayed", value_range=[0, None])
+        x_ax.add_item("tick_separation", default_value=1.0, info="Tick separation", value_range=[0, None])
+        x_ax.add_item("tick_label_size", default_value=8.0, info="Tick label size", value_range=[0, None])
+        x_ax.add_item("label", default_value="<b>Time</b> (s)", info="Label for x-axis")
+        x_ax.add_item("label_size", default_value=8.0, info="Label size", value_range=[0, None])
+        y_ax = visualization_settings.add_item("y_axis")
+        y_ax.add_item("range", default_value=[0, 30], info="Range of y-axis")
+        y_ax.add_item("tick_separation", default_value=5.0, info="Tick separation", value_range=[0, None])
+        y_ax.add_item("tick_label_size", default_value=8.0, info="Tick label size", value_range=[0, None])
+        y_ax.add_item("label", default_value="<b>Frequency</b> (Hz)", info="Label for y-axis")
+        y_ax.add_item("label_size", default_value=8.0, info="Label size", value_range=[0, None])
+        z_ax = visualization_settings.add_item("z_axis")
+        z_ax.add_item("cmap", default_value="inferno", info="Matplotlib colormap")
+        clim = z_ax.add_item("clim")
+        clim.add_item("auto", default_value=True, info="Click for automatic color bar limits computation")
+        clim.add_item("values", default_value=[0.0, 1.0], info="Max and min bar limits customized")
+        plot_adj = visualization_settings.add_item("plot_adjustment")
+        plot_adj.add_item("left", default_value=0.03, info="", value_range=[0,None])
+        plot_adj.add_item("right", default_value=0.995, info="", value_range=[0, None])
+        plot_adj.add_item("top", default_value=0.94, info="", value_range=[0, None])
+        plot_adj.add_item("bottom", default_value=0.1, info="", value_range=[0, None])
+        return signal_settings.tree, visualization_settings.tree
 
     @staticmethod
     def check_settings(signal_settings, plot_settings):
@@ -719,9 +760,7 @@ class SpectrogramPlot(RealTimePlot):
 
         # Set initial channel
         init_cha_label = self.visualization_settings['init_channel_label']
-        init_cha = self.receiver.get_channel_indexes_from_labels(
-            init_cha_label) if \
-            init_cha_label is not None else 0
+        init_cha = self.worker.receiver.get_channel_indexes_from_labels(init_cha_label)
         self.select_channel(init_cha)
 
         # Display initial array
@@ -927,13 +966,12 @@ class SpectrogramPlot(RealTimePlot):
             self.draw_y_axis_ticks()
 
             # Set color limits if desired
-            if self.visualization_settings['z_axis']['clim'] is not None:
-                self.im.set_clim(
-                    self.visualization_settings['z_axis']['clim'][0],
-                    self.visualization_settings['z_axis']['clim'][1])
-            else:
-                # Or let matplotlib auto-scale:
+            if self.visualization_settings['z_axis']['clim']['auto']:
                 self.im.autoscale()
+            else:
+                self.im.set_clim(
+                    self.visualization_settings['z_axis']['clim']['values'][0],
+                    self.visualization_settings['z_axis']['clim']['values'][1])
 
             # Redraw only if widget has nonzero size
             width, height = self.widget.get_width_height()
@@ -1002,25 +1040,6 @@ class RealTimePlotPyQtGraph(RealTimePlot, ABC):
         self.widget.getAxis("bottom").setTickFont(fn)
         self.widget.getAxis("left").setTickFont(fn)
 
-    @staticmethod
-    def parse_cha_idx(s):
-        # Remove brackets and spaces
-        s = s.strip('[] ')
-        # Split by commas
-        parts = s.split(',')
-        result = []
-        for part in parts:
-            part = part.strip()
-            # Check for ranges (e.g., "1:3")
-            if ':' in part:
-                start, end = map(int, part.split(':'))
-                result.extend(range(start, end + 1))
-            else:
-                # Otherwise, it's a single number
-                result.append(int(part))
-        return result
-
-
 class TimePlotMultichannel(RealTimePlotPyQtGraph):
 
     def __init__(self, uid, plot_state, medusa_interface, theme_colors):
@@ -1086,56 +1105,56 @@ class TimePlotMultichannel(RealTimePlotPyQtGraph):
         self.draw_y_axis_ticks()
 
     @staticmethod
-    def get_default_settings():
-        signal_settings = {
-            'update_rate': 0.1,
-            'frequency_filter': {
-                'apply': True,
-                'type': 'highpass',
-                'cutoff_freq': [1],
-                'order': 5
-            },
-            'notch_filter': {
-                'apply': True,
-                'freq': 50,
-                'bandwidth': [-0.5, 0.5],
-                'order': 5
-            },
-            're_referencing': {
-                'apply': False,
-                'type': 'car',
-                'channel': ''
-            },
-            'downsampling': {
-                'apply': False,
-                'factor': 2
-            },
-        }
-        visualization_settings = {
-            'mode': 'clinical',
-            'cha_idx': 'all',
-            'x_axis': {
-                'seconds_displayed': 10,
-                'display_grid': True,
-                'line_separation': 1,
-                'label': '<b>Time</b> (s)'
-            },
-            'y_axis': {
-                'cha_separation': 1,
-                'display_grid': True,
-                'autoscale': {
-                    'apply': False,
-                    'n_std_tolerance': 1.25,
-                    'n_std_separation': 5,
-                },
-                'label': {
-                    'text': '<b>Signal</b>',
-                    'units': 'auto'
-                }
-            },
-            'title': 'auto',
-        }
-        return signal_settings, visualization_settings
+    def get_default_settings(stream_info=None):
+        signal_settings = components.TreeDict()
+        signal_settings.add_item("update_rate", default_value=0.1, info="Update rate (s) of the plot", value_range=[0, None])
+        freq_filt = signal_settings.add_item("frequency_filter")
+        freq_filt.add_item("apply", default_value=True, info="Apply IIR filter in real-time")
+        freq_filt.add_item("type", default_value="highpass", value_options=["highpass", "lowpass", "bandpass", "stopband"], info="Filter type")
+        freq_filt.add_item("cutoff_freq", default_value=[1], info="List with one cutoff for highpass/lowpass, two for bandpass/stopband")
+        freq_filt.add_item("order", default_value=5, info="Order of the filter (the higher, the greater computational cost)", value_range=[1, None])
+        notch_filt = signal_settings.add_item("notch_filter")
+        notch_filt.add_item("apply", default_value=True, info="Apply notch filter to get rid of power line interference")
+        notch_filt.add_item("freq", default_value=50.0, info="Center frequency to be filtered", value_range=[0, None])
+        notch_filt.add_item("bandwidth", default_value=[-0.5, 0.5], info="List with relative limits of center frequency")
+        notch_filt.add_item("order", default_value=5, info="Order of the filter (the higher, the greater computational cost)", value_range=[1, None])
+        re_ref = signal_settings.add_item("re_referencing")
+        re_ref.add_item("apply", default_value=False, info="Change the reference of your signals")
+        re_ref.add_item("type", default_value="car", value_options=["car", "channel"], info="Type of re-referencing: Common Average Reference or channel subtraction")
+        if stream_info is not None:
+            re_ref.add_item("channel", default_value=stream_info.l_cha[0],
+                            info="Channel label for re-referencing if channel is selected",
+                            value_options=stream_info.l_cha)
+        else:
+            re_ref.add_item("channel", default_value="", info="Channel label for re-referencing if channel is selected")
+        down_samp= signal_settings.add_item("downsampling")
+        down_samp.add_item("apply", default_value=False, info="Reduce the sample rate of the incoming LSL stream")
+        down_samp.add_item("factor", default_value=2.0, info="Downsampling factor", value_range=[0, None])
+
+        visualization_settings = components.TreeDict()
+        visualization_settings.add_item("mode", default_value="clinical", info="Determine how events are visualized. Clinical, update in sweeping manner. Geek, signal appears continuously.", value_options=["clinical", "geek"])
+        if stream_info is not None:
+            visualization_settings.add_item("l_cha", default_value=stream_info.l_cha,
+                                            info="List with labels of channels to be displayed")
+        else:
+            visualization_settings.add_item("l_cha", default_value=[], info="List with labels of channels to be displayed")
+        x_ax = visualization_settings.add_item("x_axis")
+        x_ax.add_item("seconds_displayed", default_value=10.0, info="The time range (s) displayed", value_range=[0, None])
+        x_ax.add_item("display_grid", default_value=True, info="Visibility of the grid")
+        x_ax.add_item("line_separation", default_value=1.0, info="Display grid's dimensions", value_range=[0, None])
+        x_ax.add_item("label", default_value="<b>Time</b> (s)", info="Label for x-axis")
+        y_ax = visualization_settings.add_item("y_axis")
+        y_ax.add_item("cha_separation", default_value=1.0, info="Initial limits of the y-axis", value_range=[0, None])
+        y_ax.add_item("display_grid", default_value=True, info="Visibility of the grid")
+        auto_scale = y_ax.add_item("autoscale")
+        auto_scale.add_item("apply", default_value=False, info="Automatically scale the y-axis")
+        auto_scale.add_item("n_std_tolerance", default_value=1.25, info="Autoscale limit: if the signal exceeds this value, the scale is re-adjusted", value_range=[0, None])
+        auto_scale.add_item("n_std_separation", default_value=5.0, info="Separation between channels (in std)", value_range=[0, None])
+        y_label = y_ax.add_item("label")
+        y_label.add_item("text", default_value="<b>Signal</b>", info="Label for y-axis")
+        y_label.add_item("units", default_value="auto", info="Units for y-axis")
+        visualization_settings.add_item("title", default_value="auto", info="Title for the plot")
+        return signal_settings.tree, visualization_settings.tree
 
     @staticmethod
     def check_settings(signal_settings, visualization_settings):
@@ -1144,18 +1163,6 @@ class TimePlotMultichannel(RealTimePlotPyQtGraph):
         if visualization_settings['mode'] not in possible_modes:
             raise ValueError('Unknown plot mode %s. Possible options: %s' %
                              (visualization_settings['mode'], possible_modes))
-        # Channels idx
-        if not isinstance(visualization_settings['cha_idx'], str):
-            raise ValueError('Parameter cha_idx must be a string')
-        if visualization_settings['cha_idx'] != 'all':
-            try:
-                RealTimePlotPyQtGraph.parse_cha_idx(
-                    visualization_settings['cha_idx'])
-            except Exception as e:
-                raise ValueError(
-                    'Parameter cha_idx must be either "all" or a list '
-                    'of the channels index that should be displayed '
-                    'using this format: "[1:3, 19, 21, 22:24]"')
 
     @staticmethod
     def check_signal(signal_type):
@@ -1168,18 +1175,12 @@ class TimePlotMultichannel(RealTimePlotPyQtGraph):
         # Set custom menu
         self.set_custom_menu()
         # Get channels
-        if self.visualization_settings['cha_idx'] == 'all':
-            self.cha_idx = np.arange(self.lsl_stream_info.n_cha).astype(int)
-            self.n_cha = len(self.cha_idx)
-            self.l_cha = [self.lsl_stream_info.l_cha[i] for i in self.cha_idx]
-        else:
-            self.cha_idx = self.parse_cha_idx(
-                self.visualization_settings['cha_idx'])
-            self.n_cha = len(self.cha_idx)
-            self.l_cha = [self.lsl_stream_info.l_cha[i] for i in self.cha_idx]
+        self.l_cha = self.visualization_settings['l_cha']
+        self.n_cha= len(self.l_cha)
+        self.cha_idx = [i for i, label in enumerate(self.lsl_stream_info.l_cha) if label in self.l_cha]
         # Update variables
         self.time_in_graph = np.zeros([0])
-        self.sig_in_graph = np.zeros([0, len(self.cha_idx)])
+        self.sig_in_graph = np.zeros([0, self.n_cha])
         self.cha_separation = \
             self.visualization_settings['y_axis']['cha_separation']
         self.win_t = self.visualization_settings['x_axis']['seconds_displayed']
@@ -1485,55 +1486,57 @@ class TimePlot(RealTimePlotPyQtGraph):
         self.draw_y_axis_ticks()
 
     @staticmethod
-    def get_default_settings():
-        signal_settings = {
-            'update_rate': 0.1,
-            'frequency_filter': {
-                'apply': True,
-                'type': 'highpass',
-                'cutoff_freq': [1],
-                'order': 5
-            },
-            'notch_filter': {
-                'apply': True,
-                'freq': 50,
-                'bandwidth': [-0.5, 0.5],
-                'order': 5
-            },
-            're_referencing': {
-                'apply': False,
-                'type': 'car',
-                'channel': ''
-            },
-            'downsampling': {
-                'apply': False,
-                'factor': 2
-            }
-        }
-        visualization_settings = {
-            'mode': 'clinical',
-            'init_channel_label': None,
-            'x_axis': {
-                'seconds_displayed': 10,
-                'display_grid': True,
-                'line_separation': 1,
-                'label': '<b>Time</b> (s)'
-            },
-            'y_axis': {
-                'range': [-1, 1],
-                'autoscale': {
-                    'apply': False,
-                    'n_std_tolerance': 1.25,
-                    'n_std_separation': 5,
-                },
-                'label': {
-                    'text': '<b>Signal</b>',
-                    'units': 'auto'
-                }
-            },
-            'title': 'auto',
-        }
-        return signal_settings, visualization_settings
+    def get_default_settings(stream_info=None):
+        signal_settings = components.TreeDict()
+        signal_settings.add_item("update_rate", default_value=0.1, info="Update rate (s) of the plot", value_range=[0, None])
+        freq_filt = signal_settings.add_item("frequency_filter")
+        freq_filt.add_item("apply", default_value=True, info="Apply IIR filter in real-time")
+        freq_filt.add_item("type", default_value="highpass", value_options=["highpass", "lowpass", "bandpass", "stopband"], info="Filter type")
+        freq_filt.add_item("cutoff_freq", default_value=[1], info="List with one cutoff for highpass/lowpass, two for bandpass/stopband")
+        freq_filt.add_item("order", default_value=5, info="Order of the filter (the higher, the greater computational cost)", value_range=[1, None])
+        notch_filt = signal_settings.add_item("notch_filter")
+        notch_filt.add_item("apply", default_value=True, info="Apply notch filter to get rid of power line interference")
+        notch_filt.add_item("freq", default_value=50.0, info="Center frequency to be filtered", value_range=[0, None])
+        notch_filt.add_item("bandwidth", default_value=[-0.5, 0.5], info="List with relative limits of center frequency")
+        notch_filt.add_item("order", default_value=5, info="Order of the filter (the higher, the greater computational cost)", value_range=[1, None])
+        re_ref = signal_settings.add_item("re_referencing")
+        re_ref.add_item("apply", default_value=False, info="Change the reference of your signals")
+        re_ref.add_item("type", default_value="car", value_options=["car", "channel"], info="Type of re-referencing: Common Average Reference or channel subtraction")
+        if stream_info is not None:
+            re_ref.add_item("channel", default_value=stream_info.l_cha[0],
+                            info="Channel label for re-referencing if channel is selected",
+                            value_options=stream_info.l_cha)
+        else:
+            re_ref.add_item("channel", default_value="", info="Channel label for re-referencing if channel is selected")
+        down_samp= signal_settings.add_item("downsampling")
+        down_samp.add_item("apply", default_value=False, info="Reduce the sample rate of the incoming LSL stream")
+        down_samp.add_item("factor", default_value=2.0, info="Downsampling factor", value_range=[0, None])
+
+        visualization_settings = components.TreeDict()
+        visualization_settings.add_item("mode", default_value="clinical", info="Determine how events are visualized. Clinical, update in sweeping manner. Geek, signal appears continuously.", value_options=["clinical", "geek"])
+        if stream_info is not None:
+            visualization_settings.add_item("init_channel_label", default_value=stream_info.l_cha[0],
+                                            info="Channel selected for visualization",
+                                            value_options=stream_info.l_cha)
+        else:
+            visualization_settings.add_item("init_channel_label", default_value="",
+                                            info="Channel selected for visualization")
+        x_ax = visualization_settings.add_item("x_axis")
+        x_ax.add_item("seconds_displayed", default_value=10.0, info="The time range (s) displayed", value_range=[0, None])
+        x_ax.add_item("display_grid", default_value=True, info="Visibility of the grid")
+        x_ax.add_item("line_separation", default_value=1.0, info="Display grid's dimensions", value_range=[0, None])
+        x_ax.add_item("label", default_value="<b>Time</b> (s)", info="Label for x-axis")
+        y_ax = visualization_settings.add_item("y_axis")
+        y_ax.add_item("range", default_value=[-1, 1], info="Range of y-axis")
+        auto_scale = y_ax.add_item("autoscale")
+        auto_scale.add_item("apply", default_value=False, info="Automatically scale the y-axis")
+        auto_scale.add_item("n_std_tolerance", default_value=1.25, info="Autoscale limit: if the signal exceeds this value, the scale is re-adjusted", value_range=[0, None])
+        auto_scale.add_item("n_std_separation", default_value=5.0, info="Separation between channels (in std)", value_range=[0, None])
+        y_label = y_ax.add_item("label")
+        y_label.add_item("text", default_value="<b>Signal</b>", info="Label for y-axis")
+        y_label.add_item("units", default_value="auto", info="Units for y-axis")
+        visualization_settings.add_item("title", default_value="auto", info="Title for the plot")
+        return signal_settings.tree, visualization_settings.tree
 
     @staticmethod
     def check_settings(signal_settings, visualization_settings):
@@ -1563,8 +1566,7 @@ class TimePlot(RealTimePlotPyQtGraph):
         self.set_custom_menu()
         self.plot_item_view_box.menu.set_channel_list()
         init_cha_label = self.visualization_settings['init_channel_label']
-        init_cha = self.worker.receiver.get_channel_indexes_from_labels(
-            init_cha_label) if init_cha_label is not None else 0
+        init_cha = self.worker.receiver.get_channel_indexes_from_labels(init_cha_label)
         self.select_channel(init_cha)
         # Update variables
         self.time_in_graph = np.zeros([0])
@@ -1832,60 +1834,60 @@ class PSDPlotMultichannel(RealTimePlotPyQtGraph):
         self.draw_y_axis_ticks()
 
     @staticmethod
-    def get_default_settings():
-        signal_settings = {
-            'update_rate': 0.1,
-            'frequency_filter': {
-                'apply': True,
-                'type': 'highpass',
-                'cutoff_freq': [1],
-                'order': 5
-            },
-            'notch_filter': {
-                'apply': True,
-                'freq': 50,
-                'bandwidth': [-0.5, 0.5],
-                'order': 5
-            },
-            're_referencing': {
-                'apply': False,
-                'type': 'car',
-                'channel': ''
-            },
-            'downsampling': {
-                'apply': False,
-                'factor': 2
-            },
-        }
-        visualization_settings = {
-            'cha_idx': 'all',
-            'x_axis': {
-                'range': [0.1, 30],
-                'display_grid': False,
-                'line_separation': 1,
-                'label': '<b>Frequency</b> (Hz)'
-            },
-            'y_axis': {
-                'cha_separation': 1,
-                'display_grid': True,
-                'autoscale': {
-                    'apply': True,
-                    'n_std_tolerance': 1.25,
-                    'n_std_separation': 5,
-                },
-                'label': {
-                    'text': '<b>Power</b>',
-                    'units': 'auto'
-                }
-            },
-            'psd': {
-                'time_window_seconds': 5,
-                'welch_overlap_pct': 25,
-                'welch_seg_len_pct': 50,
-            },
-            'title': 'auto',
-        }
-        return signal_settings, visualization_settings
+    def get_default_settings(stream_info=None):
+        signal_settings = components.TreeDict()
+        signal_settings.add_item("update_rate", default_value=0.1, info="Update rate (s) of the plot", value_range=[0, None])
+        freq_filt = signal_settings.add_item("frequency_filter")
+        freq_filt.add_item("apply", default_value=True, info="Apply IIR filter in real-time")
+        freq_filt.add_item("type", default_value="highpass", value_options=["highpass", "lowpass", "bandpass", "stopband"], info="Filter type")
+        freq_filt.add_item("cutoff_freq", default_value=[1], info="List with one cutoff for highpass/lowpass, two for bandpass/stopband")
+        freq_filt.add_item("order", default_value=5, info="Order of the filter (the higher, the greater computational cost)", value_range=[1, None])
+        notch_filt = signal_settings.add_item("notch_filter")
+        notch_filt.add_item("apply", default_value=True, info="Apply notch filter to get rid of power line interference")
+        notch_filt.add_item("freq", default_value=50.0, info="Center frequency to be filtered", value_range=[0, None])
+        notch_filt.add_item("bandwidth", default_value=[-0.5, 0.5], info="List with relative limits of center frequency")
+        notch_filt.add_item("order", default_value=5, info="Order of the filter (the higher, the greater computational cost)", value_range=[1, None])
+        re_ref = signal_settings.add_item("re_referencing")
+        re_ref.add_item("apply", default_value=False, info="Change the reference of your signals")
+        re_ref.add_item("type", default_value="car", value_options=["car", "channel"], info="Type of re-referencing: Common Average Reference or channel subtraction")
+        if stream_info is not None:
+            re_ref.add_item("channel", default_value=stream_info.l_cha[0],
+                            info="Channel label for re-referencing if channel is selected",
+                            value_options=stream_info.l_cha)
+        else:
+            re_ref.add_item("channel", default_value="", info="Channel label for re-referencing if channel is selected")
+        down_samp= signal_settings.add_item("downsampling")
+        down_samp.add_item("apply", default_value=False, info="Reduce the sample rate of the incoming LSL stream")
+        down_samp.add_item("factor", default_value=2.0, info="Downsampling factor", value_range=[0, None])
+
+        visualization_settings = components.TreeDict()
+        if stream_info is not None:
+            visualization_settings.add_item("l_cha", default_value=stream_info.l_cha,
+                                            info="List with labels of channels to be displayed")
+        else:
+            visualization_settings.add_item("l_cha", default_value=[],
+                                            info="List with labels of channels to be displayed")
+        x_ax = visualization_settings.add_item("x_axis")
+        x_ax.add_item("range", default_value=[0.1, 30], info="X-axis range")
+        x_ax.add_item("display_grid", default_value=False, info="Visibility of the grid")
+        x_ax.add_item("line_separation", default_value=1.0, info="Display grid's dimensions", value_range=[0, None])
+        x_ax.add_item("label", default_value="<b>Frequency</b> (Hz)", info="Label for x-axis")
+        y_ax = visualization_settings.add_item("y_axis")
+        y_ax.add_item("cha_separation", default_value=1.0, info="Initial limits of the y-axis", value_range=[0, None])
+        y_ax.add_item("display_grid", default_value=True, info="Visibility of the grid")
+        auto_scale = y_ax.add_item("autoscale")
+        auto_scale.add_item("apply", default_value=True, info="Automatically scale the y-axis")
+        auto_scale.add_item("n_std_tolerance", default_value=1.25, info="Autoscale limit: if the signal exceeds this value, the scale is re-adjusted", value_range=[0, None])
+        auto_scale.add_item("n_std_separation", default_value=5.0, info="Separation between channels (in std)", value_range=[0, None])
+        y_label = y_ax.add_item("label")
+        y_label.add_item("text", default_value="<b>Power</b>", info="Label for y-axis")
+        y_label.add_item("units", default_value="auto", info="Units for y-axis")
+        psd = visualization_settings.add_item("psd")
+        psd.add_item("time_window_seconds", default_value=5.0, info="Time (s) in which the PSD will be estimated", value_range=[0, None])
+        psd.add_item("welch_overlap_pct", default_value=25.0, info="Percentage of segment overlapping", value_range=[0, 100])
+        psd.add_item("welch_seg_len_pct", default_value=50.0, info="Percentage of the window that will be used", value_range=[0, 100])
+        visualization_settings.add_item("title", default_value="auto", info="Title for the plot")
+        return signal_settings.tree, visualization_settings.tree
 
     @staticmethod
     def check_settings(signal_settings, visualization_settings):
@@ -1893,18 +1895,6 @@ class PSDPlotMultichannel(RealTimePlotPyQtGraph):
         if isinstance(visualization_settings['y_axis']['cha_separation'], list):
             raise ValueError('Incorrect configuration. The channel separation'
                              'must be a number.')
-        # Channels idx
-        if not isinstance(visualization_settings['cha_idx'], str):
-            raise ValueError('Parameter cha_idx must be a string')
-        if visualization_settings['cha_idx'] != 'all':
-            try:
-                RealTimePlotPyQtGraph.parse_cha_idx(
-                    visualization_settings['cha_idx'])
-            except Exception as e:
-                raise ValueError(
-                    'Parameter cha_idx must be either "all" or a list '
-                    'of the channels index that should be displayed '
-                    'using this format: "[1:3, 19, 21, 22:24]"')
 
     @staticmethod
     def check_signal(signal_type):
@@ -1917,15 +1907,9 @@ class PSDPlotMultichannel(RealTimePlotPyQtGraph):
         # Set custom menu
         self.set_custom_menu()
         # Get channels
-        if self.visualization_settings['cha_idx'] == 'all':
-            self.cha_idx = np.arange(self.lsl_stream_info.n_cha).astype(int)
-            self.n_cha = len(self.cha_idx)
-            self.l_cha = [self.lsl_stream_info.l_cha[i] for i in self.cha_idx]
-        else:
-            self.cha_idx = self.parse_cha_idx(
-                self.visualization_settings['cha_idx'])
-            self.n_cha = len(self.cha_idx)
-            self.l_cha = [self.lsl_stream_info.l_cha[i] for i in self.cha_idx]
+        self.l_cha = self.visualization_settings['l_cha']
+        self.n_cha= len(self.l_cha)
+        self.cha_idx = [i for i, label in enumerate(self.lsl_stream_info.l_cha) if label in self.l_cha]
         # Update variables
         self.time_in_graph = np.zeros([0])
         self.sig_in_graph = np.zeros([0, self.n_cha])
@@ -2110,59 +2094,60 @@ class PSDPlot(RealTimePlotPyQtGraph):
         self.draw_y_axis_ticks()
 
     @staticmethod
-    def get_default_settings():
-        signal_settings = {
-            'update_rate': 0.1,
-            'frequency_filter': {
-                'apply': True,
-                'type': 'highpass',
-                'cutoff_freq': [1],
-                'order': 5
-            },
-            'notch_filter': {
-                'apply': True,
-                'freq': 50,
-                'bandwidth': [-0.5, 0.5],
-                'order': 5
-            },
-            're_referencing': {
-                'apply': False,
-                'type': 'car',
-                'channel': ''
-            },
-            'downsampling': {
-                'apply': False,
-                'factor': 2
-            }
-        }
-        visualization_settings = {
-            'init_channel_label': None,
-            'x_axis': {
-                'range': [0.1, 30],
-                'display_grid': False,
-                'line_separation': 1,
-                'label': '<b>Frequency</b> (Hz)'
-            },
-            'y_axis': {
-                'range': [0, 1],
-                'autoscale': {
-                    'apply': True,
-                    'n_std_tolerance': 1.25,
-                    'n_std_separation': 5,
-                },
-                'label': {
-                    'text': '<b>Power</b>',
-                    'units': 'auto'
-                }
-            },
-            'psd': {
-                'time_window_seconds': 5,
-                'welch_overlap_pct': 25,
-                'welch_seg_len_pct': 50,
-            },
-            'title': 'auto',
-        }
-        return signal_settings, visualization_settings
+    def get_default_settings(stream_info=None):
+        signal_settings = components.TreeDict()
+        signal_settings.add_item("update_rate", default_value=0.1, info="Update rate (s) of the plot", value_range=[0, None])
+        freq_filt = signal_settings.add_item("frequency_filter")
+        freq_filt.add_item("apply", default_value=True, info="Apply IIR filter in real-time")
+        freq_filt.add_item("type", default_value="highpass", value_options=["highpass", "lowpass", "bandpass", "stopband"], info="Filter type")
+        freq_filt.add_item("cutoff_freq", default_value=[1], info="List with one cutoff for highpass/lowpass, two for bandpass/stopband")
+        freq_filt.add_item("order", default_value=5, info="Order of the filter (the higher, the greater computational cost)", value_range=[1, None])
+        notch_filt = signal_settings.add_item("notch_filter")
+        notch_filt.add_item("apply", default_value=True, info="Apply notch filter to get rid of power line interference")
+        notch_filt.add_item("freq", default_value=50.0, info="Center frequency to be filtered", value_range=[0, None])
+        notch_filt.add_item("bandwidth", default_value=[-0.5, 0.5], info="List with relative limits of center frequency")
+        notch_filt.add_item("order", default_value=5, info="Order of the filter (the higher, the greater computational cost)", value_range=[1, None])
+        re_ref = signal_settings.add_item("re_referencing")
+        re_ref.add_item("apply", default_value=False, info="Change the reference of your signals")
+        re_ref.add_item("type", default_value="car", value_options=["car", "channel"], info="Type of re-referencing: Common Average Reference or channel subtraction")
+        if stream_info is not None:
+            re_ref.add_item("channel", default_value=stream_info.l_cha[0],
+                            info="Channel label for re-referencing if channel is selected",
+                            value_options=stream_info.l_cha)
+        else:
+            re_ref.add_item("channel", default_value="", info="Channel label for re-referencing if channel is selected")
+        down_samp= signal_settings.add_item("downsampling")
+        down_samp.add_item("apply", default_value=False, info="Reduce the sample rate of the incoming LSL stream")
+        down_samp.add_item("factor", default_value=2, info="Downsampling factor")
+
+        visualization_settings = components.TreeDict()
+        if stream_info is not None:
+            visualization_settings.add_item("init_channel_label", default_value=stream_info.l_cha[0],
+                                            info="Channel selected for visualization",
+                                            value_options=stream_info.l_cha)
+        else:
+            visualization_settings.add_item("init_channel_label", default_value="",
+                                            info="Channel selected for visualization")
+        x_ax = visualization_settings.add_item("x_axis")
+        x_ax.add_item("range", default_value=[0.1, 30], info="X-axis range")
+        x_ax.add_item("display_grid", default_value=False, info="Visibility of the grid")
+        x_ax.add_item("line_separation", default_value=1.0, info="Display grid's dimensions", value_range=[0, None])
+        x_ax.add_item("label", default_value="<b>Frequency</b> (Hz)", info="Label for x-axis")
+        y_ax = visualization_settings.add_item("y_axis")
+        y_ax.add_item("range", default_value=[0, 1], info="Y-axis range")
+        auto_scale = y_ax.add_item("autoscale")
+        auto_scale.add_item("apply", default_value=True, info="Automatically scale the y-axis")
+        auto_scale.add_item("n_std_tolerance", default_value=1.25, info="Autoscale limit: if the signal exceeds this value, the scale is re-adjusted", value_range=[0, None])
+        auto_scale.add_item("n_std_separation", default_value=5.0, info="Separation between channels (in std)", value_range=[0, None])
+        y_label = y_ax.add_item("label")
+        y_label.add_item("text", default_value="<b>Power</b>", info="Label for y-axis")
+        y_label.add_item("units", default_value="auto", info="Units for y-axis")
+        psd = visualization_settings.add_item("psd")
+        psd.add_item("time_window_seconds", default_value=5.0, info="Time (s) in which the PSD will be estimated", value_range=[0, None])
+        psd.add_item("welch_overlap_pct", default_value=25.0, info="Percentage of segment overlapping", value_range=[0, 100])
+        psd.add_item("welch_seg_len_pct", default_value=50.0, info="Percentage of the window that will be used", value_range=[0, 100])
+        visualization_settings.add_item("title", default_value="auto", info="Title for the plot")
+        return signal_settings.tree, visualization_settings.tree
 
     @staticmethod
     def check_settings(signal_settings, visualization_settings):
@@ -2190,9 +2175,7 @@ class PSDPlot(RealTimePlotPyQtGraph):
         # Update view box menu
         self.plot_item_view_box.menu.set_channel_list()
         init_cha_label = self.visualization_settings['init_channel_label']
-        init_cha = self.receiver.get_channel_indexes_from_labels(
-            init_cha_label) if \
-            init_cha_label is not None else 0
+        init_cha = self.worker.receiver.get_channel_indexes_from_labels(init_cha_label)
         self.select_channel(init_cha)
         # Update variables
         self.time_in_graph = np.zeros([0])
