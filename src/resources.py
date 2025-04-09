@@ -475,7 +475,7 @@ class LSLStreamAppWorker(th.Thread):
         # Create data class
         if lsl_stream.medusa_type == 'EEG':
             times, signal = self.get_data()
-            channel_set, __ = (
+            channel_set = (
                 lsl_utils.lsl_channel_info_to_eeg_channel_set(
                 self.receiver.info_cha))
             stream_data = meeg.EEG(

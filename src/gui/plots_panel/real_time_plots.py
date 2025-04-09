@@ -268,7 +268,7 @@ class TopographyPlot(RealTimePlot):
 
     def init_plot(self):
         # Create channel set
-        self.channel_set, self.sel_channels = (
+        self.channel_set = (
             lsl_utils.lsl_channel_info_to_eeg_channel_set(
             self.lsl_stream_info.cha_info,
             discard_unlocated_channels=True))
@@ -302,13 +302,12 @@ class TopographyPlot(RealTimePlot):
         self.win_s = int(self.signal_settings['psd']['time_window'] * self.fs)
         # Update view box menu
         self.time_in_graph = np.zeros(1)
-        self.sig_in_graph = np.zeros([1, len(self.sel_channels)])
+        self.sig_in_graph = np.zeros([1, self.channel_set.n_cha])
 
     def update_plot(self, chunk_times, chunk_signal):
         try:
             # print('Chunk received at: %.6f' % time.time())
             # Append new data and get safe copy
-            chunk_signal = chunk_signal[:, self.sel_channels]
             x_in_graph, sig_in_graph = \
                 self.append_data(chunk_times, chunk_signal)
             # Compute PSD
