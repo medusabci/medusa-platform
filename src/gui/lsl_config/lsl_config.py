@@ -11,6 +11,7 @@ from gui import gui_utils as gu
 from gui.qt_widgets import dialogs
 from gui.qt_widgets.notifications import NotificationStack
 from acquisition import lsl_utils
+from medusa.meeg import meeg_montages
 import exceptions
 import constants
 from gui.lsl_config.channel_selection_dialogs import (
@@ -642,10 +643,14 @@ class EditStreamDialog(QtWidgets.QDialog, ui_stream_config_dialog):
             for i, ch in enumerate(self.cha_info):
                 if self.comboBox_medusa_type.currentData() == 'EEG':
                     order = [ch_label, 'medusa_label', 'x_pos', 'y_pos','selected']
+                    eeg_1005_montage =  meeg_montages.get_standard_montage('10-05', '2D', 'cartesian')
                     if 'x_pos' not in ch.keys():
-                        ch['x_pos'] = None
-                    if 'y_pos' not in ch.keys():
-                        ch['y_pos'] = None
+                        if ch['label'] in eeg_1005_montage.keys():
+                            ch['x_pos'] = eeg_1005_montage[ch['label']]['x']
+                            ch['y_pos'] = eeg_1005_montage[ch['label']]['y']
+                        else:
+                            ch['x_pos'] = None
+                            ch['y_pos'] = None
                     if 'selected' not in ch.keys():
                         ch['selected'] = True
                 else:
