@@ -8,13 +8,15 @@ from medusa import components
 # MEDUSA MODULES
 import resources, exceptions
 import constants as mds_constants
+from medusa import meeg, emg, nirs, ecg
 # APP MODULES
 from . import app_constants
 from . import app_gui
 
 
 class App(resources.AppSkeleton):
-
+    """ Main class of the application. For detailed comments about all
+        functions, see the superclass code in resources module."""
     def __init__(self, app_info, app_settings, medusa_interface,
                  app_state, run_state, working_lsl_streams_info, rec_info):
         # Call superclass constructor
@@ -37,6 +39,8 @@ class App(resources.AppSkeleton):
                 ex.set_handled(True)
 
     def check_lsl_config(self, working_lsl_streams_info):
+        # This code is just for demonstration purposes, remove for app
+        # development.
         if len(working_lsl_streams_info) != 1:
             raise exceptions.IncorrectLSLConfig()
 
@@ -48,9 +52,6 @@ class App(resources.AppSkeleton):
         return list(self.lsl_workers.values())[0]
 
     def manager_thread_worker(self):
-        """If this thread raises an unhandled exception and is terminated,
-        the app cannot recover from the error. Thus the importance of unhandled
-        exceptions in this method is CRITICAL"""
         while not self.stop:
             # Get event. Check if the queue is empty to avoid blocking calls
             if not self.queue_from_gui.empty():
@@ -76,17 +77,20 @@ class App(resources.AppSkeleton):
         self.stop_working_threads()
         # 7 - Save recording
         file_path = self.get_file_path_from_rec_info()
+        rec_streams_info = self.get_rec_streams_info()
         if file_path is None:
             # Display save dialog to retrieve file_info
             self.save_file_dialog = resources.SaveFileDialog(
-                self.rec_info,
-                self.app_info['extension'])
+                rec_info=self.rec_info,
+                rec_streams_info=rec_streams_info,
+                app_ext=self.app_info['extension'],
+                allowed_formats=self.allowed_formats)
             self.save_file_dialog.accepted.connect(self.on_save_rec_accepted)
             self.save_file_dialog.rejected.connect(self.on_save_rec_rejected)
             qt_app.exec()
         else:
             # Save file automatically
-            self.save_recording(file_path)
+            self.save_recording(file_path, rec_streams_info)
         # 8 - Change app state to power off
         self.medusa_interface.app_state_changed(
             mds_constants.APP_STATE_OFF)
@@ -111,33 +115,36 @@ class App(resources.AppSkeleton):
     @exceptions.error_handler(scope='app')
     def on_save_rec_accepted(self):
         file_path, self.rec_info = self.save_file_dialog.get_rec_info()
-        self.save_recording(file_path)
+        rec_streams_info = self.save_file_dialog.get_rec_streams_info()
+        self.save_recording(file_path, rec_streams_info)
 
     @exceptions.error_handler(scope='app')
     def on_save_rec_rejected(self):
         pass
 
     @exceptions.error_handler(scope='app')
-    def save_recording(self, file_path):
-        # Experiment data
-        exp_data = components.CustomExperimentData(
-            **self.app_settings.to_serializable_obj()
-        )
-        # Signal
-        lsl_worker = self.get_lsl_worker()
-        signal = components.CustomBiosignal(
-            timestamps=lsl_worker.timestamps,
-            data=lsl_worker.data,
-            fs=lsl_worker.receiver.fs,
-            equipement=lsl_worker.receiver.name)
+    def save_recording(self, file_path, rec_streams_info):
         # Recording
         rec = components.Recording(
             subject_id=self.rec_info.pop('subject_id'),
             recording_id=self.rec_info.pop('rec_id'),
             date=time.strftime("%d-%m-%Y %H:%M", time.localtime()),
             **self.rec_info)
-        rec.add_biosignal(signal)
-        rec.add_experiment_data(exp_data)
+        # Experiment data
+        exp_data = components.CustomExperimentData(
+            **self.app_settings.to_serializable_obj())
+        rec.add_experiment_data(exp_data, 'exp_data')
+        # Streams data
+        for lsl_stream in self.lsl_streams_info:
+            if not rec_streams_info[lsl_stream.medusa_uid]['enabled']:
+                continue
+            # Get stream data class
+            lsl_worker = self.lsl_workers[lsl_stream.medusa_uid]
+            stream_data = lsl_worker.get_data_class()
+            # Save stream
+            att_key = rec_streams_info[lsl_stream.medusa_uid]['att-name']
+            rec.add_biosignal(stream_data, att_key)
+        # Save recording
         rec.save(file_path)
         # Print a message
         self.medusa_interface.log('Recording saved successfully')

@@ -1,22 +1,17 @@
 # PYTHON MODULES
 import glob
-import os, sys
 import multiprocessing as mp
 import json, traceback
 import ctypes
-import threading
 import webbrowser
 import datetime
-import pkg_resources
+import sys
 
 # EXTERNAL MODULES
-from PySide6.QtUiTools import loadUiType
-from PySide6.QtWidgets import *
-from PySide6.QtCore import *
 from PySide6.QtGui import *
 
-# MEDUSA general
-import constants, resources, exceptions, accounts_manager, app_manager
+# MEDUSA
+import resources, exceptions, accounts_manager, app_manager
 import updates_manager
 import utils
 from gui import gui_utils as gu
@@ -178,7 +173,6 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
             screen_size = screen.geometry().size()
             self.display_size[0] += screen_size.width()
             self.display_size[1] += screen_size.height()
-
         # Load gui config
         gui_config_file_path = self.accounts_manager.wrap_path(
             constants.GUI_CONFIG_FILE)
@@ -187,9 +181,10 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
                 self.gui_config = json.load(f)
                 # todo: check config file , it can be corrupted (e.g., missing
                 #  keys, incorrect values, etc)
-                gui_config_fielfs = ['width', 'height', 'position',
-                                     'splitter_ratio', 'splitter_2_ratio',
-                                     'maximized', 'study_mode', 'theme']
+                gui_config_fielfs = [
+                    'width', 'height', 'position', 'splitter_ratio',
+                    'splitter_2_ratio', 'maximized', 'study_mode', 'dev_mode',
+                    'theme']
                 if not all(name in self.gui_config
                            for name in gui_config_fielfs):
                     # Corrupted gui_config.json file
@@ -213,8 +208,9 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         self.gui_config['splitter_2_ratio'] = [0.28, 0.72]
         self.gui_config['maximized'] = False
         self.gui_config['screen_idx'] = 0
-        # Study mode
+        # Modes
         self.gui_config['study_mode'] = False
+        self.gui_config['dev_mode'] = False
         # Default theme
         self.gui_config['theme'] = 'dark'
 
@@ -444,23 +440,28 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
                         # Check uid
                         if not lsl_utils.check_if_medusa_uid_is_available(
                                 working_lsl_streams, lsl_stream.medusa_uid):
-                            error_dialog(
+                            ex = exceptions.IncorrectLSLConfig(
                                 'Incorrect LSL configuration with duplicated '
                                 'LSL stream UID %s. MEDUSA LSL UIDs must be '
                                 'unique. Please reconfigure LSL.' %
-                                lsl_stream.medusa_uid,
-                                'Incorrect MEDUSA LSL UID')
+                                lsl_stream.medusa_uid)
+                            self.handle_exception(ex, mode='dialog')
                             working_lsl_streams = list()
                             break
+                        # Check sample rate
+                        if lsl_stream.fs <= 0:
+                            self.print_log(
+                                f"Stream '{lsl_stream.lsl_name}': "
+                                "the sample rate is not defined. This may "
+                                "affect processing and timeouts that require a "
+                                "fixed sampling rate", style='warning')
                         working_lsl_streams.append(lsl_stream)
-                        self.print_log('Connected to LSL stream: %s' %
-                                       lsl_stream.medusa_uid)
+                        self.print_log(f"Stream '{lsl_stream.medusa_uid}': "
+                                       f"connected")
                     except exceptions.LSLStreamNotFound as e:
                         self.print_log('No match for LSL stream "%s"' %
                                        lsl_stream_info_dict['medusa_uid'],
                                        style='warning')
-                        # raise exceptions.MedusaException(
-                        #     e, scope='acquisition', importance='mild')
                         continue
                     except exceptions.UnspecificLSLStreamInfo as e:
                         self.print_log('%s. Disable weak LSL search to avoid '
@@ -495,6 +496,7 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
             self.medusa_interface,
             self.accounts_manager.wrap_path('apps'),
             self.gui_config['study_mode'],
+            self.gui_config['dev_mode'],
             self.theme_colors)
         # Connect signals
         self.apps_panel_widget.error_signal.connect(
@@ -597,6 +599,9 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
         # Developer tools
         self.menuAction_dev_tutorial.triggered.connect(
             self.open_dev_tutorial)
+        self.menuAction_dev_mode.triggered.connect(
+            self.change_dev_mode)
+        self.update_menu_action_dev_mode()
         self.menuAction_dev_create_app.triggered.connect(
             self.create_app_config_window)
         # Help
@@ -633,6 +638,21 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
             self.menuAction_study_mode.setText('Disable study mode')
         else:
             self.menuAction_study_mode.setText('Activate study mode')
+
+    @exceptions.error_handler(scope='general')
+    def change_dev_mode(self, checked=None):
+        self.gui_config['dev_mode'] = not self.gui_config['dev_mode']
+        # Insert studies box and update apps panel
+        self.set_up_studies_panel()
+        self.apps_panel_widget.dev_mode = self.gui_config['dev_mode']
+        self.update_menu_action_dev_mode()
+
+    @exceptions.error_handler(scope='general')
+    def update_menu_action_dev_mode(self):
+        if self.gui_config['dev_mode']:
+            self.menuAction_dev_mode.setText('Disable developer mode')
+        else:
+            self.menuAction_dev_mode.setText('Activate developer mode')
 
     # =============================== TOOL BAR =============================== #
     @exceptions.error_handler(scope='general')
@@ -1094,6 +1114,7 @@ class GuiMainClass(QMainWindow, gui_main_user_interface):
             print('\tException type: %s' % ex.exception_type.__name__,
                   file=sys.stderr)
             print('\tException msg: %s\n' % ex.exception_msg, file=sys.stderr)
+            print('\tException handled: %s\n' % ex.handled, file=sys.stderr)
             print(ex.traceback, file=sys.stderr)
             # Print exception in log panel
             if mode == 'log':
@@ -1362,7 +1383,7 @@ class SplashScreen:
             "margin-left: 370px; "
             "margin-top: 276px;"
             "}" +
-            "QProgressBar::chunk{ background: #ffffff; }")
+            "QProgressBar::chunk{ background: #000000; }")
 
         # Creating the progress text
         self.splash_text = QLabel('Making a PhD thesis...')
@@ -1399,6 +1420,9 @@ class SplashScreen:
         self.splash_screen.show()
 
     def set_state(self, prog_value, prog_text):
+        # Scale value
+        max_val = 95 # for MEDUSA v2025
+        prog_value = max_val * prog_value / 100
         self.splash_progbar.setValue(prog_value)
         self.splash_text.setText(prog_text)
 

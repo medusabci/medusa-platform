@@ -32,7 +32,8 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
     error_signal = Signal(Exception)
 
     def __init__(self, apps_manager, working_lsl_streams, app_state, run_state,
-                 medusa_interface, apps_folder, study_mode, theme_colors):
+                 medusa_interface, apps_folder, study_mode, dev_mode,
+                 theme_colors):
         super().__init__()
         self.setupUi(self)
         # Attributes
@@ -44,6 +45,7 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
         self.medusa_interface = medusa_interface
         self.apps_folder = apps_folder
         self.study_mode = study_mode
+        self.dev_mode = dev_mode
         self.theme_colors = theme_colors
         self.undocked = False
         self.apps_panel_grid_widget = None
@@ -314,10 +316,21 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
                 self.get_app_module(current_app_key, 'main'))
             app_settings_mdl = importlib.import_module(
                 self.get_app_module(current_app_key, 'settings'))
+            same_sett_type = isinstance(
+                self.app_settings, app_settings_mdl.Settings)
+            if self.dev_mode:
+                importlib.reload(app_process_mdl)
+                importlib.reload(app_settings_mdl)
+                if same_sett_type:
+                    try:
+                        self.app_settings = \
+                            app_settings_mdl.Settings.from_serializable_obj(
+                                self.app_settings.to_serializable_obj())
+                    except Exception as e:
+                        # The settings module might have changed
+                        self.app_settings = None
             # Get app settings
-            if self.app_settings is None or \
-                    not isinstance(self.app_settings,
-                                   app_settings_mdl.Settings):
+            if self.app_settings is None or not same_sett_type:
                 self.app_settings = app_settings_mdl.Settings()
             # Serialize working_lsl_streams
             ser_lsl_streams = [lsl_str.to_serializable_obj() for
@@ -393,6 +406,9 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
             self.toolButton_app_stop.setIcon(
                 gu.get_icon("stop.svg", custom_color=self.theme_colors[
                     'THEME_RED']))
+            # Avoid problems for some apps
+            if self.fake_user is not None:
+                self.fake_user.continue_to_next_run = True
 
     @exceptions.error_handler(scope='general')
     def app_config(self, checked=None):
@@ -405,23 +421,35 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
                                  theme_colors=self.theme_colors)
         app_settings_mdl = importlib.import_module(
             self.get_app_module(current_app_key, 'settings'))
+        same_sett_type = isinstance(
+            self.app_settings, app_settings_mdl.Settings)
+        if self.dev_mode:
+            importlib.reload(app_settings_mdl)
+            if same_sett_type:
+                try:
+                    self.app_settings = \
+                        app_settings_mdl.Settings.from_serializable_obj(
+                            self.app_settings.to_serializable_obj())
+                except Exception as e:
+                    # The settings module might have changed
+                    self.app_settings = None
         try:
             app_config_mdl = importlib.import_module(
                 self.get_app_module(current_app_key, 'config'))
+            if self.dev_mode:
+                importlib.reload(app_config_mdl)
             conf_window = app_config_mdl.Config
         except ModuleNotFoundError as e:
             if str(e).find('config') == -1:
                 self.error_signal.emit(exceptions.MedusaException(e))
             conf_window = resources.BasicConfigWindow
-        if self.app_settings is None or not isinstance(
-                self.app_settings, app_settings_mdl.Settings):
+        if self.app_settings is None or not same_sett_type:
             self.app_settings = app_settings_mdl.Settings()
         self.app_config_window = conf_window(
             self.app_settings,
             medusa_interface=self.medusa_interface,
             working_lsl_streams_info=self.working_lsl_streams,
-            theme_colors=self.theme_colors
-        )
+            theme_colors=self.theme_colors)
         self.app_config_window.close_signal.connect(
             self.on_config_window_close_event)
 
@@ -616,7 +644,7 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
         self.rec_info['rec_id'] = run['rec_id']
         self.rec_info['file_ext'] = run['file_ext']
         # Select app
-        self.apps_panel_grid_widget.find_app(run['app_id'])
+        self.apps_panel_grid_widget.find_app_id(run['app_id'])
         # Load settings
         current_app_key = self.apps_panel_grid_widget.get_selected_app()
         # Check app
@@ -707,15 +735,14 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
     @exceptions.error_handler(scope='general')
     def set_rec_info(self, rec_info):
         self.rec_info = rec_info
-        session_config_available = True if len(glob.glob(
-            '%s/*.session' % rec_info['path'])) == 1 else False
-        if session_config_available:
+        available_session_files = glob.glob(
+            '%s/*.session' % rec_info['path'])
+        if len(available_session_files) == 1:
             if dialogs.confirmation_dialog(
                     'There is a session plan available for '
                     'this subject, do you want to load it?',
                     title='Session plan available'):
-
-                with open(session_config_available[0], 'r') as f:
+                with open(available_session_files[0], 'r') as f:
                     self.session_config = json.load(f)
                     # Enable session buttons
                     self.toolButton_session_play.setDisabled(False)
@@ -725,7 +752,7 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
     def get_default_rec_info():
         rec_info = {
             'rec_id': None,
-            'file_ext': 'bson',
+            'file_ext': None,
             'path': os.path.abspath('../data'),
             'study_id': None,
             'subject_id': None,
@@ -855,6 +882,18 @@ class AppsPanelGridWidget(QWidget):
         for item in self.items:
             if text in item.app_params['name'].lower() or \
                     text in item.app_params['id'].lower():
+                found_items.append(item)
+        if len(found_items) == 1:
+            found_items[0].select()
+
+    def find_app_id(self, text):
+        """ Finds an application based on a provided text. If a single application
+        is found, it is selected.
+        """
+        text = text.lower()
+        found_items = list()
+        for item in self.items:
+            if text == item.app_params['id'].lower():
                 found_items.append(item)
         if len(found_items) == 1:
             found_items[0].select()
@@ -1231,17 +1270,7 @@ class ConfigSessionDialog(dialogs.MedusaDialog):
     def create_layout(self):
         # Main layout
         main_layout = QVBoxLayout()
-        # General configurations
-        # session_config_box = QGroupBox('Config')
-        # session_config_box_layout = QVBoxLayout()
-        # self.session_autoplay_checkbox = QCheckBox('Play runs automatically')
-        # self.session_autoplay_checkbox.setChecked(
-        #     self.session_config['autoplay'])
-        # session_config_box_layout.addWidget(self.session_autoplay_checkbox)
-        # session_config_box.setLayout(session_config_box_layout)
-        # main_layout.addWidget(session_config_box)
         # Session plan table
-        # session_plan_box = QGroupBox('Plan')
         plan_layout = QHBoxLayout()
         self.session_plan_table = self.TableWidget(self.apps_manager,
                                                    self.theme_colors)

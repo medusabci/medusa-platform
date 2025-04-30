@@ -75,6 +75,7 @@ class UserSession:
         try:
             resp = self.session.get(url, json=data, verify=True)
         except requests.exceptions.SSLError as e:
+            print("SSL verification failed. Retrying without verification...")
             resp = self.session.get(url, json=data, verify=False)
         except (ConnectionError, requests.exceptions.ConnectionError) as e:
             raise ConnectionError('Failed to connect to %s. Internet '
@@ -83,17 +84,23 @@ class UserSession:
         # Response handling
         if resp.status_code == 200:
             return json.loads(resp.content)['license_key']
-        elif resp.status_code == 401:
+        elif resp.status_code in {400}:
             raise exceptions.AuthenticationError(
-                'You do not have permission to install this app, '
-                'the bundle was not meant for you. Download '
-                'it from the website using your account!')
+                "Access denied. You do not have permission to install this "
+                "app because the license was issued for another user. Please "
+                "download it from the official website using your account.")
+        elif resp.status_code in {401}:
+            raise exceptions.AuthenticationError(
+                "Access denied. You do not have permission to install this "
+                "app. Please download it from the official website using your "
+                "account.")
         elif resp.status_code == 404:
             raise exceptions.NotFoundError(
-                'This download is not licensed by MEDUSA. Please, '
-                'download the app from the official website.')
+                "This download is not licensed by MEDUSA. Please obtain "
+                "the app from the official website.")
         else:
-            raise Exception("\n\n" + resp.text)
+            raise Exception(f"Unexpected error from server "
+                            f"({resp.status_code}): {resp.text}")
 
     def get_medusa_latest_version_of_apps(self, app_ids, target):
         # Parse URL

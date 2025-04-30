@@ -1,5 +1,5 @@
 # BUILT-IN modules
-import subprocess
+import subprocess, os
 import multiprocessing as mp
 # MEDUSA modules
 import constants
@@ -57,12 +57,9 @@ class AppController(TCPServer):
 
     def start_application(self):
         """ Starts the Unity application that will act as a TCP client. """
-        """ Starts the Unity application that will act as a TCP client.
-
-                Uncomment subprocess.call and uncomment the other 2 lines to test the
-                app in the Unity editor
-                """
-        subprocess.call([self.app_settings.connection_settings.path_to_exe,
+        path_to_exe = os.path.dirname(__file__) + \
+                      '/unity/Unity app template.exe'
+        subprocess.call([path_to_exe,
                          self.app_settings.connection_settings.ip,
                          str(self.app_settings.connection_settings.port)])
 

@@ -30,8 +30,6 @@ class LoginDialog(QtWidgets.QDialog, ui_main_dialog):
             Dict with the theme colors
         """
         super().__init__()
-        self.setWindowFlags(
-            self.windowFlags() & ~Qt.WindowContextHelpButtonHint)
         self.setupUi(self)
 
         # Initialize the gui application

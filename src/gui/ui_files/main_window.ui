@@ -10,8 +10,14 @@
     <height>728</height>
    </rect>
   </property>
+  <property name="focusPolicy">
+   <enum>Qt::NoFocus</enum>
+  </property>
   <property name="windowTitle">
    <string>MainWindow</string>
+  </property>
+  <property name="toolTip">
+   <string/>
   </property>
   <widget class="QWidget" name="centralwidget">
    <layout class="QVBoxLayout" name="verticalLayout_3"/>
@@ -51,6 +57,7 @@
      <string>Developer tools</string>
     </property>
     <addaction name="menuAction_dev_tutorial"/>
+    <addaction name="menuAction_dev_mode"/>
     <addaction name="menuAction_dev_create_app"/>
    </widget>
    <widget class="QMenu" name="menuPreferences">
@@ -228,6 +235,11 @@
   <action name="menuAction_study_mode">
    <property name="text">
     <string>Activate study mode</string>
+   </property>
+  </action>
+  <action name="menuAction_dev_mode">
+   <property name="text">
+    <string>Activate developer mode</string>
    </property>
   </action>
  </widget>

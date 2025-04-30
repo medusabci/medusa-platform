@@ -1,10 +1,13 @@
 # BUILT-IN MODULES
 import time, socket
+import warnings
 
 import numpy as np
+
 # EXTERNAL MODULES
 import pylsl
 from medusa import components
+from medusa import meeg
 
 # MEDUSA MODULES
 import exceptions
@@ -29,7 +32,7 @@ def get_lsl_streams(wait_time=0.1, force_one_stream=False, **kwargs):
         type, source_id, uid, channel_count, nominal_srate, hostname
     """
     # Resolve EEG LSL streams
-    streams = pylsl.resolve_stream(wait_time)
+    streams = pylsl.resolve_streams(wait_time)
     match_streams = []
     if kwargs is None:
         match_streams = streams
@@ -158,26 +161,31 @@ class LSLStreamWrapper(components.SerializableComponent):
 
         Parameters
         ----------
-        lsl_stream: pylsl.stream_info
+        lsl_stream: pylsl.StreamInfo
             LSL Stream info object. This info can be directly passed from
             function get_lsl_streams, since the LSL inlet will be initialized
             here.
         """
         # LSL stream
-        if not isinstance(lsl_stream, pylsl.stream_info):
+        if not isinstance(lsl_stream, pylsl.StreamInfo):
             raise TypeError('Parameter lsl_stream must be '
-                            'of type pylsl.stream_info')
+                            'of type pylsl.StreamInfo')
         self.lsl_stream = lsl_stream
         # LSL parameters
         self.lsl_stream_inlet = None
         self.lsl_stream_info = None
+        self.lsl_proc_clocksync = None
+        self.lsl_proc_dejitter = None
+        self.lsl_proc_monotonize = None
+        self.lsl_proc_threadsafe = None
+        self.processing_flags = None
         self.lsl_name = None
         self.lsl_type = None
         self.lsl_n_cha = None
         self.lsl_cha_format = None
         self.lsl_uid = None
         self.lsl_source_id = None
-        self.fs = None
+        self.lsl_fs = None
         self.time_correction = None
         self.hostname = None
         self.local_stream = None
@@ -193,17 +201,29 @@ class LSLStreamWrapper(components.SerializableComponent):
         self.selected_channels_idx = None
         self.n_cha = None
         self.l_cha = None
-        # Set inlet and lsl info
-        self.set_inlet()
+        self.fs = None
 
-    def set_inlet(self):
-        self.lsl_stream_inlet = pylsl.StreamInlet(self.lsl_stream)
-        # self.lsl_stream_inlet = pylsl.StreamInlet(
-        #     self.lsl_stream,
-        #     processing_flags=pylsl.proc_dejitter |
-        #                      pylsl.proc_monotonize |
-        #                      pylsl.proc_threadsafe)
-        self.lsl_stream_info = self.lsl_stream_inlet.info()
+    def set_inlet(self, proc_clocksync=False, proc_dejitter=False,
+                  proc_monotonize=False, proc_threadsafe=True):
+        # Possible LSL flags {proc_none, proc_clocksync , proc_dejitter, proc_monotonize proc_threadsafe}
+        processing_flags = 0
+        # Conditionally add each flag based on the variables
+        if proc_clocksync:
+            processing_flags |= pylsl.proc_clocksync
+        if proc_dejitter:
+            processing_flags |= pylsl.proc_dejitter
+        if proc_monotonize:
+            processing_flags |= pylsl.proc_monotonize
+        if proc_threadsafe:
+            processing_flags |= pylsl.proc_threadsafe
+        self.lsl_proc_clocksync = proc_clocksync
+        self.lsl_proc_dejitter = proc_dejitter
+        self.lsl_proc_monotonize = proc_monotonize
+        self.lsl_proc_threadsafe = proc_threadsafe
+        self.processing_flags = processing_flags
+        self.lsl_stream_inlet = pylsl.StreamInlet(
+            self.lsl_stream, processing_flags=processing_flags)
+        self.lsl_stream_info = self.lsl_stream_inlet.info(timeout=1)
         # LSL parameters
         self.lsl_name = self.lsl_stream_info.name()
         self.lsl_type = self.lsl_stream_info.type()
@@ -319,10 +339,8 @@ class LSLStreamWrapper(components.SerializableComponent):
         return self.lsl_stream_info_json_format['desc'][desc_field]
 
     def set_medusa_parameters(self, medusa_uid, medusa_type,
-                              desc_channels_field,
-                              channel_label_field,
-                              cha_info,
-                              selected_channels_idx):
+                              desc_channels_field, channel_label_field,
+                              cha_info, selected_channels_idx, fs, lsl_fs):
         """Decodes the channels from the extended description of the stream,
         in XML format, contained in lsl_stream_info
 
@@ -342,11 +360,16 @@ class LSLStreamWrapper(components.SerializableComponent):
             List with the channel info. If None, the info will be extracted
             automatically from the lsl_stream.
         """
+        # Check inlet
+        if self.lsl_stream_inlet is None:
+            raise ValueError('LSL inlet must be initialized before '
+                             'configuring LSL MEDUSA parameters')
         # Select channels
         sel_cha_info = [cha_info[i] for i in selected_channels_idx]
         n_cha = len(selected_channels_idx)
-        l_cha = [info[channel_label_field] for info in sel_cha_info] \
+        l_cha = [info['medusa_label'] for info in sel_cha_info] \
             if channel_label_field is not None else list(range(n_cha))
+
         # Update parameters
         self.update_medusa_parameters(
             medusa_params_initialized=True,
@@ -357,8 +380,9 @@ class LSLStreamWrapper(components.SerializableComponent):
             cha_info=cha_info,
             selected_channels_idx=selected_channels_idx,
             n_cha=n_cha,
-            l_cha=l_cha
-        )
+            l_cha=l_cha,
+            fs=fs,
+            lsl_fs=lsl_fs)
 
     def update_medusa_parameters_from_lslwrapper(self, lsl_stream_wrapper):
         """Use this function to manually update the medusa params from one
@@ -373,13 +397,15 @@ class LSLStreamWrapper(components.SerializableComponent):
             lsl_stream_wrapper.cha_info,
             lsl_stream_wrapper.selected_channels_idx,
             lsl_stream_wrapper.n_cha,
-            lsl_stream_wrapper.l_cha
-        )
+            lsl_stream_wrapper.l_cha,
+            lsl_stream_wrapper.fs,
+            lsl_stream_wrapper.lsl_fs)
 
     def update_medusa_parameters(self, medusa_params_initialized, medusa_uid,
                                  medusa_type, desc_channels_field,
                                  channel_label_field, cha_info,
-                                 selected_channels_idx, n_cha, l_cha):
+                                 selected_channels_idx, n_cha, l_cha, fs,
+                                 lsl_fs):
         """Use this function to manually update the medusa params"""
         if not medusa_params_initialized:
             raise ValueError('The medusa parameters have not been '
@@ -395,6 +421,8 @@ class LSLStreamWrapper(components.SerializableComponent):
         self.selected_channels_idx = selected_channels_idx
         self.n_cha = n_cha
         self.l_cha = l_cha
+        self.fs = fs
+        self.lsl_fs = lsl_fs
 
     def to_serializable_obj(self):
         # TODO: The dictionary is copied by hand due to problems with
@@ -402,13 +430,17 @@ class LSLStreamWrapper(components.SerializableComponent):
         #  better way!
         # LSL parameters
         class_dict = dict()
+        class_dict['lsl_proc_clocksync'] = self.lsl_proc_clocksync
+        class_dict['lsl_proc_dejitter'] = self.lsl_proc_dejitter
+        class_dict['lsl_proc_monotonize'] = self.lsl_proc_monotonize
+        class_dict['lsl_proc_threadsafe'] = self.lsl_proc_threadsafe
         class_dict['lsl_name'] = self.lsl_name
         class_dict['lsl_type'] = self.lsl_type
         class_dict['lsl_n_cha'] = self.lsl_n_cha
         class_dict['lsl_cha_format'] = self.lsl_cha_format
         class_dict['lsl_uid'] = self.lsl_uid
         class_dict['lsl_source_id'] = self.lsl_source_id
-        class_dict['fs'] = self.fs
+        class_dict['lsl_fs'] = self.lsl_fs
         class_dict['hostname'] = self.hostname
         class_dict['lsl_stream_info_xml'] = self.lsl_stream_info_xml
         # Additional Medusa parameters
@@ -422,6 +454,7 @@ class LSLStreamWrapper(components.SerializableComponent):
         class_dict['selected_channels_idx'] = self.selected_channels_idx
         class_dict['n_cha'] = self.n_cha
         class_dict['l_cha'] = self.l_cha
+        class_dict['fs'] = self.fs
         return class_dict
 
     @classmethod
@@ -433,7 +466,7 @@ class LSLStreamWrapper(components.SerializableComponent):
                 type=dict_data['lsl_type'],
                 source_id=dict_data['lsl_source_id'],
                 channel_count=dict_data['lsl_n_cha'],
-                nominal_srate=dict_data['fs']
+                nominal_srate=dict_data['lsl_fs']
             )
         else:
             lsl_stream = get_lsl_streams(
@@ -443,10 +476,18 @@ class LSLStreamWrapper(components.SerializableComponent):
                 uid=dict_data['lsl_uid'],
                 source_id=dict_data['lsl_source_id'],
                 channel_count=dict_data['lsl_n_cha'],
-                nominal_srate=dict_data['fs']
+                nominal_srate=dict_data['lsl_fs']
             )
         # Create LSLWrapper
+        clocksync = dict_data['lsl_proc_clocksync']
+        dejitter = dict_data['lsl_proc_dejitter']
+        monotonize = dict_data['lsl_proc_monotonize']
+        threadsafe = dict_data['lsl_proc_threadsafe']
         instance = cls(lsl_stream)
+        instance.set_inlet(proc_clocksync=clocksync,
+                           proc_dejitter=dejitter,
+                           proc_monotonize=monotonize,
+                           proc_threadsafe=threadsafe)
         # Update medusa params (don't use set_medusa_parameters)
         instance.update_medusa_parameters(
             medusa_params_initialized=dict_data['medusa_params_initialized'],
@@ -458,7 +499,8 @@ class LSLStreamWrapper(components.SerializableComponent):
             selected_channels_idx=dict_data['selected_channels_idx'],
             n_cha=dict_data['n_cha'],
             l_cha=dict_data['l_cha'],
-        )
+            fs=dict_data['fs'],
+            lsl_fs=dict_data['lsl_fs'])
         return instance
 
 
@@ -501,15 +543,19 @@ class LSLStreamReceiver:
         self.auto_mode = auto_mode
         # Min chunk size cannot be None. By default, sets the minimum update
         # rate to 10 ms to avoid excessive computing load
-        self.min_chunk_size = max(int(0.01 * self.fs), 1) \
-            if min_chunk_size is None else min_chunk_size
+        if min_chunk_size is None:
+            min_chunk_size = max(int(0.01 * self.fs), 1)
+        self.min_chunk_size = min_chunk_size
         # Max chunk size cannot be None. Default max chunk size 2 *
         # min_chunk_size. Set automode=True to update this value on demand
-        self.max_chunk_size = max(int(2*self.min_chunk_size), int(self.fs)) \
-            if max_chunk_size is None else max_chunk_size
+        if max_chunk_size is None:
+            max_chunk_size = max(int(2*self.min_chunk_size), int(self.fs))
+        self.max_chunk_size = max_chunk_size
         # Timeout cannot be None in order to avoid blocking processes
-        self.timeout = 1.5 * self.max_chunk_size / self.fs \
-            if timeout is None else timeout
+        if timeout is None:
+            timeout = 1.5 * self.max_chunk_size / self.fs \
+                if self.fs > 0 else np.inf
+        self.timeout = timeout
         # print('LSL stream: %s\nmin_chunk_size: %i\nmax_chunk_size: '
         #       '%i\ntimeout: %.2f' % (self.lsl_stream.lsl_name,
         #                              self.min_chunk_size,
@@ -519,9 +565,10 @@ class LSLStreamReceiver:
             np.mean([time.time() - pylsl.local_clock() for _ in range(10)])
         # Calculate LSL clock offset
         self.lsl_clock_offset = \
-            np.mean([self.lsl_stream.lsl_stream_inlet.time_correction() for _ in range(10)])
+            np.mean([self.lsl_stream.lsl_stream_inlet.time_correction()
+                     for _ in range(10)])
         # Aliasing correction
-        self.aliasing_correction = True
+        self.aliasing_correction = False
 
         # Initialize auxiliary and debugging variables
         self.chunk_counter = 0
@@ -559,7 +606,8 @@ class LSLStreamReceiver:
                 s_avlbl = self.lsl_stream.lsl_stream_inlet.samples_available()
                 if s_avlbl > self.max_chunk_size:
                     self.max_chunk_size = s_avlbl
-                    self.timeout = 1.5 * self.max_chunk_size / self.fs
+                    self.timeout = 1.5 * self.max_chunk_size / self.fs \
+                        if self.fs > 0 else np.inf
                     # print('LSL stream parameters updated: '
                     #       '%s\nmin_chunk_size: '
                     #       '%i\nmax_chunk_size: '
@@ -667,3 +715,38 @@ class LSLStreamReceiver:
 
         def get_ms(self):
             return (time.time() - self.start_time) * 1000.0
+
+
+def lsl_channel_info_to_eeg_channel_set(channels_info,
+                                        allow_unlocated_channels=True,
+                                        discard_unlocated_channels=False):
+    """Function to convert the standard channels info dict to EEGChannelSet
+    Parameters
+    ----------
+    channels_info: dict
+        List of dictionaries describing the channels with the following keys:
+            - label: label of the channel in LSL protocol
+            - medusa_label: label of the channel in MEDUSA
+            - x: x coordinate
+            - y: y coordinate
+    """
+    # todo: set reference info and check channel dict
+    # Channel set from channel info dict
+    sel_cha = []
+    channel_set = meeg.EEGChannelSet()
+    for c, cha_info in enumerate(channels_info):
+        # Check
+        if cha_info['selected']:
+            if not allow_unlocated_channels and cha_info['x_pos'] is None:
+                raise meeg.UnlocatedChannel(l_cha=cha_info['medusa_label'])
+            if discard_unlocated_channels and cha_info['x_pos'] is None:
+                continue
+            # Channel info
+            mds_cha_info = {
+                'label': cha_info['medusa_label'],
+                'x': cha_info['x_pos'],
+                'y': cha_info['y_pos']
+            }
+            channel_set.add_channel(channel=mds_cha_info,
+                                    reference=None)
+    return channel_set

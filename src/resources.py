@@ -1,14 +1,17 @@
-# Python modules
+# PYTHON MODULES
 from abc import abstractmethod, ABC
 import multiprocessing as mp
 import threading as th
-import os, time, json, math
-# External modules
+import os, time, json, math, re
+# EXTERNAL MODULES
 from PySide6.QtCore import *
 from PySide6.QtGui import *
 from PySide6.QtWidgets import *
 import numpy as np
-# Medusa modules
+# MEDUSA-KERNEL MODULES
+from medusa import components
+from medusa import meeg, emg, nirs, ecg
+# MEDUSA-PLATFORM MODULES
 import constants, exceptions
 from acquisition import lsl_utils
 from gui.qt_widgets import dialogs
@@ -41,7 +44,7 @@ class AppSkeleton(mp.Process):
             Dict with the app information available
         app_settings: Settings
             App configuration
-       medusa_interface: resources.Medusa_interface
+        medusa_interface: resources.Medusa_interface
             Interface to the main gui of medusa
         app_state: mp.Value
             App state
@@ -51,7 +54,16 @@ class AppSkeleton(mp.Process):
             Dictionary with the working LSL streams as serializable objects
         rec_info: None or dict
             Dictionary with information that can be used to save files
-            automatically
+            automatically with the following structure:
+                rec_info = {
+                    "path": "/path/to/save",
+                    "file_ext": "mat",
+                    "rec_id": "recording_01",
+                    "study_id": "study_123",
+                    "subject_id": "subject_456",
+                    "session_id": "session_789",
+                    "description": "Recording of session 789",
+                }
         """
         # Calling superclass constructor
         app_process_name = '%s-process' % app_info['id']
@@ -62,6 +74,7 @@ class AppSkeleton(mp.Process):
         self.app_info = app_info
         self.app_settings = app_settings
         self.rec_info = rec_info
+        self.allowed_formats = ['bson', 'json', 'mat']
         # --------------------- COMMUNICATION GUI-MANAGER -------------------- #
         # Interface
         self.medusa_interface = medusa_interface
@@ -162,8 +175,13 @@ class AppSkeleton(mp.Process):
         if self.rec_info['path'] is None or \
                 not os.path.isdir(self.rec_info['path']):
             return None
-        if self.rec_info['file_ext'] is None or \
-                not self.rec_info['file_ext'] in ['bson', 'mat', 'json']:
+        if self.rec_info['file_ext'] is None:
+            return None
+        if not self.rec_info['file_ext'] in self.allowed_formats:
+            self.medusa_interface.log(
+                'Format %s is not supported by app %s.' %
+                (self.rec_info['file_ext'], self.app_info['name']),
+                style='warning')
             return None
         if self.rec_info['rec_id'] is None or \
                 len(self.rec_info['rec_id']) == 0:
@@ -177,6 +195,41 @@ class AppSkeleton(mp.Process):
         if os.path.exists(file_path):
             return None
         return file_path
+
+    def get_rec_streams_info(self):
+        """This function returns a default dict containing  the stream info
+        for save recordings. It can be  overwritten to implement custom
+        behaviour.
+        """
+        rec_streams_info = dict()
+        att_names = list()
+        att_names_counter = dict()
+        for lsl_stream_info in self.lsl_streams_info:
+            # Get default attribute name
+            if lsl_stream_info.medusa_type == 'CustomBiosignalData':
+                default_att_name = lsl_stream_info.medusa_uid
+            else:
+                default_att_name = lsl_stream_info.medusa_type.lower()
+            # Update attribute name if necessary
+            if default_att_name not in att_names:
+                # If the stream name is new, add it as is and initialize
+                # the counter
+                att_names.append(default_att_name)
+                att_names_counter[default_att_name] = 1
+                att_name = default_att_name
+            else:
+                # If the stream name exists, create a unique name
+                new_name = \
+                    f'{default_att_name}_{att_names_counter[default_att_name]}'
+                att_names.append(new_name)
+                att_names_counter[default_att_name] += 1
+                att_name = new_name
+            # Add stream to info
+            rec_streams_info[lsl_stream_info.medusa_uid] = {
+                'att-name': att_name,
+                'enabled': True
+            }
+        return rec_streams_info
 
     @abstractmethod
     def handle_exception(self, ex):
@@ -193,34 +246,25 @@ class AppSkeleton(mp.Process):
     def check_lsl_config(self, working_lsl_streams_info):
         """This function has to check the LSL config. For example, some apps
         may require an LSL stream with a specific name, or a minimum of 2 LSL
-        streams, etc. It must return True if the lsl config is correct and
-        the App can proceed, and False otherwise.
+        streams, etc. This function should raise an exception if something is
+        not correct.
 
         Parameters
         ----------
         working_lsl_streams_info: dict
             Dict with the LSL streams information available on MEDUSA
-
-        Returns
-        -------
-        check: bool
-            True if everything is correct, False otherwise
         """
         raise NotImplementedError
 
     @abstractmethod
     def check_settings_config(self, app_settings):
-        """This function has to check the run settings if needed.
+        """This function has to check the app settings if needed. This function
+         should raise an exception if something is not correct.
 
         Parameters
         ----------
         app_settings: settings.Settings
             Class with the app settings for this run
-
-        Returns
-        -------
-        check: bool
-            True if everything is correct, False otherwise
         """
         raise NotImplementedError
 
@@ -406,6 +450,83 @@ class LSLStreamAppWorker(th.Thread):
             self.data = np.zeros((0, self.receiver.n_cha))
             self.timestamps = np.zeros((0,))
 
+    def get_data_class(self):
+        """
+        Retrieves and constructs a data class corresponding to the biosignal type
+        of the current LSL stream in MEDUSA Kernel.
+
+        Returns
+        -------
+        object
+            An instance of the corresponding data class:
+            - `medusa.meeg.EEG` for EEG signals
+            - `medusa.ecg.ECG` for ECG signals
+            - `medusa.emg.EMG` for EMG signals
+            - `medusa.nirs.NIRS` for NIRS signals
+            - `medusa.components.CustomBiosignalData` for custom biosignal data
+
+        Raises
+        ------
+        ValueError
+            If the type of the LSL stream is unknown
+        """
+        # Get lsl steam info
+        lsl_stream = self.receiver.lsl_stream
+        # Create data class
+        if lsl_stream.medusa_type == 'EEG':
+            times, signal = self.get_data()
+            channel_set = (
+                lsl_utils.lsl_channel_info_to_eeg_channel_set(
+                self.receiver.info_cha))
+            stream_data = meeg.EEG(
+                times=times,
+                signal=signal,
+                fs=self.receiver.fs,
+                channel_set=channel_set,
+                lsl_stream_info=lsl_stream.to_serializable_obj())
+        elif lsl_stream.medusa_type == 'ECG':
+            times, signal = self.get_data()
+            channel_set = ecg.ECGChannelSet()
+            [channel_set.add_channel(label=l) for l in self.receiver.l_cha]
+            stream_data = ecg.ECG(
+                times=times,
+                signal=signal,
+                fs=self.receiver.fs,
+                channel_set=channel_set,
+                lsl_stream_info=lsl_stream.to_serializable_obj())
+        elif lsl_stream.medusa_type == 'EMG':
+            times, signal = self.get_data()
+            channel_set = lsl_stream.cha_info
+            stream_data = emg.EMG(
+                times=times,
+                signal=signal,
+                fs=self.receiver.fs,
+                channel_set=channel_set,
+                lsl_stream_info=lsl_stream.to_serializable_obj())
+        elif lsl_stream.medusa_type == 'NIRS':
+            times, signal = self.get_data()
+            channel_set = lsl_stream.cha_info
+            stream_data = nirs.NIRS(
+                times=times,
+                signal=signal,
+                fs=self.receiver.fs,
+                channel_set=channel_set,
+                lsl_stream_info=lsl_stream.to_serializable_obj())
+        elif lsl_stream.medusa_type == 'CustomBiosignalData':
+            times, signal = self.get_data()
+            channel_set = lsl_stream.cha_info
+            fs = self.receiver.fs
+            stream_data = components.CustomBiosignalData(
+                times=times,
+                signal=signal,
+                fs=fs,
+                channel_set=channel_set,
+                lsl_stream_info=lsl_stream.to_serializable_obj())
+        else:
+            raise ValueError('Unknown stream type %s!' %
+                             lsl_stream.medusa_type)
+        return stream_data
+
 
 class Preprocessor(ABC):
 
@@ -550,24 +671,48 @@ class MedusaInterface:
 
 
 class SaveFileDialog(dialogs.MedusaDialog):
-    """Default dialog to save files in apps. Implement your own class to create
-    a custom dialog.
+    """
+    Default dialog for saving files in applications. Users can implement a custom
+    dialog by subclassing this class.
+
+    Parameters
+    ----------
+    rec_info : dict
+        Dictionary containing recording information, including:
+        - ``rec_id`` (str): Unique recording identifier.
+        - ``path`` (str): Directory path for saving the file.
+        - ``file_ext`` (str): File extension.
+    rec_streams_info : dict
+        Dictionary containing signal information generated by the method
+        `App.get_rec_streams_info` with the following structure:
+
+        .. code-block:: python
+            {
+                medusa_uid: {
+                    "att-name": str,  # Attribute name
+                    "enabled": bool   # Whether the signal is enabled
+                }
+            }
+    app_ext : str
+        Application-specific file extension.
+    allowed_formats : tuple of str, optional
+        Supported file formats specified as a Qt filter. The default value is
+        ``('bson', 'json')``. These formats are compatible with the MEDUSA Kernel.
+        The dialog will only allow saving files in these formats. If an application
+        requires additional formats, this parameter can be customized accordingly.
+    theme_colors : dict or None, optional
+        Dictionary containing theme colors, by default None.
     """
 
-    def __init__(self, rec_info, app_ext, theme_colors=None):
-        """Class constructor
-
-        Parameters
-        ----------
-        app_ext: str
-            App extension
-        theme_colors: dict or None
-            Theme colors
-        """
-        super().__init__(window_title='Save recording file',
+    def __init__(self, rec_info, rec_streams_info, app_ext,
+                 allowed_formats, theme_colors=None):
+        super().__init__(window_title='Save recording',
+                         width=480, heigh=270,
                          theme_colors=theme_colors)
         self.rec_info = rec_info
+        self.rec_streams_info = rec_streams_info
         self.app_ext = app_ext
+        self.allowed_formats = allowed_formats
         # Check path
         if not os.path.exists(self.rec_info['path']):
             self.rec_info['path'] = os.path.abspath('../data')
@@ -576,17 +721,42 @@ class SaveFileDialog(dialogs.MedusaDialog):
                 len(self.rec_info['rec_id']) == 0:
             self.rec_info['rec_id'] = self.get_default_date_format()
         # File name
-        self.file_name = '%s.%s.%s' % (self.rec_info['rec_id'], app_ext,
-                                       self.rec_info['file_ext'])
+        self.file_name = '%s.%s.%s' % (self.rec_info['rec_id'],
+                                       app_ext,
+                                       allowed_formats[0])
         # Set path
         self.path = os.path.join(self.rec_info['path'], self.file_name)
         self.file_path_lineEdit.setText(self.path)
-
+        # Populate streams table
+        self.__populate_streams_table()
         # Show
         self.setWindowFlags(self.windowFlags() | Qt.WindowStaysOnTopHint)
         self.show()
 
     def create_layout(self):
+
+        # Main layout
+        layout = QVBoxLayout(self)
+
+        # Tab widget
+        self.tab_widget = QTabWidget(self)
+        self.rec_info_tab_widget = self.create_rec_info_tab()
+        self.rec_sig_tab_widget = self.create_rec_streams_tab()
+        self.tab_widget.addTab(self.rec_info_tab_widget, "Rec info")
+        self.tab_widget.addTab(self.rec_sig_tab_widget, "Streams")
+        layout.addWidget(self.tab_widget)
+
+        # Add button box
+        q_btns = QDialogButtonBox.Ok | QDialogButtonBox.Cancel
+        self.button_box = QDialogButtonBox(q_btns)
+        self.button_box.accepted.connect(self.accept)
+        self.button_box.rejected.connect(self.reject)
+        layout.addWidget(self.button_box)
+
+        return layout
+
+    def create_rec_info_tab(self):
+
         # Fields
         self.study_id_lineEdit = QLineEdit()
         self.study_id_lineEdit.setPlaceholderText('Study id')
@@ -595,7 +765,8 @@ class SaveFileDialog(dialogs.MedusaDialog):
         self.session_id_lineEdit = QLineEdit()
         self.session_id_lineEdit.setPlaceholderText('Session id')
         self.description_textEdit = QTextEdit()
-        self.description_textEdit.setProperty('class', 'file_dialog')
+        self.description_textEdit.setProperty(
+            'class', 'file_dialog')
         self.description_textEdit.setPlaceholderText(
             'Description of the recording')
 
@@ -610,31 +781,96 @@ class SaveFileDialog(dialogs.MedusaDialog):
         # self.browse_button.setCursor(QCursor(Qt.PointingHandCursor))
         self.browse_button.clicked.connect(self.on_browse_button_clicked)
 
-        # Buttons
-        QBtn = QDialogButtonBox.Ok | QDialogButtonBox.Cancel
-        self.buttonBox = QDialogButtonBox(QBtn)
-        self.buttonBox.accepted.connect(self.accept)
-        self.buttonBox.rejected.connect(self.reject)
-
         # Add the widgets to a layout
         path_layout = QHBoxLayout()
         path_layout.addWidget(self.file_path_lineEdit)
         path_layout.addWidget(self.browse_button)
 
-        layout = QFormLayout()
-        layout.addRow(QLabel('Study id'), self.study_id_lineEdit)
-        layout.addRow(QLabel('Subject id'), self.subj_id_lineEdit)
-        layout.addRow(QLabel('Session id'), self.session_id_lineEdit)
-        layout.addRow(QLabel('Description'), self.description_textEdit)
-        layout.addRow(QLabel('Save path'), path_layout)
-        layout.addItem(QSpacerItem(40, 20, QSizePolicy.Minimum,
-                                   QSizePolicy.Expanding))
-        layout.addWidget(self.buttonBox)
-        return layout
+        layout_rec_info_tab = QFormLayout()
+        layout_rec_info_tab.addRow(QLabel('Study id'),
+                                   self.study_id_lineEdit)
+        layout_rec_info_tab.addRow(QLabel('Subject id'),
+                                   self.subj_id_lineEdit)
+        layout_rec_info_tab.addRow(QLabel('Session id'),
+                                   self.session_id_lineEdit)
+        layout_rec_info_tab.addRow(QLabel('Description'),
+                                   self.description_textEdit)
+        layout_rec_info_tab.addRow(QLabel('Save path'), path_layout)
+        layout_rec_info_tab.addItem(QSpacerItem(
+            40, 20, QSizePolicy.Minimum, QSizePolicy.Expanding))
+
+        # Create tab widget
+        rec_info_tab_widget = QWidget()
+        rec_info_tab_widget.setLayout(layout_rec_info_tab)
+        return rec_info_tab_widget
+
+    def create_rec_streams_tab(self):
+        rec_stream_tab = QVBoxLayout()
+        self.streams_table = QTableWidget()
+        self.streams_table.setColumnCount(3)
+        self.streams_table.setSizePolicy(
+            QSizePolicy.Expanding, QSizePolicy.Minimum)
+        self.streams_table.horizontalHeader().setSectionResizeMode(
+            QHeaderView.Stretch)
+        self.streams_table.horizontalHeader().setSectionResizeMode(
+            0, QHeaderView.ResizeToContents)
+        self.streams_table.setHorizontalHeaderLabels(
+            ["Save", "Medusa UID", "Attribute name"])
+        rec_stream_tab.addWidget(self.streams_table)
+
+        # Create tab widget
+        rec_stream_tab_widget = QWidget()
+        rec_stream_tab_widget.setLayout(rec_stream_tab)
+        return rec_stream_tab_widget
+
+    def __populate_streams_table(self):
+        """Populates the signals table with the data from rec_streams_info.
+        """
+        # Set the row count based on the number of streams
+        self.streams_table.setRowCount(len(self.rec_streams_info))
+
+        for row, (uid, stream_info) in enumerate(self.rec_streams_info.items()):
+            # Checkbox for "Save" column
+            checkbox = QCheckBox()
+            # Set the initial state based on 'enabled'
+            checkbox.setChecked(stream_info["enabled"])
+            self.streams_table.setCellWidget(row, 0, checkbox)
+
+            # Signal Name column (non-editable)
+            signal_name_item = QTableWidgetItem(uid)
+            # Make it non-editable
+            signal_name_item.setFlags(Qt.ItemIsEnabled)
+            self.streams_table.setItem(row, 1, signal_name_item)
+
+            # Attribute Name column (editable)
+            att_name_item = QTableWidgetItem(stream_info["att-name"])
+            # Allow editing
+            att_name_item.setFlags(Qt.ItemIsEnabled | Qt.ItemIsEditable)
+            self.streams_table.setItem(row, 2, att_name_item)
 
     @staticmethod
     def get_default_date_format() -> str:
         return time.strftime("%d-%m-%Y_%H%M%S", time.localtime())
+
+    def get_rec_streams_info(self):
+        """Updates the rec_streams_info dictionary with data from the table.
+        """
+        for row in range(self.streams_table.rowCount()):
+            # Extract the unique ID (Signal Name column)
+            uid = self.streams_table.item(row, 1).text()
+
+            # Get the checkbox value (Save column)
+            checkbox = self.streams_table.cellWidget(row, 0)
+            enabled = checkbox.isChecked()
+
+            # Get the updated Attribute Name (Attribute Name column)
+            att_name = self.streams_table.item(row, 2).text()
+
+            # Update the dictionary
+            self.rec_streams_info[uid]['enabled'] = enabled
+            self.rec_streams_info[uid]['att-name'] = att_name
+
+        return self.rec_streams_info
 
     def get_rec_info(self):
         study_id = self.study_id_lineEdit.text()
@@ -658,10 +894,16 @@ class SaveFileDialog(dialogs.MedusaDialog):
 
     def on_browse_button_clicked(self):
         # Delete the extension
-        filter = 'Binary (*.bson);; Binary (*.mat);; Text (*.json)'
+        format_mappings = {
+            'bson': 'Binary',
+            'json': 'Text',
+            'mat': 'Binary'
+        }
+        formatted_filter = ";; ".join(
+            f"{format_mappings[ext]} (*.{ext})" for ext in self.allowed_formats)
         path = QFileDialog.getSaveFileName(caption='Save recording file',
                                            dir=self.path,
-                                           filter=filter)[0]
+                                           filter=formatted_filter)[0]
         # Check that the user selected a file name
         if len(path) == 0:
             return
@@ -682,8 +924,8 @@ class SaveFileDialog(dialogs.MedusaDialog):
                                  'Error')
             return
         if split_name[-1] not in ['bson', 'mat', 'json']:
-            dialogs.error_dialog('Current supported formats are bson, mat and '
-                                 'json', 'Error')
+            dialogs.error_dialog('Current supported formats are'
+                                 ' bson, mat and json', 'Error')
             return
         # Save info
         self.path = path

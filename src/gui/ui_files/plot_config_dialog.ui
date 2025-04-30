@@ -15,7 +15,7 @@
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
    <item>
-    <layout class="QFormLayout" name="formLayout_2">
+    <layout class="QFormLayout" name="formLayout">
      <item row="0" column="0">
       <widget class="QLabel" name="label">
        <property name="text">
@@ -36,25 +36,39 @@
      <item row="1" column="1">
       <widget class="QComboBox" name="comboBox_plot_type"/>
      </item>
+     <item row="3" column="0">
+      <widget class="QLabel" name="label_4">
+       <property name="text">
+        <string>Visualization options</string>
+       </property>
+      </widget>
+     </item>
      <item row="2" column="0">
-      <widget class="QLabel" name="label_7">
+      <widget class="QLabel" name="label_3">
        <property name="text">
         <string>Preprocessing options</string>
        </property>
       </widget>
      </item>
      <item row="2" column="1">
-      <widget class="QTextEdit" name="textEdit_signal_options"/>
-     </item>
-     <item row="3" column="0">
-      <widget class="QLabel" name="label_3">
-       <property name="text">
-        <string>Visualization options</string>
+      <widget class="QFrame" name="signal_options_tree">
+       <property name="frameShape">
+        <enum>QFrame::StyledPanel</enum>
+       </property>
+       <property name="frameShadow">
+        <enum>QFrame::Raised</enum>
        </property>
       </widget>
      </item>
      <item row="3" column="1">
-      <widget class="QTextEdit" name="textEdit_plot_options"/>
+      <widget class="QFrame" name="visualization_options_tree">
+       <property name="frameShape">
+        <enum>QFrame::StyledPanel</enum>
+       </property>
+       <property name="frameShadow">
+        <enum>QFrame::Raised</enum>
+       </property>
+      </widget>
      </item>
     </layout>
    </item>

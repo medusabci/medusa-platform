@@ -1,6 +1,7 @@
 import xml.etree.ElementTree as et
 import requests
-import subprocess, os, sys, json, datetime, pkg_resources
+import subprocess, os, sys, json, datetime
+import importlib.metadata
 
 
 def xml_string_to_json(xml_str, convert_numbers=False):
@@ -227,7 +228,36 @@ def restart():
 
 
 def get_python_package_version(package):
-    return pkg_resources.get_distribution(package).version
+    """
+    Retrieves the installed version of a given Python package.
+
+    Parameters
+    ----------
+    package : str
+        The name of the package whose version is to be retrieved.
+
+    Returns
+    -------
+    str
+        The installed version of the package.
+
+    Raises
+    ------
+    importlib.metadata.PackageNotFoundError
+        If the package is not installed.
+
+    Examples
+    --------
+    >>> get_python_package_version("numpy")
+    '1.24.3'
+
+    >>> get_python_package_version("nonexistent-package")
+    Traceback (most recent call last):
+        ...
+    importlib.metadata.PackageNotFoundError: No package metadata was found for 'nonexistent-package'
+    """
+    return importlib.metadata.version(package)
+
 
 
 
