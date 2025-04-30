@@ -569,9 +569,11 @@ class PlotsTabConfig(components.SerializableComponent):
                         lsl_stream)
                 except exceptions.LSLStreamNotFound as e:
                     new_lsl_stream_info = None
+                    plot_info = None
                     item['configured'] = False
                 except exceptions.UnspecificLSLStreamInfo as e:
                     new_lsl_stream_info = None
+                    plot_info = None
                     item['configured'] = False
                 plot_idx = config.create_plot_frame(
                     item['uid'],
@@ -714,20 +716,18 @@ class ConfigPlotFrameDialog(QDialog, ui_plot_config_dialog):
             plot_index = self.comboBox_plot_type.currentIndex()
             # Signal options
             self.selected_plot_info = self.plots_info[plot_index]
-            signal_type = self.selected_lsl_stream_info.medusa_type
             plot_type = self.selected_plot_info['uid']
             plot_class = self.selected_plot_info['class']
             # Check signal and get signal and plot options
-            if plot_class.check_signal(signal_type):
+            if plot_class.check_signal(self.selected_lsl_stream_info):
                 # Get default settings of the new plot
                 stream = self.working_lsl_streams[self.comboBox_lsl_streams.currentIndex()]
                 signal_settings, visualization_settings = \
                     plot_class.get_default_settings(stream)
-                self.set_settings_in_tree_view(signal_settings,
-                                                visualization_settings)
-            else:
-                raise ValueError('Wrong signal type %s for plot type %s' %
-                                 (signal_type, plot_type))
+                self.set_settings_in_tree_view(
+                    signal_settings,
+                    visualization_settings)
+
 
         except Exception as e:
             self.exception_handler(e)

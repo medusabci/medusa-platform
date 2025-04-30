@@ -66,21 +66,22 @@ class RealTimePlot(ABC):
         self.signal_settings = signal_settings
         self.visualization_settings = plot_settings
 
-    def to_key_value_dict(self, signal_dict):
-        """Simply the TreeDict dictionary into a dictionary managing just keys and default values"""
+    def to_key_value_dict(self, settings_dict):
+        """Simply the TreeDict dictionary into a dictionary managing just keys
+        and default values"""
         key_value_dict = {}
+        for item in settings_dict:
+            key = item["key"]
 
-        for setting in signal_dict:
-            key = setting["key"]
-
-            if "items" in setting:
+            if "items" in item:
                 key_value_items = {}
-                for item in setting["items"]:
-                    key_value_items[item["key"]] = self.to_key_value_dict(item["items"]) if "items" in item else item["default_value"]
+                for item in item["items"]:
+                    key_value_items[item["key"]] = (
+                        self.to_key_value_dict(item["items"])) if (
+                            "items" in item) else item["default_value"]
                 key_value_dict[key] = key_value_items
             else:
-                key_value_dict[key] = setting["default_value"]
-
+                key_value_dict[key] = item["default_value"]
         return key_value_dict
 
     def get_settings(self):
@@ -99,7 +100,7 @@ class RealTimePlot(ABC):
         lsl_stream_info: lsl_utils.LSLStreamWrapper
             LSL stream (medusa wrapper)
         """
-        if self.check_signal(lsl_stream_info.medusa_type):
+        if self.check_signal(lsl_stream_info):
             # Save lsl info
             self.lsl_stream_info = lsl_stream_info
             # Set worker
@@ -137,7 +138,7 @@ class RealTimePlot(ABC):
 
     @staticmethod
     @abstractmethod
-    def check_signal(signal_type):
+    def check_signal(lsl_stream_info):
         raise NotImplemented
 
     @abstractmethod
@@ -194,11 +195,13 @@ class TopographyPlot(RealTimePlot):
         self.topo_plot = None
 
     @staticmethod
-    def check_signal(signal_type):
-        if signal_type != 'EEG':
-            raise ValueError('Only EEG signals are supported for the moment')
-        else:
-            return True
+    def check_signal(lsl_stream_info):
+        if lsl_stream_info.medusa_type != 'EEG':
+            raise ValueError('Wrong signal type %s. TopographyPlot only '
+                             'supports EEG signals' %
+                             (lsl_stream_info.medusa_type))
+
+
 
     @staticmethod
     def get_default_settings(stream_info=None):
@@ -375,11 +378,11 @@ class ConnectivityPlot(RealTimePlot):
         self.conn_plot = None
 
     @staticmethod
-    def check_signal(signal_type):
-        if signal_type != 'EEG':
-            raise ValueError('Only EEG signals are supported for the moment')
-        else:
-            return True
+    def check_signal(lsl_stream_info):
+        if lsl_stream_info.medusa_type != 'EEG':
+            raise ValueError('Wrong signal type %s. ConnectivityPlot only '
+                             'supports EEG signals' %
+                             (lsl_stream_info.medusa_type))
 
     @staticmethod
     def get_default_settings(stream_info=None):
@@ -616,7 +619,7 @@ class SpectrogramPlot(RealTimePlot):
         menu.exec_(global_pos)
 
     @staticmethod
-    def check_signal(signal_type):
+    def check_signal(lsl_stream_info):
         """Checks that the incoming signal is compatible."""
         return True
 
@@ -643,9 +646,7 @@ class SpectrogramPlot(RealTimePlot):
         re_ref.add_item("apply", default_value=False, info="Change the reference of your signals")
         re_ref.add_item("type", default_value="car", value_options=["car", "channel"], info="Type of re-referencing: Common Average Reference or channel subtraction")
         if stream_info is not None:
-            re_ref.add_item("channel", default_value=stream_info.l_cha[0],
-                            info="Channel label for re-referencing if channel is selected",
-                            value_options=stream_info.l_cha)
+            re_ref.add_item("channel", default_value=stream_info.l_cha[0], info="Channel label for re-referencing if channel is selected",value_options=stream_info.l_cha)
         else:
             re_ref.add_item("channel", default_value="", info="Channel label for re-referencing if channel is selected")
         down_samp= signal_settings.add_item("downsampling")
@@ -654,7 +655,7 @@ class SpectrogramPlot(RealTimePlot):
         spectrogram = signal_settings.add_item("spectrogram")
         spectrogram.add_item("time_window", default_value=5.0, info="Time (s) of data kept in the buffer", value_range=[0, None])
         spectrogram.add_item("overlap_pct", default_value=90.0, info="Overlap (%) of segment length", value_range=[0,100])
-        spectrogram.add_item("scale_to", default_value="psd", info="", value_options=["psd", "magnitude"])
+        spectrogram.add_item("scale_to", default_value="psd", info="Choose how the spectrogram is scaled, so it represents either magnitude or a PSD spectrum.", value_options=["psd", "magnitude"])
         spectrogram.add_item("smooth", default_value=True, info="Use gaussian filter to smooth the final result")
         spectrogram.add_item("smooth_sigma", default_value=2.0, info="Sigma value used for the gaussian filter", value_range=[0, None])
         spectrogram.add_item("apply_detrend", default_value=True, info="Apply linear de-trending to the signal before the STFT")
@@ -665,7 +666,7 @@ class SpectrogramPlot(RealTimePlot):
         visualization_settings.add_item("mode", default_value="geek", info="Determine how events are visualized. Clinical, update in sweeping manner. Geek, signal appears continuously.", value_options=["clinical", "geek"])
         if stream_info is not None:
             visualization_settings.add_item("init_channel_label", default_value=stream_info.l_cha[0],
-                                            info="Channel selected for visualization",
+                                            info="Initial channel selected for visualization",
                                             value_options=stream_info.l_cha)
         else:
             visualization_settings.add_item("init_channel_label", default_value="", info="Channel selected for visualization")
@@ -942,7 +943,8 @@ class SpectrogramPlot(RealTimePlot):
             spec, t, f = fourier_spectrogram(
                 sig_in_graph[:, self.curr_cha], self.fs,
                 time_window=time_window,
-                overlap_pct=self.signal_settings['spectrogram']['overlap_pct'],
+                overlap_pct=self.signal_settings['spectrogram'][
+                    'overlap_pct'],
                 smooth=self.signal_settings['spectrogram'][
                     'smooth'],
                 smooth_sigma=self.signal_settings['spectrogram'][
@@ -1164,7 +1166,7 @@ class TimePlotMultichannel(RealTimePlotPyQtGraph):
                              (visualization_settings['mode'], possible_modes))
 
     @staticmethod
-    def check_signal(signal_type):
+    def check_signal(lsl_stream_info):
         return True
 
     def init_plot(self):
@@ -1546,7 +1548,7 @@ class TimePlot(RealTimePlotPyQtGraph):
                              (visualization_settings['mode'], possible_modes))
 
     @staticmethod
-    def check_signal(signal_type):
+    def check_signal(lsl_stream_info):
         return True
 
     def select_channel(self, cha):
@@ -1896,7 +1898,7 @@ class PSDPlotMultichannel(RealTimePlotPyQtGraph):
                              'must be a number.')
 
     @staticmethod
-    def check_signal(signal_type):
+    def check_signal(lsl_stream_info):
         return True
 
     def init_plot(self):
@@ -2153,7 +2155,7 @@ class PSDPlot(RealTimePlotPyQtGraph):
         pass
 
     @staticmethod
-    def check_signal(signal_type):
+    def check_signal(lsl_stream_info):
         return True
 
     def select_channel(self, cha):

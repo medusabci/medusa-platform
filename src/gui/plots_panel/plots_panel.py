@@ -237,6 +237,7 @@ class PlotsPanelWidget(QWidget):
                         # Set receiver
                         tab_plots_handlers[plot_uid].set_lsl_worker(
                             lsl_stream)
+                        # Init plot
                         tab_plots_handlers[plot_uid].init_plot()
                         tab_plots_handlers[plot_uid].set_ready()
                     except exceptions.LSLStreamNotFound as e:
