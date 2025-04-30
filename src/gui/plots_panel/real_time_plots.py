@@ -655,11 +655,11 @@ class SpectrogramPlot(RealTimePlot):
         spectrogram.add_item("time_window", default_value=5.0, info="Time (s) of data kept in the buffer", value_range=[0, None])
         spectrogram.add_item("overlap_pct", default_value=90.0, info="Overlap (%) of segment length", value_range=[0,100])
         spectrogram.add_item("scale_to", default_value="psd", info="", value_options=["psd", "magnitude"])
-        spectrogram.add_item("smooth", default_value=True, info="")
-        spectrogram.add_item("smooth_sigma", default_value=2.0, info="", value_range=[0, None])
-        spectrogram.add_item("apply_detrend", default_value=True, info="")
-        spectrogram.add_item("apply_normalization", default_value=True, info="")
-        spectrogram.add_item("log_power", default_value=True, info="")
+        spectrogram.add_item("smooth", default_value=True, info="Use gaussian filter to smooth the final result")
+        spectrogram.add_item("smooth_sigma", default_value=2.0, info="Sigma value used for the gaussian filter", value_range=[0, None])
+        spectrogram.add_item("apply_detrend", default_value=True, info="Apply linear de-trending to the signal before the STFT")
+        spectrogram.add_item("apply_normalization", default_value=True, info="Apply normalization to have a standard deviation of 1 before applying the STFT")
+        spectrogram.add_item("log_power", default_value=True, info="Apply normalization before STFT")
 
         visualization_settings = components.TreeDict()
         visualization_settings.add_item("mode", default_value="geek", info="Determine how events are visualized. Clinical, update in sweeping manner. Geek, signal appears continuously.", value_options=["clinical", "geek"])
@@ -688,7 +688,7 @@ class SpectrogramPlot(RealTimePlot):
         clim = z_ax.add_item("clim")
         clim.add_item("auto", default_value=True, info="Click for automatic color bar limits computation")
         clim.add_item("values", default_value=[0.0, 1.0], info="Max and min bar limits customized")
-        plot_adj = visualization_settings.add_item("plot_adjustment")
+        plot_adj = visualization_settings.add_item("plot_adjustment", info="Adjust layout margins for fine-tuning spacing within the figure")
         plot_adj.add_item("left", default_value=0.03, info="", value_range=[0,None])
         plot_adj.add_item("right", default_value=0.995, info="", value_range=[0, None])
         plot_adj.add_item("top", default_value=0.94, info="", value_range=[0, None])
@@ -1632,7 +1632,7 @@ class TimePlot(RealTimePlotPyQtGraph):
                 x = np.mod(self.time_in_graph, self.win_t)
                 # Range
                 n_win = self.time_in_graph.max() // self.win_t
-                x_range = (0, self.win_t) if n_win == 0 else (x[0], x[-1])
+                x_range = (0, self.win_t) if n_win==0 else (x[0], x[-1])
                 # Time ticks
                 x_ticks_pos = []
                 x_ticks_val = []
@@ -1647,8 +1647,8 @@ class TimePlot(RealTimePlotPyQtGraph):
                 self.x_axis.setTicks([list(zip(x_ticks_pos, x_ticks_val))])
             else:
                 raise ValueError
-                # Set range
-                self.plot_item.setXRange(x_range[0], x_range[1], padding=0)
+            # Set range
+            self.plot_item.setXRange(x_range[0], x_range[1], padding=0)
         else:
             self.x_axis.setTicks([])
             self.plot_item.setXRange(0, 0, padding=0)
