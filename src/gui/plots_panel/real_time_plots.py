@@ -950,60 +950,59 @@ class SpectrogramPlot(RealTimePlot):
             chunk_times = chunk_times - self.init_time
             # Append new data into our ring buffers
             t_in_graph, sig_in_graph = self.append_data(chunk_times, chunk_signal)
+            time_window = self.signal_settings['spectrogram']['time_window'] \
+                if len(t_in_graph) >= self.win_s_spec else len(t_in_graph) / self.fs
+
+
             if self.visualization_settings['mode'] == 'clinical':
-                # time_window = self.signal_settings['spectrogram']['time_window'] \
-                #     if len(t_in_graph) >= self.win_s_spec else len(t_in_graph) / self.fs
+                signal = np.vstack((sig_in_graph[np.argmax(t_in_graph)+1:],
+                                       sig_in_graph[:np.argmax(t_in_graph)+1]))
+            else:
+                signal = sig_in_graph.copy()
 
-                # Check if time is over max time window
-                if t_in_graph.max() > t_in_graph[-1]:
-                    sig_in_graph = [sig_in_graph[:np.argmax(t_in_graph)],
-                                    sig_in_graph[np.argmax(t_in_graph):]]
-                    time_window = [len(sig_in_graph[0]) / self.fs,
-                                   len(sig_in_graph[1]) / self.fs]
-                else:
-                    sig_in_graph = [sig_in_graph]
-                    time_window = [len(t_in_graph) / self.fs]
+            # Compute spectrogram
+            spec, t, f = fourier_spectrogram(
+                signal[:, self.curr_cha], self.fs,
+                time_window=time_window,
+                overlap_pct=self.signal_settings['spectrogram'][
+                    'overlap_pct'],
+                smooth=self.signal_settings['spectrogram'][
+                    'smooth'],
+                smooth_sigma=self.signal_settings['spectrogram'][
+                    'smooth_sigma'],
+                apply_detrend=self.signal_settings['spectrogram'][
+                    'apply_detrend'],
+                apply_normalization=self.signal_settings['spectrogram'][
+                    'apply_normalization'],
+                scale_to=self.signal_settings['spectrogram']['scale_to'])
 
-            elif self.visualization_settings['mode'] == 'geek':
-                sig_in_graph = [sig_in_graph]
-                time_window = [self.signal_settings['spectrogram']['time_window'] \
-                    if len(t_in_graph) >= self.win_s_spec else len(t_in_graph) / self.fs]
-            spec = None
-            for s_idx in range(len(sig_in_graph)):
-                if time_window[s_idx] > 0:
-                    # Compute spectrogram
-                    spec_tmp, t, f = fourier_spectrogram(
-                        sig_in_graph[s_idx][:, self.curr_cha], self.fs,
-                        time_window=time_window[s_idx],
-                        overlap_pct=self.signal_settings['spectrogram'][
-                            'overlap_pct'],
-                        smooth=self.signal_settings['spectrogram'][
-                            'smooth'],
-                        smooth_sigma=self.signal_settings['spectrogram'][
-                            'smooth_sigma'],
-                        apply_detrend=self.signal_settings['spectrogram'][
-                            'apply_detrend'],
-                        apply_normalization=self.signal_settings['spectrogram'][
-                            'apply_normalization'],
-                        scale_to=self.signal_settings['spectrogram']['scale_to'])
-
-                    # Optionally convert to log scale
-                    if self.signal_settings['spectrogram']['log_power']:
-                        spec_tmp = 10 * np.log10(spec_tmp + 1e-12)
-
-                    if spec is None:
-                        spec = spec_tmp
-                    else:
-                        freq_min = min(spec.shape[1],spec_tmp.shape[1])
-                        spec = np.vstack((spec[:,:freq_min],spec_tmp[:,:freq_min]))
+            # Optionally convert to log scale
+            if self.signal_settings['spectrogram']['log_power']:
+                spec = 10 * np.log10(spec + 1e-12)
 
             # Update the image
-            self.im.set_data(spec)
             if self.visualization_settings['mode'] == 'clinical':
+                # Update the time marker
+                x = np.mod(self.time_in_graph, self.win_t)
+                self.marker.set_xdata(x[self.pointer])
+
                 if t_in_graph.max() < self.win_t:
-                    self.im.set_extent([t_in_graph[0], t_in_graph[-1], f[0], f[-1]])
+                    self.im.set_extent(
+                        [t_in_graph[0], t_in_graph[-1], f[0], f[-1]])
+                else:
+                    # Redefine the t_in_graph vector to match t dimensions
+                    t = scp_signal.resample(t_in_graph.copy(),t.shape[0])
+                    # Reorder the spectrogram
+                    idx = np.argmax(t)
+                    if idx < spec.shape[1] - 1:
+                        spec = np.hstack((spec[:,-idx - 1:].copy(),
+                                          spec[:,: -idx -1].copy()))
+
             elif self.visualization_settings['mode'] == 'geek':
-                self.im.set_extent([t_in_graph[0], t_in_graph[-1], f[0], f[-1]])
+                self.im.set_extent(
+                    [t_in_graph[0], t_in_graph[-1], f[0], f[-1]])
+
+            self.im.set_data(spec)
             self.draw_x_axis_ticks()
             self.draw_y_axis_ticks()
 
