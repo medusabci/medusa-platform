@@ -1205,8 +1205,6 @@ class PowerDistributionPlot(SpectrogramPlot):
                     'apply_normalization'],
                 scale_to=self.signal_settings['spectrogram']['scale_to'])
 
-            self.save_spec.append(spec)
-
             # Redefine the t_in_graph vector to match t dimensions
             interp_func = interpolate.interp1d(np.linspace(0, 1, len(t_in_graph)),
                                    t_in_graph, kind='linear',
