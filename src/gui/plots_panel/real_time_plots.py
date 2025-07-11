@@ -200,6 +200,8 @@ class TopographyPlot(RealTimePlot):
             raise ValueError('Wrong signal type %s. TopographyPlot only '
                              'supports EEG signals' %
                              (lsl_stream_info.medusa_type))
+        else:
+            return True
 
 
 
@@ -383,6 +385,8 @@ class ConnectivityPlot(RealTimePlot):
             raise ValueError('Wrong signal type %s. ConnectivityPlot only '
                              'supports EEG signals' %
                              (lsl_stream_info.medusa_type))
+        else:
+            return True
 
     @staticmethod
     def get_default_settings(stream_info=None):
@@ -457,7 +461,7 @@ class ConnectivityPlot(RealTimePlot):
 
     def init_plot(self):
         # Create channel set
-        self.channel_set, self.sel_channels = (
+        self.channel_set = (
             lsl_utils.lsl_channel_info_to_eeg_channel_set(
                 self.lsl_stream_info.cha_info,
                 discard_unlocated_channels=True))
@@ -489,7 +493,7 @@ class ConnectivityPlot(RealTimePlot):
             self.signal_settings['connectivity']['time_window'] * self.fs)
         # Update view box menu
         self.time_in_graph = np.zeros(1)
-        self.sig_in_graph = np.zeros([1, len(self.sel_channels)])
+        self.sig_in_graph = np.zeros([1, self.channel_set.n_cha])
         if self.signal_settings['connectivity']['conn_metric'] == 'aec':
             self.clim = [-1, 1]
         else:
@@ -498,7 +502,6 @@ class ConnectivityPlot(RealTimePlot):
     def update_plot(self, chunk_times, chunk_signal):
         try:
             # Append new data and get safe copy
-            chunk_signal = chunk_signal[:, self.sel_channels]
             x_in_graph, sig_in_graph = \
                 self.append_data(chunk_times, chunk_signal)
             # Compute connectivity
