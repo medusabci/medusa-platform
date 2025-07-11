@@ -11,6 +11,7 @@ from PySide6.QtGui import *
 # MEDUSA COMPONENTS
 from medusa import components
 from medusa.analysis.time_plot.time_plot import curr_dir
+from medusa.components import TreeDict
 from pandas.io.pytables import Table
 
 from acquisition import lsl_utils
@@ -506,6 +507,8 @@ class PlotsTabConfig(components.SerializableComponent):
                 for key, value in plot_settings.items():
                     if key == 'lsl_stream_info':
                         value = value.to_serializable_obj()
+                    if isinstance(value, TreeDict):
+                        value = value.to_dict()
                     data['plots_settings'][str(plot_key)][key] = value
             return data
         except Exception as e:
@@ -529,9 +532,9 @@ class PlotsTabConfig(components.SerializableComponent):
                 plot_info = real_time_plots.get_plot_info(
                     config.plots_settings[uid]['plot_uid'])
                 signal_settings = \
-                    config.plots_settings[uid]['signal_settings']
+                    TreeDict(config.plots_settings[uid]['signal_settings'])
                 visualization_settings = \
-                    config.plots_settings[uid]['visualization_settings']
+                    TreeDict(config.plots_settings[uid]['visualization_settings'])
                 lsl_stream_info = config.plots_settings[uid]['lsl_stream_info']
                 try:
                     # Update lsl_stream (necessary for weak LSL search)
@@ -771,61 +774,11 @@ class ConfigPlotFrameDialog(QDialog, ui_plot_config_dialog):
             plot_class = self.selected_plot_info['class']
             stream = self.working_lsl_streams[self.comboBox_lsl_streams.currentIndex()]
             signal_settings, visualization_settings = plot_class.get_default_settings(stream)
-            self.signal_settings = self.update_dict_from_tree(self.signal_options_tree, signal_settings)
-            self.visualization_settings = self.update_dict_from_tree(self.visualization_options_tree, visualization_settings)
+            self.signal_settings = signal_settings.update_TreeDict_from_TreeWidget(self.signal_options_tree)
+            self.visualization_settings = visualization_settings.update_TreeDict_from_TreeWidget(self.visualization_options_tree)
             super().accept()
         except Exception as e:
             self.exception_handler(e)
-
-    def update_dict_from_tree(self, tree_widget, tree_dict):
-        """
-        Updates the TreeDict dictionary with values from the QTreeWidget.
-        """
-        def traverse_tree_item(item, tree_dict, i=None):
-            # Retrieve the widget associated with the "Value" column for the current item
-            widget = tree_widget.itemWidget(item, 1)
-
-            # Extract the value based on the widget type
-            if isinstance(widget, QComboBox):
-                value = widget.currentText()
-            elif isinstance(widget, QCheckBox):
-                value = widget.isChecked()
-            elif isinstance(widget, (QSpinBox, QDoubleSpinBox)):
-                value = widget.value()
-            elif isinstance(widget, QLineEdit):
-                value = widget.text()
-            elif widget is None:
-                value = None
-
-            # Access the corresponding dictionary node
-            node = tree_dict[i] if i is not None else tree_dict
-
-            # Update the default value if available
-            if value is not None:
-                node["default_value"] = value
-            elif value is None and "default_value" in node:
-                # Handle list-style default values (nested editable lists)
-                if isinstance(node["default_value"], list):
-                    list_items = []
-                    for j in range(item.childCount()):
-                        child_item = item.child(j)
-                        child_widget = tree_widget.itemWidget(child_item, 1)
-                        if isinstance(child_widget, QLineEdit):
-                            list_items.append(child_widget.text())
-                        elif isinstance(child_widget, (QDoubleSpinBox)):
-                            list_items.append(child_widget.value())
-                    node["default_value"] = list_items
-
-            # Recurse into child items if any
-            if (value is None and "default_value" not in node) or (value is not None):
-                if item.childCount() > 0:
-                    for j in range(item.childCount()):
-                        traverse_tree_item(item.child(j), node["items"][j])
-
-        # Traverse each top-level item in the tree
-        for i in range(tree_widget.topLevelItemCount()):
-            traverse_tree_item(tree_widget.topLevelItem(i), tree_dict, i)
-        return tree_dict
 
     def reject(self):
         try:

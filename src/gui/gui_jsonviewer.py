@@ -5,6 +5,7 @@ import collections
 import json
 import sys
 from PySide6 import QtCore, QtWidgets
+from medusa.components import TreeDict
 
 
 class TextToTreeItem:
@@ -32,6 +33,9 @@ class TreeView(QtWidgets.QWidget):
     """
     def __init__(self, jdata):
         super(TreeView, self).__init__()
+
+        if isinstance(jdata, TreeDict):
+            jdata = jdata.to_dict()
 
         self.find_box = None
         self.tree_widget = None
@@ -102,7 +106,7 @@ class TreeView(QtWidgets.QWidget):
             for data in jdata:
                 self.tree_add_row(data, tree_widget)
 
-    def tree_add_row(self, data, tree_widget):
+    def tree_add_row(self, data, tree_widget, delete=False):
         text_list = []
 
         # Obtain the necessary fields
@@ -114,6 +118,7 @@ class TreeView(QtWidgets.QWidget):
         value_options = data.get("value_options", None)
         items = data.get("items", None)
 
+        # Set input format
         if input_format is None:
             if isinstance(default_value, bool):
                 input_format = "checkbox"
@@ -132,12 +137,26 @@ class TreeView(QtWidgets.QWidget):
 
         # Add the row item
         row_item = QtWidgets.QTreeWidgetItem(tree_widget)
-        key_label = QtWidgets.QLabel(str(key))
-        self.tree_widget.setItemWidget(row_item, 0, key_label)
+
+        if delete:
+            key_widget = QtWidgets.QWidget()
+            key_layout = QtWidgets.QHBoxLayout()
+            key_layout.setContentsMargins(0, 0, 0, 0)
+            key_label = QtWidgets.QLabel(str(key))
+            remove_button = QtWidgets.QPushButton("-")
+            remove_button.setFixedWidth(30)
+            remove_button.clicked.connect(lambda: self.remove_list_item(row_item))
+            key_layout.addWidget(key_label)
+            key_layout.addWidget(remove_button)
+            key_widget.setLayout(key_layout)
+            self.tree_widget.setItemWidget(row_item, 0, key_widget)
+        else:
+            key_label = QtWidgets.QLabel(str(key))
+            self.tree_widget.setItemWidget(row_item, 0, key_label)
+
         if info is not None:
             info_label = QtWidgets.QLabel(str(info))
             info_label.setStyleSheet("padding-left: 10px; border:none")
-
             scroll_area = QtWidgets.QScrollArea()
             scroll_area.setWidget(info_label)
             scroll_area.setWidgetResizable(True)
@@ -161,7 +180,6 @@ class TreeView(QtWidgets.QWidget):
                     border-radius: 2px;
                 }
             """)
-
             self.tree_widget.setItemWidget(row_item, 2, scroll_area)
 
         # Add widgets based on input_format for the 'Value' column
@@ -209,26 +227,36 @@ class TreeView(QtWidgets.QWidget):
             line_edit.setText(str(default_value))
             self.tree_widget.setItemWidget(row_item, 1, line_edit)
         elif input_format == "list":
+            for idx, list_item in enumerate(default_value):
+                subkey = f"{key}[{idx}]"
+                subdata = {
+                    "key": subkey,
+                    "default_value": list_item
+                }
+
+                if isinstance(list_item, bool):
+                    subdata["input_format"] = "checkbox"
+                elif isinstance(list_item, int):
+                    subdata["input_format"] = "spinbox"
+                elif isinstance(list_item, float):
+                    subdata["input_format"] = "doublespinbox"
+                elif isinstance(list_item, str):
+                    subdata["input_format"] = "lineedit"
+                elif isinstance(list_item, list):
+                    subdata["input_format"] = "list"
+
+                self.tree_add_row(subdata, row_item, delete=True)
+
+            # Add "Add" button at the bottom
             button_container = QtWidgets.QWidget()
             button_layout = QtWidgets.QHBoxLayout()
-
             add_button = QtWidgets.QPushButton("Add")
-
             button_layout.addWidget(add_button)
             button_layout.setContentsMargins(0, 0, 0, 0)
             button_container.setLayout(button_layout)
-
             button_item = QtWidgets.QTreeWidgetItem(row_item)
             self.tree_widget.setItemWidget(button_item, 0, button_container)
-
-            add_button.clicked.connect(lambda: self.add_button_clicked(row_item))
-
-            for list_item in default_value:
-                if isinstance(list_item, (str, bool)):
-                    widget_type = "text"
-                elif isinstance(list_item, (float, int)):
-                    widget_type = "number"
-                self.add_list_item(row_item, widget_type, list_item)
+            add_button.clicked.connect(lambda: self.add_button_clicked(row_item, key))
 
         if items:
             self.recurse_jdata(items, row_item)
@@ -240,53 +268,67 @@ class TreeView(QtWidgets.QWidget):
 
         self.text_to_titem.append(text_list, row_item)
 
-    def add_button_clicked(self, row_item):
-        items = ["text", "number"]
+    def add_button_clicked(self, row_item, parent_key):
+        items = ["str", "int", "float", "bool", "list"]
         item_type, ok = QtWidgets.QInputDialog.getItem(self,
                                         "Choose item type",
                                         "Choose item type",
                                         items,
                                         0,
                                         False)
-        if ok and item_type:
-            self.add_list_item(row_item, item_type)
+        if ok:
+            type_defaults = {
+                "str": ("", "lineedit"),
+                "int": (0, "spinbox"),
+                "float": (0.0, "doublespinbox"),
+                "bool": (False, "checkbox"),
+                "list": ([], "list")
+            }
 
-    def add_list_item(self, parent_item, item_type, default_value=None):
-        count = parent_item.childCount() - 1
-        new_child = QtWidgets.QTreeWidgetItem()
+            default_value, input_format = type_defaults[item_type]
+            new_key = f"{parent_key}[{row_item.childCount()-1}]"
+            new_data = {
+                "key": new_key,
+                "default_value": default_value,
+                "input_format": input_format
+            }
 
-        if item_type == "text":
-            widget = QtWidgets.QLineEdit()
-            if default_value is not None:
-                widget.setText(str(default_value))
-        elif item_type == "number":
-            widget = QtWidgets.QDoubleSpinBox()
-            widget.setRange(-1000000000, 1000000000)
-            if default_value is not None:
-                widget.setValue(default_value)
+            self.tree_add_row(new_data, row_item, delete=True)
 
-        key_layout = QtWidgets.QHBoxLayout()
-        key_layout.setContentsMargins(0, 0, 0, 0)
+            #Take 'Add' button to the end of the list
+            row_item.takeChild(row_item.childCount()-2)
+            button_container = QtWidgets.QWidget()
+            button_layout = QtWidgets.QHBoxLayout()
+            add_button = QtWidgets.QPushButton("Add")
+            button_layout.addWidget(add_button)
+            button_layout.setContentsMargins(0, 0, 0, 0)
+            button_container.setLayout(button_layout)
+            button_item = QtWidgets.QTreeWidgetItem(row_item)
+            self.tree_widget.setItemWidget(button_item, 0, button_container)
+            add_button.clicked.connect(lambda: self.add_button_clicked(row_item, parent_key))
 
-        key_label = QtWidgets.QLabel(f"Item {count}")
-        remove_button = QtWidgets.QPushButton("-")
-        remove_button.setFixedWidth(30)
-        remove_button.clicked.connect(lambda: self.remove_list_item(new_child))
-
-        key_layout.addWidget(key_label)
-        key_layout.addWidget(remove_button)
-
-        key_widget = QtWidgets.QWidget()
-        key_widget.setLayout(key_layout)
-
-        parent_item.insertChild(count, new_child)
-        self.tree_widget.setItemWidget(new_child, 0, key_widget)
-        self.tree_widget.setItemWidget(new_child, 1, widget)
+            self.reindex_list_items(row_item, parent_key)
 
     def remove_list_item(self, item):
         parent_item = item.parent()
         if parent_item:
             parent_item.removeChild(item)
+            self.reindex_list_items(parent_item)
+
+    def reindex_list_items(self, parent_item, parent_key=None):
+        child_count = parent_item.childCount()-1
+        index = 0
+        for i in range(child_count):
+            child = parent_item.child(i)
+            label_widget = self.tree_widget.itemWidget(child, 0)
+            label = label_widget.findChild(QtWidgets.QLabel)
+            if parent_key is None:
+                last_bracket = label.text().rfind("[")
+                parent_key = label.text()[:last_bracket]
+            new_key = f"{parent_key}[{index}]"
+            label.setText(new_key)
+            index += 1
+            self.reindex_list_items(child, new_key)
 
 
 

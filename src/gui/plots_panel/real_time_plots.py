@@ -210,7 +210,7 @@ class TopographyPlot(RealTimePlot):
         freq_filt = signal_settings.add_item("frequency_filter")
         freq_filt.add_item("apply", default_value=True, info="Apply IIR filter in real-time")
         freq_filt.add_item("type", default_value="highpass", value_options=["highpass", "lowpass", "bandpass", "stopband"], info="Filter type")
-        freq_filt.add_item("cutoff_freq", default_value=[1], info="List with one cutoff for highpass/lowpass, two for bandpass/stopband")
+        freq_filt.add_item("cutoff_freq", default_value=[1.0], info="List with one cutoff for highpass/lowpass, two for bandpass/stopband")
         freq_filt.add_item("order", default_value=5, info="Order of the filter (the higher, the greater computational cost)", value_range=[1, None])
         notch_filt = signal_settings.add_item("notch_filter")
         notch_filt.add_item("apply", default_value=True, info="Apply notch filter to get rid of power line interference")
@@ -254,7 +254,7 @@ class TopographyPlot(RealTimePlot):
         clim.add_item("auto", default_value=True, info="Click for automatic color bar limits computation")
         clim.add_item("values", default_value=[0.0, 1.0], info="Max and min bar limits customized")
         visualization_settings.add_item("label_color", default_value="w", info="Label color")
-        return signal_settings.tree, visualization_settings.tree
+        return signal_settings, visualization_settings
 
     @staticmethod
     def check_settings(signal_settings, plot_settings):
@@ -391,7 +391,7 @@ class ConnectivityPlot(RealTimePlot):
         freq_filt = signal_settings.add_item("frequency_filter")
         freq_filt.add_item("apply", default_value=True, info="Apply IIR filter in real-time")
         freq_filt.add_item("type", default_value="highpass", value_options=["highpass", "lowpass", "bandpass", "stopband"], info="Filter type")
-        freq_filt.add_item("cutoff_freq", default_value=[1], info="List with one cutoff for highpass/lowpass, two for bandpass/stopband")
+        freq_filt.add_item("cutoff_freq", default_value=[1.0], info="List with one cutoff for highpass/lowpass, two for bandpass/stopband")
         freq_filt.add_item("order", default_value=5, info="Order of the filter (the higher, the greater computational cost)", value_range=[1, None])
         notch_filt = signal_settings.add_item("notch_filter")
         notch_filt.add_item("apply", default_value=True, info="Apply notch filter to get rid of power line interference")
@@ -433,7 +433,7 @@ class ConnectivityPlot(RealTimePlot):
         clim.add_item("auto", default_value=True, info="Click for automatic color bar limits computation")
         clim.add_item("values", default_value=[0.0, 1.0], info="Max and min bar limits customized")
         visualization_settings.add_item("label_color", default_value="w", info="Label color")
-        return signal_settings.tree, visualization_settings.tree
+        return signal_settings, visualization_settings
 
     @staticmethod
     def check_settings(signal_settings, plot_settings):
@@ -635,7 +635,7 @@ class SpectrogramPlot(RealTimePlot):
         freq_filt = signal_settings.add_item("frequency_filter")
         freq_filt.add_item("apply", default_value=True, info="Apply IIR filter in real-time")
         freq_filt.add_item("type", default_value="highpass", value_options=["highpass", "lowpass", "bandpass", "stopband"], info="Filter type")
-        freq_filt.add_item("cutoff_freq", default_value=[1], info="List with one cutoff for highpass/lowpass, two for bandpass/stopband")
+        freq_filt.add_item("cutoff_freq", default_value=[1.0], info="List with one cutoff for highpass/lowpass, two for bandpass/stopband")
         freq_filt.add_item("order", default_value=5, info="Order of the filter (the higher, the greater computational cost)", value_range=[1, None])
         notch_filt = signal_settings.add_item("notch_filter")
         notch_filt.add_item("apply", default_value=False, info="Apply notch filter to get rid of power line interference")
@@ -694,7 +694,7 @@ class SpectrogramPlot(RealTimePlot):
         plot_adj.add_item("right", default_value=0.995, info="", value_range=[0, None])
         plot_adj.add_item("top", default_value=0.94, info="", value_range=[0, None])
         plot_adj.add_item("bottom", default_value=0.1, info="", value_range=[0, None])
-        return signal_settings.tree, visualization_settings.tree
+        return signal_settings, visualization_settings
 
     @staticmethod
     def check_settings(signal_settings, plot_settings):
@@ -1112,7 +1112,7 @@ class TimePlotMultichannel(RealTimePlotPyQtGraph):
         freq_filt = signal_settings.add_item("frequency_filter")
         freq_filt.add_item("apply", default_value=True, info="Apply IIR filter in real-time")
         freq_filt.add_item("type", default_value="highpass", value_options=["highpass", "lowpass", "bandpass", "stopband"], info="Filter type")
-        freq_filt.add_item("cutoff_freq", default_value=[1], info="List with one cutoff for highpass/lowpass, two for bandpass/stopband")
+        freq_filt.add_item("cutoff_freq", default_value=[1.0], info="List with one cutoff for highpass/lowpass, two for bandpass/stopband")
         freq_filt.add_item("order", default_value=5, info="Order of the filter (the higher, the greater computational cost)", value_range=[1, None])
         notch_filt = signal_settings.add_item("notch_filter")
         notch_filt.add_item("apply", default_value=True, info="Apply notch filter to get rid of power line interference")
@@ -1155,7 +1155,7 @@ class TimePlotMultichannel(RealTimePlotPyQtGraph):
         y_label.add_item("text", default_value="<b>Signal</b>", info="Label for y-axis")
         y_label.add_item("units", default_value="auto", info="Units for y-axis")
         visualization_settings.add_item("title", default_value="auto", info="Title for the plot")
-        return signal_settings.tree, visualization_settings.tree
+        return signal_settings, visualization_settings
 
     @staticmethod
     def check_settings(signal_settings, visualization_settings):
@@ -1493,7 +1493,7 @@ class TimePlot(RealTimePlotPyQtGraph):
         freq_filt = signal_settings.add_item("frequency_filter")
         freq_filt.add_item("apply", default_value=True, info="Apply IIR filter in real-time")
         freq_filt.add_item("type", default_value="highpass", value_options=["highpass", "lowpass", "bandpass", "stopband"], info="Filter type")
-        freq_filt.add_item("cutoff_freq", default_value=[1], info="List with one cutoff for highpass/lowpass, two for bandpass/stopband")
+        freq_filt.add_item("cutoff_freq", default_value=[1.0], info="List with one cutoff for highpass/lowpass, two for bandpass/stopband")
         freq_filt.add_item("order", default_value=5, info="Order of the filter (the higher, the greater computational cost)", value_range=[1, None])
         notch_filt = signal_settings.add_item("notch_filter")
         notch_filt.add_item("apply", default_value=True, info="Apply notch filter to get rid of power line interference")
@@ -1537,7 +1537,7 @@ class TimePlot(RealTimePlotPyQtGraph):
         y_label.add_item("text", default_value="<b>Signal</b>", info="Label for y-axis")
         y_label.add_item("units", default_value="auto", info="Units for y-axis")
         visualization_settings.add_item("title", default_value="auto", info="Title for the plot")
-        return signal_settings.tree, visualization_settings.tree
+        return signal_settings, visualization_settings
 
     @staticmethod
     def check_settings(signal_settings, visualization_settings):
@@ -1841,7 +1841,7 @@ class PSDPlotMultichannel(RealTimePlotPyQtGraph):
         freq_filt = signal_settings.add_item("frequency_filter")
         freq_filt.add_item("apply", default_value=True, info="Apply IIR filter in real-time")
         freq_filt.add_item("type", default_value="highpass", value_options=["highpass", "lowpass", "bandpass", "stopband"], info="Filter type")
-        freq_filt.add_item("cutoff_freq", default_value=[1], info="List with one cutoff for highpass/lowpass, two for bandpass/stopband")
+        freq_filt.add_item("cutoff_freq", default_value=[1.0], info="List with one cutoff for highpass/lowpass, two for bandpass/stopband")
         freq_filt.add_item("order", default_value=5, info="Order of the filter (the higher, the greater computational cost)", value_range=[1, None])
         notch_filt = signal_settings.add_item("notch_filter")
         notch_filt.add_item("apply", default_value=True, info="Apply notch filter to get rid of power line interference")
@@ -1888,7 +1888,7 @@ class PSDPlotMultichannel(RealTimePlotPyQtGraph):
         psd.add_item("welch_overlap_pct", default_value=25.0, info="Percentage of segment overlapping", value_range=[0, 100])
         psd.add_item("welch_seg_len_pct", default_value=50.0, info="Percentage of the window that will be used", value_range=[0, 100])
         visualization_settings.add_item("title", default_value="auto", info="Title for the plot")
-        return signal_settings.tree, visualization_settings.tree
+        return signal_settings, visualization_settings
 
     @staticmethod
     def check_settings(signal_settings, visualization_settings):
@@ -2101,7 +2101,7 @@ class PSDPlot(RealTimePlotPyQtGraph):
         freq_filt = signal_settings.add_item("frequency_filter")
         freq_filt.add_item("apply", default_value=True, info="Apply IIR filter in real-time")
         freq_filt.add_item("type", default_value="highpass", value_options=["highpass", "lowpass", "bandpass", "stopband"], info="Filter type")
-        freq_filt.add_item("cutoff_freq", default_value=[1], info="List with one cutoff for highpass/lowpass, two for bandpass/stopband")
+        freq_filt.add_item("cutoff_freq", default_value=[1.0], info="List with one cutoff for highpass/lowpass, two for bandpass/stopband")
         freq_filt.add_item("order", default_value=5, info="Order of the filter (the higher, the greater computational cost)", value_range=[1, None])
         notch_filt = signal_settings.add_item("notch_filter")
         notch_filt.add_item("apply", default_value=True, info="Apply notch filter to get rid of power line interference")
@@ -2148,7 +2148,7 @@ class PSDPlot(RealTimePlotPyQtGraph):
         psd.add_item("welch_overlap_pct", default_value=25.0, info="Percentage of segment overlapping", value_range=[0, 100])
         psd.add_item("welch_seg_len_pct", default_value=50.0, info="Percentage of the window that will be used", value_range=[0, 100])
         visualization_settings.add_item("title", default_value="auto", info="Title for the plot")
-        return signal_settings.tree, visualization_settings.tree
+        return signal_settings, visualization_settings
 
     @staticmethod
     def check_settings(signal_settings, visualization_settings):
