@@ -132,6 +132,12 @@ class RealTimePlot(ABC):
 
     @staticmethod
     @abstractmethod
+    def update_lsl_stream_related_settings(signal_settings, visualization_settings, stream_info):
+        """Update LSL stream related settings is LSL changes"""
+        raise NotImplemented
+
+    @staticmethod
+    @abstractmethod
     def check_settings(signal_settings, plot_settings):
         """Check settings dicts to see if it's correctly formatted"""
         raise NotImplemented
@@ -256,6 +262,12 @@ class TopographyPlot(RealTimePlot):
         clim.add_item("auto", default_value=True, info="Click for automatic color bar limits computation")
         clim.add_item("values", default_value=[0.0, 1.0], info="Max and min bar limits customized")
         visualization_settings.add_item("label_color", default_value="w", info="Label color")
+        return signal_settings, visualization_settings
+
+    @staticmethod
+    def update_lsl_stream_related_settings(signal_settings, visualization_settings, stream_info):
+        signal_settings.get_item("re_referencing", "channel").\
+            edit_item(default_value=stream_info.l_cha[0], value_options=stream_info.l_cha)
         return signal_settings, visualization_settings
 
     @staticmethod
@@ -437,6 +449,12 @@ class ConnectivityPlot(RealTimePlot):
         clim.add_item("auto", default_value=True, info="Click for automatic color bar limits computation")
         clim.add_item("values", default_value=[0.0, 1.0], info="Max and min bar limits customized")
         visualization_settings.add_item("label_color", default_value="w", info="Label color")
+        return signal_settings, visualization_settings
+
+    @staticmethod
+    def update_lsl_stream_related_settings(signal_settings, visualization_settings, stream_info):
+        signal_settings.get_item("re_referencing", "channel").\
+            edit_item(default_value=stream_info.l_cha[0], value_options=stream_info.l_cha)
         return signal_settings, visualization_settings
 
     @staticmethod
@@ -697,6 +715,14 @@ class SpectrogramPlot(RealTimePlot):
         plot_adj.add_item("right", default_value=0.995, info="", value_range=[0, None])
         plot_adj.add_item("top", default_value=0.94, info="", value_range=[0, None])
         plot_adj.add_item("bottom", default_value=0.1, info="", value_range=[0, None])
+        return signal_settings, visualization_settings
+
+    @staticmethod
+    def update_lsl_stream_related_settings(signal_settings, visualization_settings, stream_info):
+        signal_settings.get_item("re_referencing", "channel").\
+            edit_item(default_value=stream_info.l_cha[0], value_options=stream_info.l_cha)
+        visualization_settings.get_item("init_channel_label").\
+            edit_item(default_value=stream_info.l_cha[0], value_options=stream_info.l_cha)
         return signal_settings, visualization_settings
 
     @staticmethod
@@ -1161,6 +1187,14 @@ class TimePlotMultichannel(RealTimePlotPyQtGraph):
         return signal_settings, visualization_settings
 
     @staticmethod
+    def update_lsl_stream_related_settings(signal_settings, visualization_settings, stream_info):
+        signal_settings.get_item("re_referencing", "channel").\
+            edit_item(default_value=stream_info.l_cha[0], value_options=stream_info.l_cha)
+        visualization_settings.get_item("l_cha").edit_item(default_value=stream_info.l_cha)
+        return signal_settings, visualization_settings
+
+
+    @staticmethod
     def check_settings(signal_settings, visualization_settings):
         # Visualization modes
         possible_modes = ['geek', 'clinical']
@@ -1543,6 +1577,14 @@ class TimePlot(RealTimePlotPyQtGraph):
         return signal_settings, visualization_settings
 
     @staticmethod
+    def update_lsl_stream_related_settings(signal_settings, visualization_settings, stream_info):
+        signal_settings.get_item("re_referencing", "channel").\
+            edit_item(default_value=stream_info.l_cha[0], value_options=stream_info.l_cha)
+        visualization_settings.get_item("init_channel_label").\
+            edit_item(default_value=stream_info.l_cha[0], value_options=stream_info.l_cha)
+        return signal_settings, visualization_settings
+
+    @staticmethod
     def check_settings(signal_settings, visualization_settings):
         # Check mode
         possible_modes = ['geek', 'clinical']
@@ -1894,6 +1936,13 @@ class PSDPlotMultichannel(RealTimePlotPyQtGraph):
         return signal_settings, visualization_settings
 
     @staticmethod
+    def update_lsl_stream_related_settings(signal_settings, visualization_settings, stream_info):
+        signal_settings.get_item("re_referencing", "channel").\
+            edit_item(default_value=stream_info.l_cha[0], value_options=stream_info.l_cha)
+        visualization_settings.get_item("l_cha").edit_item(default_value=stream_info.l_cha)
+        return signal_settings, visualization_settings
+
+    @staticmethod
     def check_settings(signal_settings, visualization_settings):
         # Channel separation
         if isinstance(visualization_settings['y_axis']['cha_separation'], list):
@@ -2151,6 +2200,14 @@ class PSDPlot(RealTimePlotPyQtGraph):
         psd.add_item("welch_overlap_pct", default_value=25.0, info="Percentage of segment overlapping", value_range=[0, 100])
         psd.add_item("welch_seg_len_pct", default_value=50.0, info="Percentage of the window that will be used", value_range=[0, 100])
         visualization_settings.add_item("title", default_value="auto", info="Title for the plot")
+        return signal_settings, visualization_settings
+
+    @staticmethod
+    def update_lsl_stream_related_settings(signal_settings, visualization_settings, stream_info):
+        signal_settings.get_item("re_referencing", "channel").\
+            edit_item(default_value=stream_info.l_cha[0], value_options=stream_info.l_cha)
+        visualization_settings.get_item("init_channel_label").\
+            edit_item(default_value=stream_info.l_cha[0], value_options=stream_info.l_cha)
         return signal_settings, visualization_settings
 
     @staticmethod

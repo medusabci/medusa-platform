@@ -572,11 +572,9 @@ class PlotsTabConfig(components.SerializableComponent):
                         lsl_stream)
                 except exceptions.LSLStreamNotFound as e:
                     new_lsl_stream_info = None
-                    plot_info = None
                     item['configured'] = False
                 except exceptions.UnspecificLSLStreamInfo as e:
                     new_lsl_stream_info = None
-                    plot_info = None
                     item['configured'] = False
                 plot_idx = config.create_plot_frame(
                     item['uid'],
@@ -657,6 +655,9 @@ class ConfigPlotFrameDialog(QDialog, ui_plot_config_dialog):
             self.set_lsl_streams(selected_lsl_stream)
             self.set_plot_types(selected_plot_info)
             if selected_plot_info is not None:
+                stream = self.working_lsl_streams[self.comboBox_lsl_streams.currentIndex()]
+                signal_settings, visualization_settings = self.selected_plot_info['class'].\
+                    update_lsl_stream_related_settings(signal_settings, visualization_settings, stream)
                 self.set_settings_in_tree_view(signal_settings,
                                                visualization_settings)
         except Exception as e:
@@ -704,14 +705,22 @@ class ConfigPlotFrameDialog(QDialog, ui_plot_config_dialog):
     def on_combobox_lsl_stream_changed(self):
         lsl_stream_index = self.comboBox_lsl_streams.currentIndex()
         self.selected_lsl_stream_info = self.working_lsl_streams[lsl_stream_index]
-        # Get default settings of the new plot
+        # Update lsl stream related settings
         if self.selected_plot_info is not None:
             plot_class = self.selected_plot_info['class']
             stream = self.working_lsl_streams[self.comboBox_lsl_streams.currentIndex()]
-            signal_settings, visualization_settings = \
+            plot_class_signal_settings, plot_class_visualization_settings = \
                 plot_class.get_default_settings(stream)
-            self.set_settings_in_tree_view(signal_settings,
-                                           visualization_settings)
+            curr_signal_settings = (plot_class_signal_settings.
+                                    update_TreeDict_from_TreeWidget(self.signal_options_tree))
+            curr_visualization_settings = (plot_class_visualization_settings.
+                                           update_TreeDict_from_TreeWidget(self.visualization_options_tree))
+            updated_signal_settings, updated_visualization_settings = \
+                plot_class.update_lsl_stream_related_settings(curr_signal_settings,
+                                                              curr_visualization_settings,
+                                                              stream)
+            self.set_settings_in_tree_view(updated_signal_settings,
+                                           updated_visualization_settings)
 
     def on_combobox_plot_type_changed(self):
         try:
