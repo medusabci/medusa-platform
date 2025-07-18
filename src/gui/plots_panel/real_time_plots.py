@@ -133,7 +133,7 @@ class RealTimePlot(ABC):
     @staticmethod
     @abstractmethod
     def update_lsl_stream_related_settings(signal_settings, visualization_settings, stream_info):
-        """Update LSL stream related settings is LSL changes"""
+        """Update LSL stream related settings if the LSL stream changes"""
         raise NotImplemented
 
     @staticmethod
