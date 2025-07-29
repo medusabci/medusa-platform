@@ -245,7 +245,7 @@ class EEGChannelSelectionPlot(SerializableComponent):
         M = 345
         return len(self.l_cha) * (0.25 / (M - 2)) + 0.25 * ((M - 4) / (M - 2))
 
-    def onclick(self, event):
+    def onclick(self, event=None):
         """ Handles the mouse click event"""
         xdata = event.xdata
         ydata = event.ydata

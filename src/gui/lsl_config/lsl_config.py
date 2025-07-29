@@ -643,7 +643,8 @@ class EditStreamDialog(QtWidgets.QDialog, ui_stream_config_dialog):
             for i, ch in enumerate(self.cha_info):
                 if self.comboBox_medusa_type.currentData() == 'EEG':
                     order = [ch_label, 'medusa_label', 'x_pos', 'y_pos','selected']
-                    eeg_1005_montage =  meeg_montages.get_standard_montage('10-05', '2D', 'cartesian')
+                    eeg_1005_montage =  meeg_montages.get_standard_montage(
+                        '10-05', '2D', 'cartesian')
                     if 'x_pos' not in ch.keys():
                         if ch['label'] in eeg_1005_montage.keys():
                             ch['x_pos'] = eeg_1005_montage[ch['label']]['x']

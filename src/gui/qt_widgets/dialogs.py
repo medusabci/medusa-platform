@@ -21,7 +21,7 @@ class MedusaDialog(QDialog):
     """Dialog skeleton for medusa, Inherit from this class to create custom
     dialogs with the proper style
     """
-    def __init__(self, window_title, theme_colors=None, width=400, heigh=200,
+    def __init__(self, window_title, theme_colors=None, width=480, heigh=270,
                  pos_x=None, pos_y=None):
         try:
             super().__init__()

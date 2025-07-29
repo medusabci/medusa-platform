@@ -206,8 +206,7 @@ class TopographyPlot(RealTimePlot):
             raise ValueError('Wrong signal type %s. TopographyPlot only '
                              'supports EEG signals' %
                              (lsl_stream_info.medusa_type))
-        else:
-            return True
+        return True
 
 
 
@@ -397,8 +396,7 @@ class ConnectivityPlot(RealTimePlot):
             raise ValueError('Wrong signal type %s. ConnectivityPlot only '
                              'supports EEG signals' %
                              (lsl_stream_info.medusa_type))
-        else:
-            return True
+        return True
 
     @staticmethod
     def get_default_settings(stream_info=None):
