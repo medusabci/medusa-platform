@@ -12,21 +12,20 @@ matplotlib.use('QtAgg')
 # MEDUSA-KERNEL IMPORTS
 from medusa import meeg
 # MEDUSA IMPORTS
-from gui import gui_utils
 from gui.qt_widgets.eeg_channel_selection import EEGChannelSelectionPlot
-from gui.qt_widgets.dialogs import *
+from gui.qt_widgets.dialogs import MedusaDialog, warning_dialog
 
 
 class GeneralChannelSelection(MedusaDialog):
     """This class allows you to control the GUI of the general channel
        selection widget."""
     def __init__(self, cha_field, lsl_cha_info):
+
         super().__init__('MEDUSA Channel Selection',
                          theme_colors=None,
-                         width=640, heigh=360,
+                         width=None, heigh=None,
                          pos_x=None, pos_y=None)
-        # Size constraints
-        self.setMinimumSize(320, 180)
+
         # Initialize variables
         self.changes_made = False
         self.cha_field = cha_field
@@ -134,6 +133,9 @@ class LSLGeneralChannelSelection(GeneralChannelSelection):
 
         # Prevent resizing too small
         self.setMinimumSize(800, 300)
+
+        # Uncomment to debug
+        self.setModal(True)
 
     def create_layout(self):
         # === Main vertical layout ===
@@ -350,10 +352,10 @@ class LSLEEGChannelSelection(GeneralChannelSelection):
         layout = QGridLayout()
 
         # === Set stretch factors to allocate width ===
-        layout.setColumnStretch(0, 3)  # Plot/table
-        layout.setColumnStretch(1, 1)  # Button panel
-        layout.setRowStretch(0, 2)  # Plots
-        layout.setRowStretch(1, 3)  # Table + buttons
+        layout.setColumnStretch(0, 5)  # Plot/table
+        layout.setColumnStretch(1, 2)  # Button panel
+        layout.setRowStretch(0, 1)  # Plots
+        layout.setRowStretch(1, 1)  # Table + buttons
 
         # === Top left: plot_layout ===
         self.plot_layout = QVBoxLayout()
