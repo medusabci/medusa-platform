@@ -486,7 +486,7 @@ class LSLEEGChannelSelection(GeneralChannelSelection):
 
     def init_table(self):
         channel_set = self.interactive_selection.channel_set
-        self.channels_table.setColumnCount(len(self.lsl_cha_keys))
+        self.channels_table.setColumnCount(len(self.lsl_cha_keys)+1)
         self.channels_table.setRowCount(len(channel_set.channels))
         # Set column headers
         table_keys = ["", "medusa_label", "x_pos", "y_pos", "manage position"]
@@ -593,7 +593,8 @@ class LSLEEGChannelSelection(GeneralChannelSelection):
             # Get rest of the data
             for col in range(4, self.channels_table.columnCount()):
                 key = f'{self.channels_table.horizontalHeaderItem(col).text()}'
-                ch_dict[key] = self.channels_table.cellWidget(row, col).text()
+                if key != 'manage position':
+                    ch_dict[key] = self.channels_table.cellWidget(row, col).text()
             channels_dict.append(ch_dict)
 
         return channels_dict
