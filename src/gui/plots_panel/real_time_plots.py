@@ -29,7 +29,7 @@ from medusa.transforms import power_spectral_density, fourier_spectrogram
 from medusa.local_activation import spectral_parameteres
 from medusa.connectivity import amplitude_connectivity, phase_connectivity
 from medusa.plots import head_plots
-from medusa import components
+from medusa.settings_schema import *
 
 
 class RealTimePlot(ABC):
@@ -67,7 +67,7 @@ class RealTimePlot(ABC):
         self.visualization_settings = plot_settings
 
     def to_key_value_dict(self, settings_dict):
-        """Simply the TreeDict dictionary into a dictionary managing just keys
+        """Simply the SettingsTree dictionary into a dictionary managing just keys
         and default values"""
         key_value_dict = {}
         for item in settings_dict:
@@ -212,7 +212,7 @@ class TopographyPlot(RealTimePlot):
 
     @staticmethod
     def get_default_settings(stream_info=None):
-        signal_settings = components.TreeDict()
+        signal_settings = SettingsTree()
         signal_settings.add_item("update_rate", default_value=0.2, info="Update rate (s) of the plot", value_range=[0, None])
         freq_filt = signal_settings.add_item("frequency_filter")
         freq_filt.add_item("apply", default_value=True, info="Apply IIR filter in real-time")
@@ -240,7 +240,7 @@ class TopographyPlot(RealTimePlot):
         psd.add_item("welch_seg_len_pct", default_value=50.0, info="Percentage of the window that will be used", value_range=[0, 100])
         psd.add_item("power_range", default_value=[8, 13], info="Frequency range of PSD")
 
-        visualization_settings = components.TreeDict()
+        visualization_settings = SettingsTree()
         visualization_settings.add_item("title", default_value="<b>TopoPlot</b>", info="Title for the plot")
         visualization_settings.add_item("channel_standard", default_value="10-05", info="EEG channel standard", value_options=["10-20", "10-10", "10-05"])
         visualization_settings.add_item("head_radius", default_value=1.0, info="Head radius", value_range=[0, 1])
@@ -400,7 +400,7 @@ class ConnectivityPlot(RealTimePlot):
 
     @staticmethod
     def get_default_settings(stream_info=None):
-        signal_settings = components.TreeDict()
+        signal_settings = SettingsTree()
         signal_settings.add_item("update_rate", default_value=0.2, info="Update rate (s) of the plot", value_range=[0, None])
         freq_filt = signal_settings.add_item("frequency_filter")
         freq_filt.add_item("apply", default_value=True, info="Apply IIR filter in real-time")
@@ -430,7 +430,7 @@ class ConnectivityPlot(RealTimePlot):
         connectivity.add_item("threshold", default_value=50.0, info="Threshold for connectivity", value_range=[0, None])
         connectivity.add_item("band_range", default_value=[8, 13], info="Frequency band")
 
-        visualization_settings = components.TreeDict()
+        visualization_settings = SettingsTree()
         visualization_settings.add_item("title", default_value="<b>ConnectivityPlot</b>", info="Title for the plot")
         visualization_settings.add_item("channel_standard", default_value="10-05", info="EEG channel standard", value_options=["10-20", "10-10", "10-05"])
         visualization_settings.add_item("head_radius", default_value=1.0, info="Head radius", value_range=[0, 1])
@@ -649,7 +649,7 @@ class SpectrogramPlot(RealTimePlot):
         Adjust or rename keys to your needs.
         """
         # Basic signal-processing settings
-        signal_settings = components.TreeDict()
+        signal_settings = SettingsTree()
         signal_settings.add_item("update_rate", default_value=0.2, info="Update rate (s) of the plot", value_range=[0, None])
         freq_filt = signal_settings.add_item("frequency_filter")
         freq_filt.add_item("apply", default_value=True, info="Apply IIR filter in real-time")
@@ -681,7 +681,7 @@ class SpectrogramPlot(RealTimePlot):
         spectrogram.add_item("apply_normalization", default_value=True, info="Apply normalization to have a standard deviation of 1 before applying the STFT")
         spectrogram.add_item("log_power", default_value=True, info="Apply normalization before STFT")
 
-        visualization_settings = components.TreeDict()
+        visualization_settings = SettingsTree()
         visualization_settings.add_item("mode", default_value="geek", info="Determine how events are visualized. Clinical, update in sweeping manner. Geek, signal appears continuously.", value_options=["clinical", "geek"])
         if stream_info is not None:
             visualization_settings.add_item("init_channel_label", default_value=stream_info.l_cha[0],
@@ -1134,7 +1134,7 @@ class TimePlotMultichannel(RealTimePlotPyQtGraph):
 
     @staticmethod
     def get_default_settings(stream_info=None):
-        signal_settings = components.TreeDict()
+        signal_settings = SettingsTree()
         signal_settings.add_item("update_rate", default_value=0.1, info="Update rate (s) of the plot", value_range=[0, None])
         freq_filt = signal_settings.add_item("frequency_filter")
         freq_filt.add_item("apply", default_value=True, info="Apply IIR filter in real-time")
@@ -1159,7 +1159,7 @@ class TimePlotMultichannel(RealTimePlotPyQtGraph):
         down_samp.add_item("apply", default_value=False, info="Reduce the sample rate of the incoming LSL stream")
         down_samp.add_item("factor", default_value=2.0, info="Downsampling factor", value_range=[0, None])
 
-        visualization_settings = components.TreeDict()
+        visualization_settings = SettingsTree()
         visualization_settings.add_item("mode", default_value="clinical", info="Determine how events are visualized. Clinical, update in sweeping manner. Geek, signal appears continuously.", value_options=["clinical", "geek"])
         if stream_info is not None:
             visualization_settings.add_item("l_cha", default_value=stream_info.l_cha,
@@ -1523,7 +1523,7 @@ class TimePlot(RealTimePlotPyQtGraph):
 
     @staticmethod
     def get_default_settings(stream_info=None):
-        signal_settings = components.TreeDict()
+        signal_settings = SettingsTree()
         signal_settings.add_item("update_rate", default_value=0.1, info="Update rate (s) of the plot", value_range=[0, None])
         freq_filt = signal_settings.add_item("frequency_filter")
         freq_filt.add_item("apply", default_value=True, info="Apply IIR filter in real-time")
@@ -1548,7 +1548,7 @@ class TimePlot(RealTimePlotPyQtGraph):
         down_samp.add_item("apply", default_value=False, info="Reduce the sample rate of the incoming LSL stream")
         down_samp.add_item("factor", default_value=2.0, info="Downsampling factor", value_range=[0, None])
 
-        visualization_settings = components.TreeDict()
+        visualization_settings = SettingsTree()
         visualization_settings.add_item("mode", default_value="clinical", info="Determine how events are visualized. Clinical, update in sweeping manner. Geek, signal appears continuously.", value_options=["clinical", "geek"])
         if stream_info is not None:
             visualization_settings.add_item("init_channel_label", default_value=stream_info.l_cha[0],
@@ -1879,7 +1879,7 @@ class PSDPlotMultichannel(RealTimePlotPyQtGraph):
 
     @staticmethod
     def get_default_settings(stream_info=None):
-        signal_settings = components.TreeDict()
+        signal_settings = SettingsTree()
         signal_settings.add_item("update_rate", default_value=0.1, info="Update rate (s) of the plot", value_range=[0, None])
         freq_filt = signal_settings.add_item("frequency_filter")
         freq_filt.add_item("apply", default_value=True, info="Apply IIR filter in real-time")
@@ -1904,7 +1904,7 @@ class PSDPlotMultichannel(RealTimePlotPyQtGraph):
         down_samp.add_item("apply", default_value=False, info="Reduce the sample rate of the incoming LSL stream")
         down_samp.add_item("factor", default_value=2.0, info="Downsampling factor", value_range=[0, None])
 
-        visualization_settings = components.TreeDict()
+        visualization_settings = SettingsTree()
         if stream_info is not None:
             visualization_settings.add_item("l_cha", default_value=stream_info.l_cha,
                                             info="List with labels of channels to be displayed")
@@ -2146,7 +2146,7 @@ class PSDPlot(RealTimePlotPyQtGraph):
 
     @staticmethod
     def get_default_settings(stream_info=None):
-        signal_settings = components.TreeDict()
+        signal_settings = SettingsTree()
         signal_settings.add_item("update_rate", default_value=0.1, info="Update rate (s) of the plot", value_range=[0, None])
         freq_filt = signal_settings.add_item("frequency_filter")
         freq_filt.add_item("apply", default_value=True, info="Apply IIR filter in real-time")
@@ -2171,7 +2171,7 @@ class PSDPlot(RealTimePlotPyQtGraph):
         down_samp.add_item("apply", default_value=False, info="Reduce the sample rate of the incoming LSL stream")
         down_samp.add_item("factor", default_value=2, info="Downsampling factor")
 
-        visualization_settings = components.TreeDict()
+        visualization_settings = SettingsTree()
         if stream_info is not None:
             visualization_settings.add_item("init_channel_label", default_value=stream_info.l_cha[0],
                                             info="Channel selected for visualization",

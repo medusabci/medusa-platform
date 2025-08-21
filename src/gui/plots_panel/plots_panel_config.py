@@ -11,7 +11,7 @@ from PySide6.QtGui import *
 # MEDUSA COMPONENTS
 from medusa import components
 from medusa.analysis.time_plot.time_plot import curr_dir
-from medusa.components import TreeDict
+from medusa.settings_schema import *
 from pandas.io.pytables import Table
 
 from acquisition import lsl_utils
@@ -21,7 +21,6 @@ import exceptions, constants
 from gui.qt_widgets import dialogs
 from gui import gui_utils as gu
 from gui.plots_panel import real_time_plots
-from gui import gui_jsonviewer
 
 # Load the .ui files
 ui_plot_config_dialog = loadUiType("gui/ui_files/plot_config_dialog.ui")[0]
@@ -507,8 +506,8 @@ class PlotsTabConfig(components.SerializableComponent):
                 for key, value in plot_settings.items():
                     if key == 'lsl_stream_info':
                         value = value.to_serializable_obj()
-                    if isinstance(value, TreeDict):
-                        value = value.to_dict()
+                    if isinstance(value, SettingsTree):
+                        value = value.to_serializable_obj()
                     data['plots_settings'][str(plot_key)][key] = value
             return data
         except Exception as e:
@@ -532,9 +531,9 @@ class PlotsTabConfig(components.SerializableComponent):
                 plot_info = real_time_plots.get_plot_info(
                     config.plots_settings[uid]['plot_uid'])
                 signal_settings = \
-                    TreeDict(config.plots_settings[uid]['signal_settings'])
+                    SettingsTree(config.plots_settings[uid]['signal_settings'])
                 visualization_settings = \
-                    TreeDict(config.plots_settings[uid]['visualization_settings'])
+                    SettingsTree(config.plots_settings[uid]['visualization_settings'])
                 lsl_stream_info = config.plots_settings[uid]['lsl_stream_info']
                 try:
                     # Update lsl_stream (necessary for weak LSL search)
@@ -747,9 +746,9 @@ class ConfigPlotFrameDialog(QDialog, ui_plot_config_dialog):
     def set_settings_in_tree_view(self, signal_settings, visualization_settings):
         try:
             # Create tree widgets to display signal and visualization settings
-            signal_options_tree = gui_jsonviewer.TreeView(signal_settings)
+            signal_options_tree = SettingsTreeWidget(signal_settings)
             signal_options_tree.tree_widget.header().setStyleSheet("color: black;")
-            visualization_options_tree = gui_jsonviewer.TreeView(visualization_settings)
+            visualization_options_tree = SettingsTreeWidget(visualization_settings)
             visualization_options_tree.tree_widget.header().setStyleSheet("color: black;")
 
             # Replace existing widgets with newly created trees
