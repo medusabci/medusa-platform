@@ -1040,7 +1040,7 @@ class PowerDistributionPlot(SpectrogramPlot):
         Adjust or rename keys to your needs.
         """
         # Basic signal-processing settings
-        signal_settings = components.TreeDict()
+        signal_settings = SettingsTree()
         signal_settings.add_item("update_rate", default_value=0.2, info="Update rate (s) of the plot", value_range=[0, None])
         freq_filt = signal_settings.add_item("frequency_filter")
         freq_filt.add_item("apply", default_value=True, info="Apply IIR filter in real-time")
@@ -1078,7 +1078,7 @@ class PowerDistributionPlot(SpectrogramPlot):
         power_distribution.add_item("lower_limit", default_value=[1,4,8,13,20], info="List with lower limits (in Hz) of each of the frequency bands")
         power_distribution.add_item("upper_limit", default_value=[4, 8, 13, 20, 30],
                        info="List with upper limits (in Hz) of each of the frequency bands")
-        visualization_settings = components.TreeDict()
+        visualization_settings = SettingsTree()
         visualization_settings.add_item("mode", default_value="geek", info="Determine how events are visualized. Clinical, update in sweeping manner. Geek, signal appears continuously.", value_options=["clinical", "geek"])
         if stream_info is not None:
             visualization_settings.add_item("init_channel_label", default_value=stream_info.l_cha[0],
@@ -1110,7 +1110,15 @@ class PowerDistributionPlot(SpectrogramPlot):
         plot_adj.add_item("right", default_value=0.995, info="", value_range=[0, None])
         plot_adj.add_item("top", default_value=0.94, info="", value_range=[0, None])
         plot_adj.add_item("bottom", default_value=0.1, info="", value_range=[0, None])
-        return signal_settings.tree, visualization_settings.tree
+        return signal_settings, visualization_settings
+
+    @staticmethod
+    def update_lsl_stream_related_settings(signal_settings, visualization_settings, stream_info):
+        signal_settings.get_item("re_referencing", "channel").\
+            edit_item(default_value=stream_info.l_cha[0], value_options=stream_info.l_cha)
+        visualization_settings.get_item("init_channel_label").\
+            edit_item(default_value=stream_info.l_cha[0], value_options=stream_info.l_cha)
+        return signal_settings, visualization_settings
 
     def init_plot(self):
         """
@@ -1424,7 +1432,7 @@ class TimePlotMultichannelPLT(RealTimePlot):
 
     @staticmethod
     def get_default_settings(stream_info=None):
-        signal_settings = components.TreeDict()
+        signal_settings = SettingsTree()
         signal_settings.add_item("update_rate", default_value=0.1, info="Update rate (s) of the plot", value_range=[0, None])
         freq_filt = signal_settings.add_item("frequency_filter")
         freq_filt.add_item("apply", default_value=True, info="Apply IIR filter in real-time")
@@ -1449,7 +1457,7 @@ class TimePlotMultichannelPLT(RealTimePlot):
         down_samp.add_item("apply", default_value=False, info="Reduce the sample rate of the incoming LSL stream")
         down_samp.add_item("factor", default_value=2.0, info="Downsampling factor", value_range=[0, None])
 
-        visualization_settings = components.TreeDict()
+        visualization_settings = SettingsTree()
         visualization_settings.add_item("mode", default_value="clinical", info="Determine how events are visualized. Clinical, update in sweeping manner. Geek, signal appears continuously.", value_options=["clinical", "geek"])
         if stream_info is not None:
             visualization_settings.add_item("l_cha", default_value=stream_info.l_cha,
@@ -1472,7 +1480,17 @@ class TimePlotMultichannelPLT(RealTimePlot):
         y_label.add_item("text", default_value="Signal", info="Label for y-axis")
         y_label.add_item("units", default_value="auto", info="Units for y-axis")
         visualization_settings.add_item("title", default_value="auto", info="Title for the plot")
-        return signal_settings.tree, visualization_settings.tree
+        return signal_settings, visualization_settings
+
+    @staticmethod
+    def update_lsl_stream_related_settings(signal_settings,
+                                           visualization_settings, stream_info):
+        signal_settings.get_item("re_referencing", "channel"). \
+            edit_item(default_value=stream_info.l_cha[0],
+                      value_options=stream_info.l_cha)
+        visualization_settings.get_item("l_cha").edit_item(
+            default_value=stream_info.l_cha)
+        return signal_settings, visualization_settings
 
     @staticmethod
     def check_settings(signal_settings, visualization_settings):
