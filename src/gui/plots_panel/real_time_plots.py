@@ -174,6 +174,429 @@ class RealTimePlot(ABC):
         raise NotImplemented
 
 
+class TimePlotMultichannelPLT(RealTimePlot):
+
+    def __init__(self, uid, plot_state, medusa_interface, theme_colors):
+        super().__init__(uid, plot_state, medusa_interface, theme_colors)
+        # Channels idx
+        self.cha_idx = None
+        self.n_cha = None
+        self.l_cha = None
+        # Graph variables
+        self.win_t = None
+        self.win_s = None
+        self.time_in_graph = None
+        self.sig_in_graph = None
+        self.curves = None
+        self.marker = None
+        self.pointer = None
+        self.cha_separation = None
+
+        # Style and  theme
+        self.curve_color = self.theme_colors['THEME_SIGNAL_CURVE']
+        self.grid_color = self.theme_colors['THEME_SIGNAL_GRID']
+        self.marker_color = self.theme_colors['THEME_SIGNAL_MARKER']
+        self.curve_width = 1
+        self.grid_width = 1
+        self.marker_width = 2
+
+        # Create figure & widget
+        fig = Figure()
+        fig.add_subplot(111)
+        fig.add_subplot(111)
+        fig.tight_layout()
+        fig.patch.set_facecolor(self.theme_colors['THEME_BG_DARK'])
+        self.widget = FigureCanvasQTAgg(fig)
+        self.widget.figure.set_size_inches(0, 0)
+        self.widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.ax = self.widget.figure.axes[0]
+        self.ax.set_facecolor(self.theme_colors['THEME_BG_DARK'])
+
+        # Custom menu
+        self.plot_menu = None
+        self.widget.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.widget.customContextMenuRequested.connect(self.show_context_menu)
+        self.widget.wheelEvent = self.mouse_wheel_event
+
+
+    def show_context_menu(self, pos: QPoint):
+        """
+        Called automatically on right-click within the canvas.
+        pos is in widget coordinates, so we map it to global coords.
+        """
+        menu = AutorangeMenu(self)
+        global_pos = self.widget.mapToGlobal(pos)
+        menu.exec_(global_pos)
+
+
+    def mouse_wheel_event(self, event):
+        if event.angleDelta().y() > 0:
+            self.cha_separation /= 1.5
+        else:
+            self.cha_separation *= 1.5
+        self.draw_y_axis_ticks()
+
+    @staticmethod
+    def get_default_settings(stream_info=None):
+        signal_settings = SettingsTree()
+        signal_settings.add_item("update_rate", default_value=0.1, info="Update rate (s) of the plot", value_range=[0, None])
+        freq_filt = signal_settings.add_item("frequency_filter")
+        freq_filt.add_item("apply", default_value=True, info="Apply IIR filter in real-time")
+        freq_filt.add_item("type", default_value="highpass", value_options=["highpass", "lowpass", "bandpass", "stopband"], info="Filter type")
+        freq_filt.add_item("cutoff_freq", default_value=[1], info="List with one cutoff for highpass/lowpass, two for bandpass/stopband")
+        freq_filt.add_item("order", default_value=5, info="Order of the filter (the higher, the greater computational cost)", value_range=[1, None])
+        notch_filt = signal_settings.add_item("notch_filter")
+        notch_filt.add_item("apply", default_value=True, info="Apply notch filter to get rid of power line interference")
+        notch_filt.add_item("freq", default_value=50.0, info="Center frequency to be filtered", value_range=[0, None])
+        notch_filt.add_item("bandwidth", default_value=[-0.5, 0.5], info="List with relative limits of center frequency")
+        notch_filt.add_item("order", default_value=5, info="Order of the filter (the higher, the greater computational cost)", value_range=[1, None])
+        re_ref = signal_settings.add_item("re_referencing")
+        re_ref.add_item("apply", default_value=False, info="Change the reference of your signals")
+        re_ref.add_item("type", default_value="car", value_options=["car", "channel"], info="Type of re-referencing: Common Average Reference or channel subtraction")
+        if stream_info is not None:
+            re_ref.add_item("channel", default_value=stream_info.l_cha[0],
+                            info="Channel label for re-referencing if channel is selected",
+                            value_options=stream_info.l_cha)
+        else:
+            re_ref.add_item("channel", default_value="", info="Channel label for re-referencing if channel is selected")
+        down_samp= signal_settings.add_item("downsampling")
+        down_samp.add_item("apply", default_value=False, info="Reduce the sample rate of the incoming LSL stream")
+        down_samp.add_item("factor", default_value=2.0, info="Downsampling factor", value_range=[0, None])
+
+        visualization_settings = SettingsTree()
+        visualization_settings.add_item("mode", default_value="clinical", info="Determine how events are visualized. Clinical, update in sweeping manner. Geek, signal appears continuously.", value_options=["clinical", "geek"])
+        if stream_info is not None:
+            visualization_settings.add_item("l_cha", default_value=stream_info.l_cha,
+                                            info="List with labels of channels to be displayed")
+        else:
+            visualization_settings.add_item("l_cha", default_value=[], info="List with labels of channels to be displayed")
+
+        x_ax = visualization_settings.add_item("x_axis")
+        x_ax.add_item("seconds_displayed", default_value=10.0, info="The time range (s) displayed", value_range=[0, None])
+        x_ax.add_item("display_grid", default_value=True, info="Visibility of the grid")
+        x_ax.add_item("line_separation", default_value=1.0, info="Display grid's dimensions", value_range=[0, None])
+        x_ax.add_item("label", default_value="Time (s)", info="Label for x-axis")
+
+        y_ax = visualization_settings.add_item("y_axis")
+        y_ax.add_item("cha_separation", default_value=1.0, info="Initial limits of the y-axis", value_range=[0, None])
+        y_ax.add_item("display_grid", default_value=True, info="Visibility of the grid")
+        auto_scale = y_ax.add_item("autoscale")
+        auto_scale.add_item("apply", default_value=False, info="Automatically scale the y-axis")
+        auto_scale.add_item("n_std_tolerance", default_value=1.25, info="Autoscale limit: if the signal exceeds this value, the scale is re-adjusted", value_range=[0, None])
+        auto_scale.add_item("n_std_separation", default_value=5.0, info="Separation between channels (in std)", value_range=[0, None])
+        y_label = y_ax.add_item("label")
+        y_label.add_item("text", default_value="Signal", info="Label for y-axis")
+        y_label.add_item("units", default_value="auto", info="Units for y-axis")
+        visualization_settings.add_item("title", default_value="auto", info="Title for the plot")
+        visualization_settings.add_item("colors", default_value="auto",
+                                        info="Title for the plot")
+        return signal_settings, visualization_settings
+
+    @staticmethod
+    def update_lsl_stream_related_settings(signal_settings,
+                                           visualization_settings, stream_info):
+        signal_settings.get_item("re_referencing", "channel"). \
+            edit_item(default_value=stream_info.l_cha[0],
+                      value_options=stream_info.l_cha)
+        visualization_settings.get_item("l_cha").edit_item(
+            default_value=stream_info.l_cha)
+        return signal_settings, visualization_settings
+
+    @staticmethod
+    def check_settings(signal_settings, visualization_settings):
+        # Visualization modes
+        possible_modes = ['geek', 'clinical']
+        if visualization_settings['mode'] not in possible_modes:
+            raise ValueError('Unknown plot mode %s. Possible options: %s' %
+                             (visualization_settings['mode'], possible_modes))
+
+    @staticmethod
+    def check_signal(lsl_stream_info):
+        return True
+
+    def init_plot(self):
+        """ This function changes the time of signal plotted in the graph. It
+        depends on the sample frequency.
+        """
+
+        # Get channels
+        self.l_cha = self.visualization_settings['l_cha']
+        self.n_cha= len(self.l_cha)
+        self.cha_idx = [i for i, label in enumerate(self.lsl_stream_info.l_cha) if label in self.l_cha]
+        # Update variables
+        self.time_in_graph = np.zeros([0])
+        self.sig_in_graph = np.zeros([0, self.n_cha])
+        self.cha_separation = \
+            self.visualization_settings['y_axis']['cha_separation']
+        self.win_t = self.visualization_settings['x_axis']['seconds_displayed']
+        self.win_s = int(self.win_t * self.fs)
+        # Set custom menu
+        self.plot_menu = AutorangeMenu(self)
+        self.plot_menu.auto_range()
+
+        # Set titles
+        self.ax.set_xlabel(
+            self.visualization_settings['x_axis']['label'],
+            color=self.theme_colors['THEME_TEXT_LIGHT'])
+        self.ax.set_ylabel(
+            self.visualization_settings['y_axis']['label']['text'],
+            color=self.theme_colors['THEME_TEXT_LIGHT'])
+        self.ax.set_title(self.lsl_stream_info.lsl_stream.name(),
+                          color=self.theme_colors['THEME_TEXT_LIGHT'])
+
+        # Set the style for the curves
+        curve_style = {'color': self.curve_color,
+                       'linewidth': self.curve_width}
+
+        # Place curves in plot
+        self.curves = []
+        for i in range(self.n_cha):
+            curve, = self.ax.plot([], [], **curve_style)
+            self.curves.append(curve)
+
+        # Marker for clinical mode
+        if self.visualization_settings['mode'] == 'clinical':
+            self.marker = self.ax.axvline(x=0, color=self.marker_color,
+                                          linewidth=self.marker_width)
+            self.pointer = -1
+
+        # Set grid for the axes
+        if self.visualization_settings['x_axis']['display_grid']:
+            self.ax.grid(True, axis='x',
+                         color=self.grid_color,
+                         linewidth=self.grid_width)
+
+        if self.visualization_settings['y_axis']['display_grid']:
+            self.ax.grid(True, axis='y',
+                         color=self.grid_color,
+                         linewidth=self.grid_width)
+
+        # Set axis limits
+        self.ax.set_xlim(0, self.win_s)
+        self.ax.set_ylim(-self.cha_separation * (self.n_cha / 2),
+                         self.cha_separation * (self.n_cha / 2))
+
+        # Draw ticks on the axes
+        self.draw_x_axis_ticks()
+        self.draw_y_axis_ticks()
+
+        # Refresh the plot
+        self.set_data()
+        self.widget.draw()
+
+
+    def draw_y_axis_ticks(self):
+        # Draw y axis ticks (channel labels)
+        ticks = list()
+        if self.l_cha is not None:
+            y_ticks_pos = np.arange(self.n_cha) * self.cha_separation
+            y_ticks_labels = self.l_cha[::-1]
+            # for i in range(self.n_cha):
+            #     offset = self.cha_separation * i
+            #     label = self.l_cha[-i - 1]
+            #     ticks.append((offset, label))
+        # y_ticks_pos = [tick[0] for tick in ticks]
+        # y_ticks_labels = [tick[1] for tick in ticks]
+        self.ax.set_yticks(y_ticks_pos)
+        self.ax.set_yticklabels(y_ticks_labels,
+                                color=self.theme_colors['THEME_TEXT_LIGHT'])
+        # Set y axis range
+        y_min = - self.cha_separation
+        y_max = self.n_cha * self.cha_separation
+        if self.n_cha > 1:
+            self.ax.set_ylim(y_min, y_max)
+
+    def draw_x_axis_ticks(self):
+        if len(self.time_in_graph) > 0:
+            if self.visualization_settings['mode'] == 'geek':
+                # Set timestamps
+                x = self.time_in_graph
+                # Range
+                x_range = (x[0], x[-1])
+                # Time ticks
+                x_ticks_pos = []
+                x_ticks_val = []
+                if self.visualization_settings['x_axis']['display_grid']:
+                    step = self.visualization_settings[
+                        'x_axis']['line_separation']
+                    x_ticks_pos = np.arange(x[0], x[-1], step=step).tolist()
+                    x_ticks_val = ['%.1f' % v for v in x_ticks_pos]
+                # Set ticks
+                self.ax.set_xticks(x_ticks_pos)
+                self.ax.set_xticklabels(x_ticks_val,
+                                        color=self.theme_colors['THEME_TEXT_LIGHT'])
+            elif self.visualization_settings['mode'] == 'clinical':
+                # Set timestamps
+                x = np.mod(self.time_in_graph, self.win_t)
+                # Range
+                n_win = self.time_in_graph.max() // self.win_t
+                x_range = (0, self.win_t) if n_win==0 else (x[0], x[-1])
+                # Time ticks
+                x_ticks_pos = []
+                x_ticks_val = []
+                if self.visualization_settings['x_axis']['display_grid']:
+                    step = self.visualization_settings[
+                        'x_axis']['line_separation']
+                    x_ticks_pos = np.arange(x[0], x[-1], step=step).tolist()
+                    x_ticks_val = ['' for v in x_ticks_pos]
+                # Pointer
+                x_ticks_pos.append(x[self.pointer])
+                x_ticks_val.append('%.1f' % self.time_in_graph[self.pointer])
+                self.ax.set_xticks(x_ticks_pos)
+                self.ax.set_xticklabels(x_ticks_val,
+                                        color=self.theme_colors['THEME_TEXT_LIGHT'])
+            else:
+                raise ValueError
+            # Set range
+            self.ax.set_xlim(x_range[0], x_range[1])
+        else:
+            self.ax.set_xticks([])
+            self.ax.set_xlim(0, 1)
+
+    def append_data(self, chunk_times, chunk_signal):
+        if self.visualization_settings['mode'] == 'geek':
+            self.time_in_graph = np.hstack((self.time_in_graph, chunk_times))
+            self.sig_in_graph = np.vstack((self.sig_in_graph, chunk_signal))
+            abs_time_in_graph = self.time_in_graph - self.time_in_graph[0]
+            if abs_time_in_graph[-1] >= self.win_t:
+                cut_idx = np.argmin(
+                    np.abs(abs_time_in_graph -
+                           (abs_time_in_graph[-1] - self.win_t)))
+                self.time_in_graph = self.time_in_graph[cut_idx:]
+                self.sig_in_graph = self.sig_in_graph[cut_idx:]
+        elif self.visualization_settings['mode'] == 'clinical':
+            # Useful params
+            max_t = self.time_in_graph.max(initial=0)
+            n_win = max_t // self.win_t
+            max_win_t = (n_win+1) * self.win_t
+            # Check overflow
+            if chunk_times[-1] > max_win_t:
+                idx_overflow = chunk_times > max_win_t
+                # Append part of the chunk at the end
+                time_in_graph = np.insert(
+                    self.time_in_graph,
+                    self.pointer+1,
+                    chunk_times[np.logical_not(idx_overflow)], axis=0)
+                sig_in_graph = np.insert(
+                    self.sig_in_graph,
+                    self.pointer+1,
+                    chunk_signal[np.logical_not(idx_overflow)], axis=0)
+                # Append part of the chunk at the beginning
+                time_in_graph = np.insert(
+                    time_in_graph, 0,
+                    chunk_times[idx_overflow], axis=0)
+                sig_in_graph = np.insert(
+                    sig_in_graph, 0,
+                    chunk_signal[idx_overflow], axis=0)
+                self.pointer = len(chunk_times[idx_overflow]) - 1
+            else:
+                # Append chunk at pointer
+                time_in_graph = np.insert(self.time_in_graph,
+                                          self.pointer+1,
+                                          chunk_times, axis=0)
+                sig_in_graph = np.insert(self.sig_in_graph,
+                                         self.pointer+1,
+                                         chunk_signal, axis=0)
+                self.pointer += len(chunk_times)
+            # Check old samples
+            max_t = time_in_graph[self.pointer]
+            idx_old = time_in_graph < (max_t - self.win_t)
+            if np.any(idx_old):
+                time_in_graph = np.delete(time_in_graph, idx_old, axis=0)
+                sig_in_graph = np.delete(sig_in_graph, idx_old, axis=0)
+            # Update
+            self.time_in_graph = time_in_graph
+            self.sig_in_graph = sig_in_graph
+            # ============================DEBUG=============================== #
+            # if np.sum(np.diff(time_in_graph) < 0) > 1:
+            #     warnings.warn(
+            #         'Unordered data!!'
+            #         f'\nPointer position: {self.pointer}'
+            #         f'\nTime at pointer: {max_t}'
+            #         f'\nMax time: {np.max(time_in_graph)}'
+            #         f'\nOld positions (time < '
+            #         f'{(max_t - self.win_t)}): '
+            #         f'{np.where(time_in_graph < (max_t - self.win_t))}')
+            # print(f'Pointer no correction: {pointer_no_corr}')
+            # print(f'Pointer with correction: {self.pointer}')
+            # print(idx_old)
+            # print(time_in_graph)
+            # ================================================================ #
+        return self.time_in_graph, self.sig_in_graph
+
+    def set_data(self):
+        # Calculate x axis
+        if self.visualization_settings['mode'] == 'geek':
+            x = self.time_in_graph
+        elif self.visualization_settings['mode'] == 'clinical':
+            max_t = self.time_in_graph.max(initial=0)
+            x = np.mod(self.time_in_graph, self.win_t)
+            # Marker
+            if max_t >= self.win_t:
+                self.marker.set_xdata(x[self.pointer])
+        else:
+            raise ValueError
+        # Set data
+        for i in range(self.n_cha):
+            temp = self.sig_in_graph[:, self.n_cha - i - 1]
+            temp = (temp + self.cha_separation * i)
+            self.curves[i].set_data(x,temp)
+
+    def autoscale(self):
+        scaling_sett = self.visualization_settings['y_axis']['autoscale']
+        if scaling_sett['apply']:
+            y_std = np.std(self.sig_in_graph)
+            std_tol = scaling_sett['n_std_tolerance']
+            std_factor = scaling_sett['n_std_separation']
+            if y_std > self.cha_separation * std_tol or \
+                    y_std < self.cha_separation / std_tol:
+                self.cha_separation = std_factor * y_std
+                self.draw_y_axis_ticks()
+
+    def update_plot(self, chunk_times, chunk_signal):
+        """This function updates the data in the graph. Notice that channel 0 is
+        drawn up in the chart, whereas the last channel is in the bottom.
+        """
+        try:
+            # t0 = time.time()
+            # Init time
+            if self.init_time is None:
+                self.init_time = chunk_times[0]
+                if self.visualization_settings['mode'] == 'clinical':
+                    self.ax.add_line(self.marker)
+            # Temporal series are always plotted from zero.
+            chunk_times = chunk_times - self.init_time
+            # Append new data and get safe copy
+            self.append_data(chunk_times, chunk_signal[:, self.cha_idx])
+            # Set data
+            self.set_data()
+            # Update y range (only if autoscale is activated)
+            self.autoscale()
+            # Update x range
+            self.draw_x_axis_ticks()
+
+            #Update the plot
+            self.widget.draw()
+            # Print info
+            # if time.time() - t0 > self.signal_settings['update_rate']:
+            #     self.medusa_interface.log(
+            #         '[Plot %i] The plot time per chunk is higher than the '
+            #         'update rate. This may end up freezing MEDUSA.' %
+            #         self.uid,
+            #         style='warning', mode='replace')
+            # print('Chunk plotted at: %.6f' % time.time())
+        except Exception as e:
+            traceback.print_exc()
+            self.handle_exception(e)
+
+    def clear_plot(self):
+        self.ax.clear()
+        width, height = self.widget.get_width_height()
+        if width > 0 and height > 0:
+            self.widget.draw()
+
+
+
 class TopographyPlot(RealTimePlot):
 
     def __init__(self, uid, plot_state, medusa_interface, theme_colors):
@@ -1369,421 +1792,6 @@ class RealTimePlotPyQtGraph(RealTimePlot, ABC):
         self.widget.getAxis("bottom").setTickFont(fn)
         self.widget.getAxis("left").setTickFont(fn)
 
-class TimePlotMultichannelPLT(RealTimePlot):
-
-    def __init__(self, uid, plot_state, medusa_interface, theme_colors):
-        super().__init__(uid, plot_state, medusa_interface, theme_colors)
-        # Channels idx
-        self.cha_idx = None
-        self.n_cha = None
-        self.l_cha = None
-        # Graph variables
-        self.win_t = None
-        self.win_s = None
-        self.time_in_graph = None
-        self.sig_in_graph = None
-        self.curves = None
-        self.marker = None
-        self.pointer = None
-        self.cha_separation = None
-
-        # Style and  theme
-        self.curve_color = self.theme_colors['THEME_SIGNAL_CURVE']
-        self.grid_color = self.theme_colors['THEME_SIGNAL_GRID']
-        self.marker_color = self.theme_colors['THEME_SIGNAL_MARKER']
-        self.curve_width = 1
-        self.grid_width = 1
-        self.marker_width = 2
-
-        # Create figure & widget
-        fig = Figure()
-        fig.add_subplot(111)
-        fig.tight_layout()
-        fig.patch.set_facecolor(self.theme_colors['THEME_BG_DARK'])
-        self.widget = FigureCanvasQTAgg(fig)
-        self.widget.figure.set_size_inches(0, 0)
-        self.widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        self.ax = self.widget.figure.axes[0]
-        self.ax.set_facecolor(self.theme_colors['THEME_BG_DARK'])
-
-        # Custom menu
-        self.plot_menu = None
-        self.widget.setContextMenuPolicy(Qt.CustomContextMenu)
-        self.widget.customContextMenuRequested.connect(self.show_context_menu)
-        self.widget.wheelEvent = self.mouse_wheel_event
-
-
-    def show_context_menu(self, pos: QPoint):
-        """
-        Called automatically on right-click within the canvas.
-        pos is in widget coordinates, so we map it to global coords.
-        """
-        menu = AutorangeMenu(self)
-        global_pos = self.widget.mapToGlobal(pos)
-        menu.exec_(global_pos)
-
-
-    def mouse_wheel_event(self, event):
-        if event.angleDelta().y() > 0:
-            self.cha_separation /= 1.5
-        else:
-            self.cha_separation *= 1.5
-        self.draw_y_axis_ticks()
-
-    @staticmethod
-    def get_default_settings(stream_info=None):
-        signal_settings = SettingsTree()
-        signal_settings.add_item("update_rate", default_value=0.1, info="Update rate (s) of the plot", value_range=[0, None])
-        freq_filt = signal_settings.add_item("frequency_filter")
-        freq_filt.add_item("apply", default_value=True, info="Apply IIR filter in real-time")
-        freq_filt.add_item("type", default_value="highpass", value_options=["highpass", "lowpass", "bandpass", "stopband"], info="Filter type")
-        freq_filt.add_item("cutoff_freq", default_value=[1], info="List with one cutoff for highpass/lowpass, two for bandpass/stopband")
-        freq_filt.add_item("order", default_value=5, info="Order of the filter (the higher, the greater computational cost)", value_range=[1, None])
-        notch_filt = signal_settings.add_item("notch_filter")
-        notch_filt.add_item("apply", default_value=True, info="Apply notch filter to get rid of power line interference")
-        notch_filt.add_item("freq", default_value=50.0, info="Center frequency to be filtered", value_range=[0, None])
-        notch_filt.add_item("bandwidth", default_value=[-0.5, 0.5], info="List with relative limits of center frequency")
-        notch_filt.add_item("order", default_value=5, info="Order of the filter (the higher, the greater computational cost)", value_range=[1, None])
-        re_ref = signal_settings.add_item("re_referencing")
-        re_ref.add_item("apply", default_value=False, info="Change the reference of your signals")
-        re_ref.add_item("type", default_value="car", value_options=["car", "channel"], info="Type of re-referencing: Common Average Reference or channel subtraction")
-        if stream_info is not None:
-            re_ref.add_item("channel", default_value=stream_info.l_cha[0],
-                            info="Channel label for re-referencing if channel is selected",
-                            value_options=stream_info.l_cha)
-        else:
-            re_ref.add_item("channel", default_value="", info="Channel label for re-referencing if channel is selected")
-        down_samp= signal_settings.add_item("downsampling")
-        down_samp.add_item("apply", default_value=False, info="Reduce the sample rate of the incoming LSL stream")
-        down_samp.add_item("factor", default_value=2.0, info="Downsampling factor", value_range=[0, None])
-
-        visualization_settings = SettingsTree()
-        visualization_settings.add_item("mode", default_value="clinical", info="Determine how events are visualized. Clinical, update in sweeping manner. Geek, signal appears continuously.", value_options=["clinical", "geek"])
-        if stream_info is not None:
-            visualization_settings.add_item("l_cha", default_value=stream_info.l_cha,
-                                            info="List with labels of channels to be displayed")
-        else:
-            visualization_settings.add_item("l_cha", default_value=[], info="List with labels of channels to be displayed")
-        x_ax = visualization_settings.add_item("x_axis")
-        x_ax.add_item("seconds_displayed", default_value=10.0, info="The time range (s) displayed", value_range=[0, None])
-        x_ax.add_item("display_grid", default_value=True, info="Visibility of the grid")
-        x_ax.add_item("line_separation", default_value=1.0, info="Display grid's dimensions", value_range=[0, None])
-        x_ax.add_item("label", default_value="Time (s)", info="Label for x-axis")
-        y_ax = visualization_settings.add_item("y_axis")
-        y_ax.add_item("cha_separation", default_value=1.0, info="Initial limits of the y-axis", value_range=[0, None])
-        y_ax.add_item("display_grid", default_value=True, info="Visibility of the grid")
-        auto_scale = y_ax.add_item("autoscale")
-        auto_scale.add_item("apply", default_value=False, info="Automatically scale the y-axis")
-        auto_scale.add_item("n_std_tolerance", default_value=1.25, info="Autoscale limit: if the signal exceeds this value, the scale is re-adjusted", value_range=[0, None])
-        auto_scale.add_item("n_std_separation", default_value=5.0, info="Separation between channels (in std)", value_range=[0, None])
-        y_label = y_ax.add_item("label")
-        y_label.add_item("text", default_value="Signal", info="Label for y-axis")
-        y_label.add_item("units", default_value="auto", info="Units for y-axis")
-        visualization_settings.add_item("title", default_value="auto", info="Title for the plot")
-        return signal_settings, visualization_settings
-
-    @staticmethod
-    def update_lsl_stream_related_settings(signal_settings,
-                                           visualization_settings, stream_info):
-        signal_settings.get_item("re_referencing", "channel"). \
-            edit_item(default_value=stream_info.l_cha[0],
-                      value_options=stream_info.l_cha)
-        visualization_settings.get_item("l_cha").edit_item(
-            default_value=stream_info.l_cha)
-        return signal_settings, visualization_settings
-
-    @staticmethod
-    def check_settings(signal_settings, visualization_settings):
-        # Visualization modes
-        possible_modes = ['geek', 'clinical']
-        if visualization_settings['mode'] not in possible_modes:
-            raise ValueError('Unknown plot mode %s. Possible options: %s' %
-                             (visualization_settings['mode'], possible_modes))
-
-    @staticmethod
-    def check_signal(lsl_stream_info):
-        return True
-
-    def init_plot(self):
-        """ This function changes the time of signal plotted in the graph. It
-        depends on the sample frequency.
-        """
-
-        # Get channels
-        self.l_cha = self.visualization_settings['l_cha']
-        self.n_cha= len(self.l_cha)
-        self.cha_idx = [i for i, label in enumerate(self.lsl_stream_info.l_cha) if label in self.l_cha]
-        # Update variables
-        self.time_in_graph = np.zeros([0])
-        self.sig_in_graph = np.zeros([0, self.n_cha])
-        self.cha_separation = \
-            self.visualization_settings['y_axis']['cha_separation']
-        self.win_t = self.visualization_settings['x_axis']['seconds_displayed']
-        self.win_s = int(self.win_t * self.fs)
-        # Set custom menu
-        self.plot_menu = AutorangeMenu(self)
-        self.plot_menu.auto_range()
-
-        # Set titles
-        self.ax.set_xlabel(
-            self.visualization_settings['x_axis']['label'],
-            color=self.theme_colors['THEME_TEXT_LIGHT'])
-        self.ax.set_ylabel(
-            self.visualization_settings['y_axis']['label']['text'],
-            color=self.theme_colors['THEME_TEXT_LIGHT'])
-        self.ax.set_title(self.lsl_stream_info.lsl_stream.name(),
-                          color=self.theme_colors['THEME_TEXT_LIGHT'])
-
-        # Set the style for the curves
-        curve_style = {'color': self.curve_color,
-                       'linewidth': self.curve_width}
-
-        # Place curves in plot
-        self.curves = []
-        for i in range(self.n_cha):
-            curve, = self.ax.plot([], [], **curve_style)
-            self.curves.append(curve)
-
-        # Marker for clinical mode
-        if self.visualization_settings['mode'] == 'clinical':
-            self.marker = self.ax.axvline(x=0, color=self.marker_color,
-                                          linewidth=self.marker_width)
-            self.pointer = -1
-
-        # Set grid for the axes
-        if self.visualization_settings['x_axis']['display_grid']:
-            self.ax.grid(True, axis='x',
-                         color=self.grid_color,
-                         linewidth=self.grid_width)
-
-        if self.visualization_settings['y_axis']['display_grid']:
-            self.ax.grid(True, axis='y',
-                         color=self.grid_color,
-                         linewidth=self.grid_width)
-
-        # Set axis limits
-        self.ax.set_xlim(0, self.win_s)
-        self.ax.set_ylim(-self.cha_separation * (self.n_cha / 2),
-                         self.cha_separation * (self.n_cha / 2))
-
-        # Draw ticks on the axes
-        self.draw_x_axis_ticks()
-        self.draw_y_axis_ticks()
-
-        # Refresh the plot
-        self.set_data()
-        self.widget.draw()
-
-
-    def draw_y_axis_ticks(self):
-        # Draw y axis ticks (channel labels)
-        ticks = list()
-        if self.l_cha is not None:
-            y_ticks_pos = np.arange(self.n_cha) * self.cha_separation
-            y_ticks_labels = self.l_cha[::-1]
-            # for i in range(self.n_cha):
-            #     offset = self.cha_separation * i
-            #     label = self.l_cha[-i - 1]
-            #     ticks.append((offset, label))
-        # y_ticks_pos = [tick[0] for tick in ticks]
-        # y_ticks_labels = [tick[1] for tick in ticks]
-        self.ax.set_yticks(y_ticks_pos)
-        self.ax.set_yticklabels(y_ticks_labels,
-                                color=self.theme_colors['THEME_TEXT_LIGHT'])
-        # Set y axis range
-        y_min = - self.cha_separation
-        y_max = self.n_cha * self.cha_separation
-        if self.n_cha > 1:
-            self.ax.set_ylim(y_min, y_max)
-
-    def draw_x_axis_ticks(self):
-        if len(self.time_in_graph) > 0:
-            if self.visualization_settings['mode'] == 'geek':
-                # Set timestamps
-                x = self.time_in_graph
-                # Range
-                x_range = (x[0], x[-1])
-                # Time ticks
-                x_ticks_pos = []
-                x_ticks_val = []
-                if self.visualization_settings['x_axis']['display_grid']:
-                    step = self.visualization_settings[
-                        'x_axis']['line_separation']
-                    x_ticks_pos = np.arange(x[0], x[-1], step=step).tolist()
-                    x_ticks_val = ['%.1f' % v for v in x_ticks_pos]
-                # Set ticks
-                self.ax.set_xticks(x_ticks_pos)
-                self.ax.set_xticklabels(x_ticks_val,
-                                        color=self.theme_colors['THEME_TEXT_LIGHT'])
-            elif self.visualization_settings['mode'] == 'clinical':
-                # Set timestamps
-                x = np.mod(self.time_in_graph, self.win_t)
-                # Range
-                n_win = self.time_in_graph.max() // self.win_t
-                x_range = (0, self.win_t) if n_win==0 else (x[0], x[-1])
-                # Time ticks
-                x_ticks_pos = []
-                x_ticks_val = []
-                if self.visualization_settings['x_axis']['display_grid']:
-                    step = self.visualization_settings[
-                        'x_axis']['line_separation']
-                    x_ticks_pos = np.arange(x[0], x[-1], step=step).tolist()
-                    x_ticks_val = ['' for v in x_ticks_pos]
-                # Pointer
-                x_ticks_pos.append(x[self.pointer])
-                x_ticks_val.append('%.1f' % self.time_in_graph[self.pointer])
-                self.ax.set_xticks(x_ticks_pos)
-                self.ax.set_xticklabels(x_ticks_val,
-                                        color=self.theme_colors['THEME_TEXT_LIGHT'])
-            else:
-                raise ValueError
-            # Set range
-            self.ax.set_xlim(x_range[0], x_range[1])
-        else:
-            self.ax.set_xticks([])
-            self.ax.set_xlim(0, 1)
-
-    def append_data(self, chunk_times, chunk_signal):
-        if self.visualization_settings['mode'] == 'geek':
-            self.time_in_graph = np.hstack((self.time_in_graph, chunk_times))
-            self.sig_in_graph = np.vstack((self.sig_in_graph, chunk_signal))
-            abs_time_in_graph = self.time_in_graph - self.time_in_graph[0]
-            if abs_time_in_graph[-1] >= self.win_t:
-                cut_idx = np.argmin(
-                    np.abs(abs_time_in_graph -
-                           (abs_time_in_graph[-1] - self.win_t)))
-                self.time_in_graph = self.time_in_graph[cut_idx:]
-                self.sig_in_graph = self.sig_in_graph[cut_idx:]
-        elif self.visualization_settings['mode'] == 'clinical':
-            # Useful params
-            max_t = self.time_in_graph.max(initial=0)
-            n_win = max_t // self.win_t
-            max_win_t = (n_win+1) * self.win_t
-            # Check overflow
-            if chunk_times[-1] > max_win_t:
-                idx_overflow = chunk_times > max_win_t
-                # Append part of the chunk at the end
-                time_in_graph = np.insert(
-                    self.time_in_graph,
-                    self.pointer+1,
-                    chunk_times[np.logical_not(idx_overflow)], axis=0)
-                sig_in_graph = np.insert(
-                    self.sig_in_graph,
-                    self.pointer+1,
-                    chunk_signal[np.logical_not(idx_overflow)], axis=0)
-                # Append part of the chunk at the beginning
-                time_in_graph = np.insert(
-                    time_in_graph, 0,
-                    chunk_times[idx_overflow], axis=0)
-                sig_in_graph = np.insert(
-                    sig_in_graph, 0,
-                    chunk_signal[idx_overflow], axis=0)
-                self.pointer = len(chunk_times[idx_overflow]) - 1
-            else:
-                # Append chunk at pointer
-                time_in_graph = np.insert(self.time_in_graph,
-                                          self.pointer+1,
-                                          chunk_times, axis=0)
-                sig_in_graph = np.insert(self.sig_in_graph,
-                                         self.pointer+1,
-                                         chunk_signal, axis=0)
-                self.pointer += len(chunk_times)
-            # Check old samples
-            max_t = time_in_graph[self.pointer]
-            idx_old = time_in_graph < (max_t - self.win_t)
-            if np.any(idx_old):
-                time_in_graph = np.delete(time_in_graph, idx_old, axis=0)
-                sig_in_graph = np.delete(sig_in_graph, idx_old, axis=0)
-            # Update
-            self.time_in_graph = time_in_graph
-            self.sig_in_graph = sig_in_graph
-            # ============================DEBUG=============================== #
-            # if np.sum(np.diff(time_in_graph) < 0) > 1:
-            #     warnings.warn(
-            #         'Unordered data!!'
-            #         f'\nPointer position: {self.pointer}'
-            #         f'\nTime at pointer: {max_t}'
-            #         f'\nMax time: {np.max(time_in_graph)}'
-            #         f'\nOld positions (time < '
-            #         f'{(max_t - self.win_t)}): '
-            #         f'{np.where(time_in_graph < (max_t - self.win_t))}')
-            # print(f'Pointer no correction: {pointer_no_corr}')
-            # print(f'Pointer with correction: {self.pointer}')
-            # print(idx_old)
-            # print(time_in_graph)
-            # ================================================================ #
-        return self.time_in_graph, self.sig_in_graph
-
-    def set_data(self):
-        # Calculate x axis
-        if self.visualization_settings['mode'] == 'geek':
-            x = self.time_in_graph
-        elif self.visualization_settings['mode'] == 'clinical':
-            max_t = self.time_in_graph.max(initial=0)
-            x = np.mod(self.time_in_graph, self.win_t)
-            # Marker
-            if max_t >= self.win_t:
-                self.marker.set_xdata(x[self.pointer])
-        else:
-            raise ValueError
-        # Set data
-        for i in range(self.n_cha):
-            temp = self.sig_in_graph[:, self.n_cha - i - 1]
-            temp = (temp + self.cha_separation * i)
-            self.curves[i].set_data(x,temp)
-
-    def autoscale(self):
-        scaling_sett = self.visualization_settings['y_axis']['autoscale']
-        if scaling_sett['apply']:
-            y_std = np.std(self.sig_in_graph)
-            std_tol = scaling_sett['n_std_tolerance']
-            std_factor = scaling_sett['n_std_separation']
-            if y_std > self.cha_separation * std_tol or \
-                    y_std < self.cha_separation / std_tol:
-                self.cha_separation = std_factor * y_std
-                self.draw_y_axis_ticks()
-
-    def update_plot(self, chunk_times, chunk_signal):
-        """This function updates the data in the graph. Notice that channel 0 is
-        drawn up in the chart, whereas the last channel is in the bottom.
-        """
-        try:
-            # t0 = time.time()
-            # Init time
-            if self.init_time is None:
-                self.init_time = chunk_times[0]
-                if self.visualization_settings['mode'] == 'clinical':
-                    self.ax.add_line(self.marker)
-            # Temporal series are always plotted from zero.
-            chunk_times = chunk_times - self.init_time
-            # Append new data and get safe copy
-            self.append_data(chunk_times, chunk_signal[:, self.cha_idx])
-            # Set data
-            self.set_data()
-            # Update y range (only if autoscale is activated)
-            self.autoscale()
-            # Update x range
-            self.draw_x_axis_ticks()
-
-            #Update the plot
-            self.widget.draw()
-            # Print info
-            # if time.time() - t0 > self.signal_settings['update_rate']:
-            #     self.medusa_interface.log(
-            #         '[Plot %i] The plot time per chunk is higher than the '
-            #         'update rate. This may end up freezing MEDUSA.' %
-            #         self.uid,
-            #         style='warning', mode='replace')
-            # print('Chunk plotted at: %.6f' % time.time())
-        except Exception as e:
-            traceback.print_exc()
-            self.handle_exception(e)
-
-    def clear_plot(self):
-        self.ax.clear()
-        width, height = self.widget.get_width_height()
-        if width > 0 and height > 0:
-            self.widget.draw()
 
 class TimePlotMultichannel(RealTimePlotPyQtGraph):
 
@@ -3373,56 +3381,52 @@ class AutorangeMenu(QMenu):
 
 __plots_info__ = [
     {
+        'uid': 'Time (multi-channel)',
+        'description': 'Time-domain plot of multichannel signals, each displayed with a vertical offset.',
+        'class': TimePlotMultichannel
+    },
+    {
+        'uid': 'PSD (multi-channel)',
+        'description': 'Power spectral density (PSD) plot for multichannel signals, shown with channel offsets.',
+        'class': PSDPlotMultichannel
+    },
+    {
+        'uid': 'Time (single-channel)',
+        'description': 'Time-domain visualization of a single channel of a '
+                       'signal.',
+        'class': TimePlot
+    },
+    {
+        'uid': 'PSD (single-channel)',
+        'description': 'Power spectral density (PSD) visualization of a '
+                       'single channel of a signal.',
+        'class': PSDPlot
+    },
+    {
+        'uid': 'Spectrogram',
+        'description': 'Real-time spectrogram showing the time–frequency representation of signals.',
+        'class': SpectrogramPlot
+    },
+    {
+        'uid': 'Power Distribution',
+        'description': 'Distribution of signal power across channels or frequency bands.',
+        'class': PowerDistributionPlot
+    },
+    {
+        'uid': 'Topography',
+        'description': 'Real-time topographic scalp map for EEG/MEG data.',
+        'class': TopographyPlot
+    },
+    {
+        'uid': 'Connectivity',
+        'description': 'Real-time functional connectivity map for EEG/MEG signals.',
+        'class': ConnectivityPlot
+    },
+    {
         'uid': 'TimePlotMultichannelPLT',
         'description': 'Plot to represent signals in time. If the '
                        'signal has several channels, the plot will '
                        'display each of them with different offset.',
         'class': TimePlotMultichannelPLT
-    },
-    {
-        'uid': 'PowerDistributionPlot',
-        'description': 'Plot to represent signals in time. If the '
-                       'signal has several channels, the plot will '
-                       'display each of them with different offset.',
-        'class': PowerDistributionPlot
-    },
-    {
-        'uid': 'TimePlotMultichannel',
-        'description': 'Plot to represent signals in time. If the '
-                       'signal has several channels, the plot will '
-                       'display each of them with different offset.',
-        'class': TimePlotMultichannel
-    },
-    {
-        'uid': 'PSDPlotMultichannel',
-        'description': 'Plot to represent the power spectral density of a '
-                       'signal. If the signal has several channels, the plot '
-                       'will display each of them with different offset.',
-        'class': PSDPlotMultichannel
-    },
-    {
-        'uid': 'TimePlot',
-        'description': 'Plot to represent a signal.',
-        'class': TimePlot
-    },
-    {
-        'uid': 'PSDPlot',
-        'description': 'Plot to represent the power spectral density.',
-        'class': PSDPlot
-    },
-    {
-        'uid': 'SpectrogramPlot',
-        'description': 'Real time spectrogram.',
-        'class': SpectrogramPlot
-    },
-    {
-        'uid': 'TopographyPlot',
-        'description': 'Real time topography plot for M/EEG signals.',
-        'class': TopographyPlot
-    },
-    {
-        'uid': 'ConnectivityPlot',
-        'description': 'Real time connectivity plot for M/EEG signals.',
-        'class': ConnectivityPlot
     },
 ]

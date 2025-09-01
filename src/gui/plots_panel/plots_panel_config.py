@@ -712,9 +712,9 @@ class ConfigPlotFrameDialog(QDialog, ui_plot_config_dialog):
             plot_class_signal_settings, plot_class_visualization_settings = \
                 plot_class.get_default_settings(stream)
             curr_signal_settings = (plot_class_signal_settings.
-                                    update_SettingsTree_from_TreeWidget(self.signal_options_tree))
+                                    update_tree_from_widget(self.signal_options_tree))
             curr_visualization_settings = (plot_class_visualization_settings.
-                                           update_SettingsTree_from_TreeWidget(self.visualization_options_tree))
+                                           update_tree_from_widget(self.visualization_options_tree))
             updated_signal_settings, updated_visualization_settings = \
                 plot_class.update_lsl_stream_related_settings(curr_signal_settings,
                                                               curr_visualization_settings,
@@ -783,8 +783,8 @@ class ConfigPlotFrameDialog(QDialog, ui_plot_config_dialog):
             plot_class = self.selected_plot_info['class']
             stream = self.working_lsl_streams[self.comboBox_lsl_streams.currentIndex()]
             signal_settings, visualization_settings = plot_class.get_default_settings(stream)
-            self.signal_settings = signal_settings.update_SettingsTree_from_TreeWidget(self.signal_options_tree)
-            self.visualization_settings = visualization_settings.update_SettingsTree_from_TreeWidget(self.visualization_options_tree)
+            self.signal_settings = signal_settings.update_tree_from_widget(self.signal_options_tree)
+            self.visualization_settings = visualization_settings.update_tree_from_widget(self.visualization_options_tree)
             super().accept()
         except Exception as e:
             self.exception_handler(e)
