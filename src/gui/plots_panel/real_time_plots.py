@@ -1574,16 +1574,19 @@ class TimePlotMultichannelPLT(RealTimePlot):
         self.set_data()
         self.widget.draw()
 
+
     def draw_y_axis_ticks(self):
         # Draw y axis ticks (channel labels)
         ticks = list()
         if self.l_cha is not None:
-            for i in range(self.n_cha):
-                offset = self.cha_separation * i
-                label = self.l_cha[-i - 1]
-                ticks.append((offset, label))
-        y_ticks_pos = [tick[0] for tick in ticks]
-        y_ticks_labels = [tick[1] for tick in ticks]
+            y_ticks_pos = np.arange(self.n_cha) * self.cha_separation
+            y_ticks_labels = self.l_cha[::-1]
+            # for i in range(self.n_cha):
+            #     offset = self.cha_separation * i
+            #     label = self.l_cha[-i - 1]
+            #     ticks.append((offset, label))
+        # y_ticks_pos = [tick[0] for tick in ticks]
+        # y_ticks_labels = [tick[1] for tick in ticks]
         self.ax.set_yticks(y_ticks_pos)
         self.ax.set_yticklabels(y_ticks_labels,
                                 color=self.theme_colors['THEME_TEXT_LIGHT'])
@@ -3324,19 +3327,48 @@ class AutorangeMenu(QMenu):
         self.addAction(self.auto_range_action)
 
     def auto_range(self):
-        self.view.ax.relim()  # Actualiza los límites del eje según los datos actuales
-        self.view.ax.autoscale(enable=True, axis='both',
-                               tight=True)  # Ajusta los ejes automáticamente
+        """
+        Recalcula separación vertical y límites para un plot de EEG en tiempo real.
 
-        if self.view.curves != None:
-            # Asegurarse de que cada señal se dibuje a una altura diferente en el eje Y
-            for i in range(self.view.n_cha):
-                # Ajustar cada señal según su índice y la separación (cha_separation)
-                self.view.curves[i].set_ydata(self.view.sig_in_graph[:,
-                                              self.view.n_cha - i - 1] + self.view.cha_separation * i)
+        sep_factor:     factor multiplicativo sobre una amplitud robusta (mediana de p95-p5).
+        robust_percentiles: percentiles para estimar amplitud por canal.
+        pad_frac:       fracción de la separación usada como margen en ylim.
+        """
 
-        # Redibujar la figura para aplicar los cambios
-        self.view.widget.draw()  # Forzar el redibujado de la figura
+        sep_factor = 1.8
+        robust_percentiles = (5, 95)
+        ax = self.view.ax
+        lines = self.view.curves
+        n = self.view.n_cha
+        data = self.view.sig_in_graph
+
+        if data.__len__() == 0 or lines is None or n == 0:
+            return
+
+        # --- Estimate the signal amplitudes ---
+        p_low, p_high = robust_percentiles
+        lo = np.nanpercentile(data, p_low, axis=0)
+        hi = np.nanpercentile(data, p_high, axis=0)
+        vpp = np.maximum(hi - lo, 1e-12)  # avoid zeros
+        base_sep = np.nanmedian(vpp)  # representative amplitude
+        cha_sep = float(base_sep * sep_factor)  # channel separation
+
+        # Update parameter
+        self.view.cha_separation = cha_sep
+
+        # --- Define offsets ---
+        offsets = np.arange(self.view.n_cha)[::-1] * self.view.cha_separation
+        Y = self.view.sig_in_graph + offsets
+        for i, line in enumerate(self.view.curves):
+            line.set_ydata(Y[:, i])
+
+        ax.autoscale(enable=True, axis='x', tight=True)
+        ax.autoscale(enable=False, axis='y')
+
+        self.view.draw_y_axis_ticks()
+
+        # Draw
+        self.view.widget.draw()
 
 
 __plots_info__ = [
