@@ -210,6 +210,9 @@ class TimePlotMultichannelPLT(RealTimePlot):
         self.widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.ax = self.widget.figure.axes[0]
         self.ax.set_facecolor(self.theme_colors['THEME_BG_DARK'])
+        self.ax.tick_params(axis='both', colors=self.theme_colors['THEME_TEXT_LIGHT'])
+        for s in self.ax.spines.values():
+            s.set_color(self.theme_colors['THEME_TEXT_LIGHT'])
 
         # Custom menu
         self.plot_menu = None
@@ -223,7 +226,7 @@ class TimePlotMultichannelPLT(RealTimePlot):
         Called automatically on right-click within the canvas.
         pos is in widget coordinates, so we map it to global coords.
         """
-        menu = AutorangeMenu(self)
+        menu = AutorangeMenu(self,'time')
         global_pos = self.widget.mapToGlobal(pos)
         menu.exec_(global_pos)
 
@@ -317,7 +320,6 @@ class TimePlotMultichannelPLT(RealTimePlot):
         """ This function changes the time of signal plotted in the graph. It
         depends on the sample frequency.
         """
-
         # Get channels
         self.l_cha = self.visualization_settings['l_cha']
         self.n_cha= len(self.l_cha)
@@ -330,8 +332,8 @@ class TimePlotMultichannelPLT(RealTimePlot):
         self.win_t = self.visualization_settings['x_axis']['seconds_displayed']
         self.win_s = int(self.win_t * self.fs)
         # Set custom menu
-        self.plot_menu = AutorangeMenu(self)
-        self.plot_menu.auto_range()
+        self.plot_menu = AutorangeMenu(self,'time')
+        self.plot_menu.auto_range_time()
 
         # Set titles
         self.ax.set_xlabel(
@@ -550,7 +552,6 @@ class TimePlotMultichannelPLT(RealTimePlot):
         drawn up in the chart, whereas the last channel is in the bottom.
         """
         try:
-            # t0 = time.time()
             # Init time
             if self.init_time is None:
                 self.init_time = chunk_times[0]
@@ -1389,7 +1390,7 @@ class SpectrogramPlot(RealTimePlot):
             if self.visualization_settings['mode'] == 'clinical':
                 # Update the time marker
                 x = np.mod(self.time_in_graph, self.win_t)
-                self.marker.set_xdata(x[self.pointer])
+                self.marker.set_xdata([x[self.pointer]])
 
                 if t_in_graph.max() < self.win_t:
                     self.im.set_extent(
@@ -1674,7 +1675,7 @@ class PowerDistributionPlot(SpectrogramPlot):
             elif self.visualization_settings['mode'] == 'clinical':
                 x = np.mod(t_in_graph_resampled, self.win_t)
                 self.marker.set_xdata(
-                    np.mod(self.time_in_graph, self.win_t)[self.pointer])
+                    [np.mod(self.time_in_graph, self.win_t)[self.pointer]])
 
                 # Reorder the spectrogram
                 idx = np.argmax(t_in_graph_resampled)
@@ -2181,9 +2182,7 @@ class TimePlotPLT(RealTimePlot):
     def __init__(self, uid, plot_state, medusa_interface, theme_colors):
         super().__init__(uid, plot_state, medusa_interface, theme_colors)
         # Channels idx
-        # self.cha_idx = None
         self.n_cha = 1
-        # self.l_cha = None
         self.curr_cha = None
         # Graph variables
         self.win_t = None
@@ -2213,6 +2212,9 @@ class TimePlotPLT(RealTimePlot):
         self.widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.ax = self.widget.figure.axes[0]
         self.ax.set_facecolor(self.theme_colors['THEME_BG_DARK'])
+        self.ax.tick_params(axis='both', colors=self.theme_colors['THEME_TEXT_LIGHT'])
+        for s in self.ax.spines.values():
+            s.set_color(self.theme_colors['THEME_TEXT_LIGHT'])
 
         # Custom menu
         self.plot_menu = None
@@ -2233,7 +2235,6 @@ class TimePlotPLT(RealTimePlot):
     def mouse_wheel_event(self, event):
         if event.angleDelta().y() > 0:
             self.y_range = [r / 1.5 for r in self.y_range]
-
         else:
             self.y_range = [r * 1.5 for r in self.y_range]
         self.draw_y_axis_ticks
@@ -2375,9 +2376,6 @@ class TimePlotPLT(RealTimePlot):
         self.sig_in_graph = np.zeros([0, self.lsl_stream_info.n_cha])
         self.win_t = self.visualization_settings['x_axis']['seconds_displayed']
         self.win_s = int(self.win_t * self.fs)
-        # Set custom menu
-        self.plot_menu = AutorangeMenu(self)
-        self.plot_menu.auto_range()
 
         self.y_range = self.visualization_settings['y_axis']['range']
         if not isinstance(self.y_range, list):
@@ -2390,8 +2388,9 @@ class TimePlotPLT(RealTimePlot):
         self.ax.set_ylabel(
             self.visualization_settings['y_axis']['label']['text'],
             color=self.theme_colors['THEME_TEXT_LIGHT'])
-        self.ax.set_title(self.lsl_stream_info.lsl_stream.name(),
-                          color=self.theme_colors['THEME_TEXT_LIGHT'])
+        self.ax.set_title(self.lsl_stream_info.l_cha[init_cha],
+                          color=self.theme_colors['THEME_TEXT_LIGHT'],
+                          fontsize=self.visualization_settings['title_label_size'])
 
         # Set the style for the curves
         curve_style = {'color': self.curve_color,
@@ -2582,7 +2581,6 @@ class TimePlotPLT(RealTimePlot):
 
     def update_plot(self, chunk_times, chunk_signal):
         try:
-            # t0 = time.time()
             # Reference time
             if self.init_time is None:
                 self.init_time = chunk_times[0]
@@ -2679,7 +2677,7 @@ class TimePlot(RealTimePlotPyQtGraph):
 
         else:
             self.y_range = [r * 1.5 for r in self.y_range]
-        self.draw_y_axis_ticks()
+        self.draw_y_axis_ticks
 
     @staticmethod
     def get_default_settings(stream_info=None):
@@ -2974,6 +2972,313 @@ class TimePlot(RealTimePlotPyQtGraph):
         self.widget.clear()
 
 
+class PSDPlotMultichannelPLT(RealTimePlot):
+
+    def __init__(self, uid, plot_state, medusa_interface, theme_colors):
+        super().__init__(uid, plot_state, medusa_interface, theme_colors)
+        # Channels idx
+        self.cha_idx = None
+        self.n_cha = None
+        self.l_cha = None
+        # Graph variables
+        self.win_t = None
+        self.win_s = None
+        self.time_in_graph = None
+        self.sig_in_graph = None
+        self.curves = None
+        self.cha_separation = None
+        self.n_samples_psd = None
+        # Style and  theme
+        self.curve_color = self.theme_colors['THEME_SIGNAL_CURVE']
+        self.grid_color = self.theme_colors['THEME_SIGNAL_GRID']
+        self.curve_width = 1
+        self.grid_width = 1
+        # Create figure & widget
+        fig = Figure()
+        fig.add_subplot(111)
+        fig.tight_layout()
+        fig.patch.set_facecolor(self.theme_colors['THEME_BG_DARK'])
+        self.widget = FigureCanvasQTAgg(fig)
+        self.widget.figure.set_size_inches(0, 0)
+        self.widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.ax = self.widget.figure.axes[0]
+        self.ax.set_facecolor(self.theme_colors['THEME_BG_DARK'])
+        self.ax.tick_params(axis='both',
+                            colors=self.theme_colors['THEME_TEXT_LIGHT'])
+        for s in self.ax.spines.values():
+            s.set_color(self.theme_colors['THEME_TEXT_LIGHT'])
+        # Custom menu
+        self.plot_menu = None
+        self.widget.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.widget.customContextMenuRequested.connect(self.show_context_menu)
+        self.widget.wheelEvent = self.mouse_wheel_event
+
+    def show_context_menu(self, pos: QPoint):
+        """
+        Called automatically on right-click within the canvas.
+        pos is in widget coordinates, so we map it to global coords.
+        """
+        menu = AutorangeMenu(self,'PSD')
+        global_pos = self.widget.mapToGlobal(pos)
+        menu.exec_(global_pos)
+
+    def mouse_wheel_event(self, event):
+        if event.angleDelta().y() > 0:
+            self.cha_separation /= 1.5
+        else:
+            self.cha_separation *= 1.5
+        self.draw_y_axis_ticks()
+
+    @staticmethod
+    def get_default_settings(stream_info=None):
+        signal_settings = SettingsTree()
+        signal_settings.add_item("update_rate", default_value=0.1,
+                                 info="Update rate (s) of the plot",
+                                 value_range=[0, None])
+        freq_filt = signal_settings.add_item("frequency_filter")
+        freq_filt.add_item("apply", default_value=True,
+                           info="Apply IIR filter in real-time")
+        freq_filt.add_item("type", default_value="highpass",
+                           value_options=["highpass", "lowpass", "bandpass",
+                                          "stopband"], info="Filter type")
+        freq_filt.add_item("cutoff_freq", default_value=[1.0],
+                           info="List with one cutoff for highpass/lowpass, two for bandpass/stopband")
+        freq_filt.add_item("order", default_value=5,
+                           info="Order of the filter (the higher, the greater computational cost)",
+                           value_range=[1, None])
+        notch_filt = signal_settings.add_item("notch_filter")
+        notch_filt.add_item("apply", default_value=True,
+                            info="Apply notch filter to get rid of power line interference")
+        notch_filt.add_item("freq", default_value=50.0,
+                            info="Center frequency to be filtered",
+                            value_range=[0, None])
+        notch_filt.add_item("bandwidth", default_value=[-0.5, 0.5],
+                            info="List with relative limits of center frequency")
+        notch_filt.add_item("order", default_value=5,
+                            info="Order of the filter (the higher, the greater computational cost)",
+                            value_range=[1, None])
+        re_ref = signal_settings.add_item("re_referencing")
+        re_ref.add_item("apply", default_value=False,
+                        info="Change the reference of your signals")
+        re_ref.add_item("type", default_value="car",
+                        value_options=["car", "channel"],
+                        info="Type of re-referencing: Common Average Reference or channel subtraction")
+        if stream_info is not None:
+            re_ref.add_item("channel", default_value=stream_info.l_cha[0],
+                            info="Channel label for re-referencing if channel is selected",
+                            value_options=stream_info.l_cha)
+        else:
+            re_ref.add_item("channel", default_value="",
+                            info="Channel label for re-referencing if channel is selected")
+        down_samp = signal_settings.add_item("downsampling")
+        down_samp.add_item("apply", default_value=False,
+                           info="Reduce the sample rate of the incoming LSL stream")
+        down_samp.add_item("factor", default_value=2.0,
+                           info="Downsampling factor", value_range=[0, None])
+
+        visualization_settings = SettingsTree()
+        if stream_info is not None:
+            visualization_settings.add_item("l_cha",
+                                            default_value=stream_info.l_cha,
+                                            info="List with labels of channels to be displayed")
+        else:
+            visualization_settings.add_item("l_cha", default_value=[],
+                                            info="List with labels of channels to be displayed")
+        x_ax = visualization_settings.add_item("x_axis")
+        x_ax.add_item("range", default_value=[0.1, 30], info="X-axis range")
+        x_ax.add_item("display_grid", default_value=False,
+                      info="Visibility of the grid")
+        x_ax.add_item("line_separation", default_value=1.0,
+                      info="Display grid's dimensions", value_range=[0, None])
+        x_ax.add_item("label", default_value="Frequency (Hz)",
+                      info="Label for x-axis")
+        y_ax = visualization_settings.add_item("y_axis")
+        y_ax.add_item("cha_separation", default_value=1.0,
+                      info="Initial limits of the y-axis",
+                      value_range=[0, None])
+        y_ax.add_item("display_grid", default_value=True,
+                      info="Visibility of the grid")
+        auto_scale = y_ax.add_item("autoscale")
+        auto_scale.add_item("apply", default_value=True,
+                            info="Automatically scale the y-axis")
+        auto_scale.add_item("n_std_tolerance", default_value=1.25,
+                            info="Autoscale limit: if the signal exceeds this value, the scale is re-adjusted",
+                            value_range=[0, None])
+        auto_scale.add_item("n_std_separation", default_value=5.0,
+                            info="Separation between channels (in std)",
+                            value_range=[0, None])
+        y_label = y_ax.add_item("label")
+        y_label.add_item("text", default_value="Power",
+                         info="Label for y-axis")
+        y_label.add_item("units", default_value="auto", info="Units for y-axis")
+        psd = visualization_settings.add_item("psd")
+        psd.add_item("time_window_seconds", default_value=5.0,
+                     info="Time (s) in which the PSD will be estimated",
+                     value_range=[0, None])
+        psd.add_item("welch_overlap_pct", default_value=25.0,
+                     info="Percentage of segment overlapping",
+                     value_range=[0, 100])
+        psd.add_item("welch_seg_len_pct", default_value=50.0,
+                     info="Percentage of the window that will be used",
+                     value_range=[0, 100])
+        visualization_settings.add_item("title", default_value="auto",
+                                        info="Title for the plot")
+        return signal_settings, visualization_settings
+
+    @staticmethod
+    def update_lsl_stream_related_settings(signal_settings,
+                                           visualization_settings, stream_info):
+        signal_settings.get_item("re_referencing", "channel"). \
+            edit_item(default_value=stream_info.l_cha[0],
+                      value_options=stream_info.l_cha)
+        visualization_settings.get_item("l_cha").edit_item(
+            default_value=stream_info.l_cha)
+        return signal_settings, visualization_settings
+
+    @staticmethod
+    def check_settings(signal_settings, visualization_settings):
+        # Channel separation
+        if isinstance(visualization_settings['y_axis']['cha_separation'], list):
+            raise ValueError('Incorrect configuration. The channel separation'
+                             'must be a number.')
+
+    @staticmethod
+    def check_signal(lsl_stream_info):
+        return True
+
+    def init_plot(self):
+        """ This function changes the time of signal plotted in the graph. It
+        depends on the sample frecuency.
+        """
+        # Get channels
+        self.l_cha = self.visualization_settings['l_cha']
+        self.n_cha = len(self.l_cha)
+        self.cha_idx = [i for i, label in enumerate(self.lsl_stream_info.l_cha)
+                        if label in self.l_cha]
+        # Update variables
+        self.time_in_graph = np.zeros([0])
+        self.sig_in_graph = np.zeros([0, self.n_cha])
+        self.cha_separation = \
+            self.visualization_settings['y_axis']['cha_separation']
+        self.win_t = self.visualization_settings['psd']['time_window_seconds']
+        self.win_s = int(self.win_t * self.fs)
+        self.n_samples_psd = self.win_s
+        # Set custom menu
+        self.plot_menu = AutorangeMenu(self,'PSD')
+        self.plot_menu.auto_range_spect()
+        # Set titles
+        self.ax.set_xlabel(
+            self.visualization_settings['x_axis']['label'],
+            color=self.theme_colors['THEME_TEXT_LIGHT'])
+        self.ax.set_ylabel(
+            self.visualization_settings['y_axis']['label']['text'],
+            color=self.theme_colors['THEME_TEXT_LIGHT'])
+        self.ax.set_title(self.lsl_stream_info.lsl_stream.name(),
+                          color=self.theme_colors['THEME_TEXT_LIGHT'])
+        # Set the style for the curves
+        curve_style = {'color': self.curve_color,
+                       'linewidth': self.curve_width}
+        # Place curves in plot
+        self.curves = []
+        for i in range(self.n_cha):
+            curve, = self.ax.plot([], [], **curve_style)
+            self.curves.append(curve)
+        # Set grid for the axes
+        if self.visualization_settings['x_axis']['display_grid']:
+            self.ax.grid(True, axis='x',
+                         color=self.grid_color,
+                         linewidth=self.grid_width)
+
+        if self.visualization_settings['y_axis']['display_grid']:
+            self.ax.grid(True, axis='y',
+                         color=self.grid_color,
+                         linewidth=self.grid_width)
+        # Draw y axis
+        self.draw_y_axis_ticks()
+        self.draw_x_axis_ticks()
+
+        self.widget.draw()
+
+    def draw_y_axis_ticks(self):
+        # Draw y axis ticks (channel labels)
+        if self.l_cha is not None:
+            y_ticks_pos = np.arange(self.n_cha) * self.cha_separation
+            y_ticks_labels = self.l_cha[::-1]
+        self.ax.set_yticks(y_ticks_pos)
+        self.ax.set_yticklabels(y_ticks_labels,
+                                color=self.theme_colors['THEME_TEXT_LIGHT'])
+        # Set y axis range
+        y_min = - self.cha_separation
+        y_max = self.n_cha * self.cha_separation
+        if self.n_cha > 1:
+            self.ax.set_ylim(y_min, y_max)
+
+    def draw_x_axis_ticks(self):
+        self.ax.set_xlim(self.visualization_settings['x_axis']['range'])
+
+    def append_data(self, chunk_times, chunk_signal):
+        self.time_in_graph = np.hstack((self.time_in_graph, chunk_times))
+        if len(self.time_in_graph) >= self.win_s:
+            self.time_in_graph = self.time_in_graph[-self.win_s:]
+        self.sig_in_graph = np.vstack((self.sig_in_graph, chunk_signal))
+        if len(self.sig_in_graph) >= self.win_s:
+            self.sig_in_graph = self.sig_in_graph[-self.win_s:]
+
+        return self.time_in_graph.copy(), self.sig_in_graph.copy()
+
+    def set_data(self, x_in_graph, y_in_graph):
+        x = np.arange(x_in_graph.shape[0])
+        for i in range(self.n_cha):
+            temp = y_in_graph[:, self.n_cha - i - 1]
+            temp = (temp + self.cha_separation * i)
+            self.curves[i].set_data(x, temp)
+
+    def autoscale(self, y_in_graph):
+        scaling_sett = self.visualization_settings['y_axis']['autoscale']
+        if scaling_sett['apply']:
+            y_std = np.std(y_in_graph)
+            std_tol = scaling_sett['n_std_tolerance']
+            std_factor = scaling_sett['n_std_separation']
+            if y_std > self.cha_separation * std_tol or \
+                    y_std < self.cha_separation / std_tol:
+                self.cha_separation = std_factor * y_std
+                self.draw_y_axis_ticks()
+
+    def update_plot(self, chunk_times, chunk_signal):
+        """
+        This function updates the data in the graph. Notice that channel 0 is
+        drawn up in the chart, whereas the last channel is in the bottom.
+        """
+        try:
+            # Append new data and get safe copy
+            self.append_data(chunk_times, chunk_signal[:, self.cha_idx])
+            # Compute PSD
+            welch_seg_len = np.round(
+                self.visualization_settings['psd']['welch_seg_len_pct'] /
+                100.0 * self.sig_in_graph.shape[0]).astype(int)
+            welch_overlap = np.round(
+                self.visualization_settings['psd']['welch_overlap_pct'] /
+                100.0 * welch_seg_len).astype(int)
+            welch_ndft = welch_seg_len
+            x_in_graph, y_in_graph = scp_signal.welch(
+                self.sig_in_graph, fs=self.fs,
+                nperseg=welch_seg_len, noverlap=welch_overlap,
+                nfft=welch_ndft, axis=0)
+            # Set data
+            self.set_data(x_in_graph, y_in_graph)
+            # Update y range (only if autoscale is activated)
+            self.autoscale(y_in_graph)
+            # Update the plot
+            self.widget.draw()
+        except Exception as e:
+            self.handle_exception(e)
+
+    def clear_plot(self):
+        self.ax.clear()
+        width, height = self.widget.get_width_height()
+        if width > 0 and height > 0:
+            self.widget.draw()
+
 class PSDPlotMultichannel(RealTimePlotPyQtGraph):
 
     def __init__(self, uid, plot_state, medusa_interface, theme_colors):
@@ -3238,6 +3543,262 @@ class PSDPlotMultichannel(RealTimePlotPyQtGraph):
 
     def clear_plot(self):
         self.widget.clear()
+
+class PSDPlotPLT(RealTimePlot):
+    def __init__(self, uid, plot_state, medusa_interface, theme_colors):
+        super().__init__(uid, plot_state, medusa_interface, theme_colors)
+        # Graph variables
+        self.curr_cha = None
+        self.win_t = None
+        self.win_s = None
+        self.time_in_graph = None
+        self.sig_in_graph = None
+        self.curves = None
+        self.n_samples_psd = None
+        self.y_range = None
+        self.x_range = None
+
+        # Style and  theme
+        self.curve_color = self.theme_colors['THEME_SIGNAL_CURVE']
+        self.grid_color = self.theme_colors['THEME_SIGNAL_GRID']
+        self.curve_width = 1
+        self.grid_width = 1
+
+        # Create figure & widget
+        fig = Figure()
+        fig.add_subplot(111)
+        fig.tight_layout()
+        fig.patch.set_color(self.theme_colors['THEME_BG_DARK'])
+        self.widget = FigureCanvasQTAgg(fig)
+        self.widget.figure.set_size_inches(0, 0)
+        self.widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.ax = self.widget.figure.axes[0]
+        self.ax.set_facecolor(self.theme_colors['THEME_BG_DARK'])
+        self.ax.tick_params(axis='both', colors=self.theme_colors['THEME_TEXT_LIGHT'])
+        for s in self.ax.spines.values():
+            s.set_color(self.theme_colors['THEME_TEXT_LIGHT'])
+
+        # Custom menu
+        self.plot_menu = None
+        self.widget.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.widget.customContextMenuRequested.connect(self.show_context_menu)
+        self.widget.wheelEvent = self.mouse_wheel_event
+
+    def show_context_menu(self, pos: QPoint):
+        """
+        Called automatically on right-click within the canvas.
+        pos is in widget coordinates, so we map it to global coords.
+        """
+        menu = SelectChannelMenu(self)
+        menu.set_channel_list()
+        global_pos = self.widget.mapToGlobal(pos)
+        menu.exec_(global_pos)
+
+    def mouse_wheel_event(self, event):
+        if event.angleDelta().y() > 0:
+            self.y_range = [r / 1.5 for r in self.y_range]
+
+        else:
+            self.y_range = [r * 1.5 for r in self.y_range]
+        self.draw_y_axis_ticks()
+
+    @staticmethod
+    def get_default_settings(stream_info=None):
+        signal_settings = SettingsTree()
+        signal_settings.add_item("update_rate", default_value=0.1, info="Update rate (s) of the plot", value_range=[0, None])
+        freq_filt = signal_settings.add_item("frequency_filter")
+        freq_filt.add_item("apply", default_value=True, info="Apply IIR filter in real-time")
+        freq_filt.add_item("type", default_value="highpass", value_options=["highpass", "lowpass", "bandpass", "stopband"], info="Filter type")
+        freq_filt.add_item("cutoff_freq", default_value=[1.0], info="List with one cutoff for highpass/lowpass, two for bandpass/stopband")
+        freq_filt.add_item("order", default_value=5, info="Order of the filter (the higher, the greater computational cost)", value_range=[1, None])
+        notch_filt = signal_settings.add_item("notch_filter")
+        notch_filt.add_item("apply", default_value=True, info="Apply notch filter to get rid of power line interference")
+        notch_filt.add_item("freq", default_value=50.0, info="Center frequency to be filtered", value_range=[0, None])
+        notch_filt.add_item("bandwidth", default_value=[-0.5, 0.5], info="List with relative limits of center frequency")
+        notch_filt.add_item("order", default_value=5, info="Order of the filter (the higher, the greater computational cost)", value_range=[1, None])
+        re_ref = signal_settings.add_item("re_referencing")
+        re_ref.add_item("apply", default_value=False, info="Change the reference of your signals")
+        re_ref.add_item("type", default_value="car", value_options=["car", "channel"], info="Type of re-referencing: Common Average Reference or channel subtraction")
+        if stream_info is not None:
+            re_ref.add_item("channel", default_value=stream_info.l_cha[0],
+                            info="Channel label for re-referencing if channel is selected",
+                            value_options=stream_info.l_cha)
+        else:
+            re_ref.add_item("channel", default_value="", info="Channel label for re-referencing if channel is selected")
+        down_samp= signal_settings.add_item("downsampling")
+        down_samp.add_item("apply", default_value=False, info="Reduce the sample rate of the incoming LSL stream")
+        down_samp.add_item("factor", default_value=2, info="Downsampling factor")
+
+        visualization_settings = SettingsTree()
+        if stream_info is not None:
+            visualization_settings.add_item("init_channel_label", default_value=stream_info.l_cha[0],
+                                            info="Channel selected for visualization",
+                                            value_options=stream_info.l_cha)
+        else:
+            visualization_settings.add_item("init_channel_label", default_value="",
+                                            info="Channel selected for visualization")
+        visualization_settings.add_item("title_label_size", default_value=10.0,
+                                        info="Title label size",
+                                        value_range=[0, None])
+        x_ax = visualization_settings.add_item("x_axis")
+        x_ax.add_item("range", default_value=[0.1, 30], info="X-axis range")
+        x_ax.add_item("display_grid", default_value=False, info="Visibility of the grid")
+        x_ax.add_item("line_separation", default_value=1.0, info="Display grid's dimensions", value_range=[0, None])
+        x_ax.add_item("label", default_value="Frequency (Hz)", info="Label for x-axis")
+        y_ax = visualization_settings.add_item("y_axis")
+        y_ax.add_item("range", default_value=[0, 1], info="Y-axis range")
+        auto_scale = y_ax.add_item("autoscale")
+        auto_scale.add_item("apply", default_value=True, info="Automatically scale the y-axis")
+        auto_scale.add_item("n_std_tolerance", default_value=1.25, info="Autoscale limit: if the signal exceeds this value, the scale is re-adjusted", value_range=[0, None])
+        auto_scale.add_item("n_std_separation", default_value=5.0, info="Separation between channels (in std)", value_range=[0, None])
+        y_label = y_ax.add_item("label")
+        y_label.add_item("text", default_value="Power", info="Label for y-axis")
+        y_label.add_item("units", default_value="auto", info="Units for y-axis")
+        psd = visualization_settings.add_item("psd")
+        psd.add_item("time_window_seconds", default_value=5.0, info="Time (s) in which the PSD will be estimated", value_range=[0, None])
+        psd.add_item("welch_overlap_pct", default_value=25.0, info="Percentage of segment overlapping", value_range=[0, 100])
+        psd.add_item("welch_seg_len_pct", default_value=50.0, info="Percentage of the window that will be used", value_range=[0, 100])
+        visualization_settings.add_item("title", default_value="auto", info="Title for the plot")
+        return signal_settings, visualization_settings
+
+    @staticmethod
+    def update_lsl_stream_related_settings(signal_settings, visualization_settings, stream_info):
+        signal_settings.get_item("re_referencing", "channel").\
+            edit_item(default_value=stream_info.l_cha[0], value_options=stream_info.l_cha)
+        visualization_settings.get_item("init_channel_label").\
+            edit_item(default_value=stream_info.l_cha[0], value_options=stream_info.l_cha)
+        return signal_settings, visualization_settings
+
+    @staticmethod
+    def check_settings(signal_settings, visualization_settings):
+        pass
+
+    @staticmethod
+    def check_signal(lsl_stream_info):
+        return True
+
+    def init_plot(self):
+        """ This function changes the time of signal plotted in the graph. It
+        depends on the sample frecuency.
+        """
+        # Update view box menu
+        self.plot_menu = SelectChannelMenu(self)
+        self.plot_menu.set_channel_list()
+
+        # Set initial channel
+        init_cha_label = self.visualization_settings['init_channel_label']
+        init_cha = self.worker.receiver.get_channel_indexes_from_labels(
+            init_cha_label)
+        self.plot_menu.select_channel(init_cha)
+
+        # Update variables
+        self.time_in_graph = np.zeros([0])
+        self.sig_in_graph = np.zeros([0, self.lsl_stream_info.n_cha])
+        self.win_t = self.visualization_settings['psd']['time_window_seconds']
+        self.win_s = int(self.win_t * self.fs)
+        self.n_samples_psd = self.win_s
+        self.y_range = self.visualization_settings['y_axis']['range']
+        self.x_range = self.visualization_settings['x_axis']['range']
+        if not isinstance(self.y_range, list):
+            self.y_range = [0, self.y_range]
+
+        # Set titles
+        self.ax.set_xlabel(
+            self.visualization_settings['x_axis']['label'],
+            color=self.theme_colors['THEME_TEXT_LIGHT'])
+        self.ax.set_ylabel(
+            self.visualization_settings['y_axis']['label']['text'],
+            color=self.theme_colors['THEME_TEXT_LIGHT'])
+        self.ax.set_title(self.lsl_stream_info.l_cha[init_cha],
+                          color=self.theme_colors['THEME_TEXT_LIGHT'],
+                          fontsize=self.visualization_settings['title_label_size'])
+
+        # Set the style for the curves
+        curve_style = {'color': self.curve_color,
+                       'linewidth': self.curve_width}
+
+        curve, = self.ax.plot([], [], **curve_style)
+        self.curves = [curve]
+
+        # Set grid for the axes
+        if self.visualization_settings['x_axis']['display_grid']:
+            self.ax.grid(True, axis='x',
+                         color=self.grid_color,
+                         linewidth=self.grid_width)
+        # Draw y axis
+        self.draw_y_axis_ticks()
+        self.draw_x_axis_ticks()
+
+    def draw_y_axis_ticks(self):
+        self.ax.set_ylim(self.y_range[0],
+                                 self.y_range[1])
+        self.ax.tick_params(axis='y', labelcolor=self.theme_colors['THEME_TEXT_LIGHT'])
+
+    def draw_x_axis_ticks(self):
+        self.ax.set_xlim(self.x_range[0],
+                         self.x_range[1])
+        self.ax.tick_params(axis='x',
+                            labelcolor=self.theme_colors['THEME_TEXT_LIGHT'])
+
+
+    def append_data(self, chunk_times, chunk_signal):
+        self.time_in_graph = np.hstack((self.time_in_graph, chunk_times))
+        if len(self.time_in_graph) >= self.win_s:
+            self.time_in_graph = self.time_in_graph[-self.win_s:]
+        self.sig_in_graph = np.vstack((self.sig_in_graph, chunk_signal))
+        if len(self.sig_in_graph) >= self.win_s:
+            self.sig_in_graph = self.sig_in_graph[-self.win_s:]
+        return self.time_in_graph.copy(), self.sig_in_graph.copy()
+
+    def set_data(self, x_in_graph, sig_in_graph):
+        self.curves[0].set_data(x_in_graph, sig_in_graph)
+
+    def autoscale(self, y_in_graph):
+        scaling_sett = self.visualization_settings['y_axis']['autoscale']
+        if scaling_sett['apply']:
+            y_std = np.std(y_in_graph)
+            std_tol = scaling_sett['n_std_tolerance']
+            std_factor = scaling_sett['n_std_separation']
+            if y_std > self.y_range[1] * std_tol or \
+                    y_std < self.y_range[1] / std_tol:
+                self.y_range[1] = std_factor * y_std
+                self.draw_y_axis_ticks()
+
+    def update_plot(self, chunk_times, chunk_signal):
+        """
+        This function updates the data in the graph. Notice that channel 0 is
+        drew up in the chart, whereas the last channel is in the bottom.
+        """
+        try:
+            # Append new data and get safe copy
+            x_in_graph, sig_in_graph = \
+                self.append_data(chunk_times, chunk_signal)
+            # Compute PSD
+            welch_seg_len = np.round(
+                self.visualization_settings['psd']['welch_seg_len_pct'] /
+                100.0 * self.sig_in_graph.shape[0]).astype(int)
+            welch_overlap = np.round(
+                self.visualization_settings['psd']['welch_overlap_pct'] /
+                100.0 * welch_seg_len).astype(int)
+            welch_ndft = welch_seg_len
+            x_in_graph, sig_in_graph = scp_signal.welch(
+                sig_in_graph[:, self.curr_cha], fs=self.fs,
+                nperseg=welch_seg_len, noverlap=welch_overlap,
+                nfft=welch_ndft, axis=0)
+            # Set data
+            self.set_data(x_in_graph, sig_in_graph)
+            # Update y range (only if autoscale is activated)
+            self.autoscale(sig_in_graph)
+            # Update the plot
+            self.widget.draw()
+        except Exception as e:
+            self.handle_exception(e)
+
+    def clear_plot(self):
+        self.ax.clear()
+        width, height = self.widget.get_width_height()
+        if width > 0 and height > 0:
+            self.widget.draw()
 
 
 class PSDPlot(RealTimePlotPyQtGraph):
@@ -3764,13 +4325,15 @@ class AutorangeMenu(QMenu):
     when right click is performed on the graph
     """
 
-    def __init__(self, view):
+    def __init__(self, view, type='time'):
         """ Class constructor
 
         Parameters
         ----------
         view: PlotWidget
             PyQtGraph PlotWidget class where the actions are performed
+        type: string
+            Type of plot. Allowed options: 'time' and 'PSD'
         """
         QMenu.__init__(self)
         # Keep weakref to view to avoid circular reference (don't know why,
@@ -3778,28 +4341,22 @@ class AutorangeMenu(QMenu):
         self.view = view
         # Some options
         self.setTitle("View options")
-        self.auto_range_action = QAction("Autorange", self)
-        self.auto_range_action.triggered.connect(self.auto_range)
-        self.addAction(self.auto_range_action)
+        if type == 'time':
+            self.auto_range_action_time = QAction("Autorange", self)
+            self.auto_range_action_time.triggered.connect(self.auto_range_time)
+            self.addAction(self.auto_range_action_time)
+        elif type == 'PSD':
+            self.auto_range_action_spect = QAction("Autorange", self)
+            self.auto_range_action_spect.triggered.connect(self.auto_range_spect)
+            self.addAction(self.auto_range_action_spect)
+        else:
+            raise ValueError('Unknown plot type %s. Possible options: %s' %
+                             (type, ['time','PSD']))
 
-    def auto_range(self):
-        """
-        Recalcula separación vertical y límites para un plot de EEG en tiempo real.
-
-        sep_factor:     factor multiplicativo sobre una amplitud robusta (mediana de p95-p5).
-        robust_percentiles: percentiles para estimar amplitud por canal.
-        pad_frac:       fracción de la separación usada como margen en ylim.
-        """
-
+    def calculate_cha_separation(self, data):
+        # Parameters
         sep_factor = 1.8
         robust_percentiles = (5, 95)
-        ax = self.view.ax
-        lines = self.view.curves
-        n = self.view.n_cha
-        data = self.view.sig_in_graph
-
-        if data.__len__() == 0 or lines is None or n == 0:
-            return
 
         # --- Estimate the signal amplitudes ---
         p_low, p_high = robust_percentiles
@@ -3811,6 +4368,51 @@ class AutorangeMenu(QMenu):
 
         # Update parameter
         self.view.cha_separation = cha_sep
+
+    def auto_range_spect(self):
+        if self.view.sig_in_graph.__len__() == 0 or self.view.curves is None or self.view.n_cha == 0:
+            return
+
+        welch_seg_len = np.round(
+            self.view.visualization_settings['psd']['welch_seg_len_pct'] /
+            100.0 * self.view.sig_in_graph.shape[0]).astype(int)
+        welch_overlap = np.round(
+            self.view.visualization_settings['psd']['welch_overlap_pct'] /
+            100.0 * welch_seg_len).astype(int)
+        x_in_graph, y_in_graph = scp_signal.welch(
+            self.view.sig_in_graph, fs=self.view.fs,
+            nperseg=welch_seg_len, noverlap=welch_overlap,
+            nfft=welch_seg_len, axis=0)
+        self.calculate_cha_separation(y_in_graph)
+        ax = self.view.ax
+
+        # --- Define offsets ---
+        offsets = np.arange(self.view.n_cha)[::-1] * self.view.cha_separation
+        Y = y_in_graph + offsets
+        for i, line in enumerate(self.view.curves):
+            line.set_data(x_in_graph,Y[:, i])
+
+        ax.autoscale(enable=True, axis='x', tight=True)
+        ax.autoscale(enable=False, axis='y')
+
+        self.view.draw_y_axis_ticks()
+
+        # Draw
+        self.view.widget.draw()
+
+    def auto_range_time(self):
+        """
+        Recalcula separación vertical y límites para un plot de EEG en tiempo real.
+
+        sep_factor:     factor multiplicativo sobre una amplitud robusta (mediana de p95-p5).
+        robust_percentiles: percentiles para estimar amplitud por canal.
+        pad_frac:       fracción de la separación usada como margen en ylim.
+        """
+        if self.view.sig_in_graph.__len__() == 0 or self.view.curves is None or self.view.n_cha == 0:
+            return
+
+        self.calculate_cha_separation(self.view.sig_in_graph)
+        ax = self.view.ax
 
         # --- Define offsets ---
         offsets = np.arange(self.view.n_cha)[::-1] * self.view.cha_separation
@@ -3831,12 +4433,12 @@ __plots_info__ = [
     {
         'uid': 'Time (multi-channel)',
         'description': 'Time-domain plot of multichannel signals, each displayed with a vertical offset.',
-        'class': TimePlotMultichannel
+        'class': TimePlotMultichannelPLT
     },
     {
         'uid': 'PSD (multi-channel)',
         'description': 'Power spectral density (PSD) plot for multichannel signals, shown with channel offsets.',
-        'class': PSDPlotMultichannel
+        'class': PSDPlotMultichannelPLT
     },
     {
         'uid': 'Time (single-channel)',
@@ -3848,7 +4450,7 @@ __plots_info__ = [
         'uid': 'PSD (single-channel)',
         'description': 'Power spectral density (PSD) visualization of a '
                        'single channel of a signal.',
-        'class': PSDPlot
+        'class': PSDPlotPLT
     },
     {
         'uid': 'Spectrogram',
@@ -3869,12 +4471,5 @@ __plots_info__ = [
         'uid': 'Connectivity',
         'description': 'Real-time functional connectivity map for EEG/MEG signals.',
         'class': ConnectivityPlot
-    },
-    {
-        'uid': 'TimePlotMultichannelPLT',
-        'description': 'Plot to represent signals in time. If the '
-                       'signal has several channels, the plot will '
-                       'display each of them with different offset.',
-        'class': TimePlotMultichannelPLT
-    },
+    }
 ]
