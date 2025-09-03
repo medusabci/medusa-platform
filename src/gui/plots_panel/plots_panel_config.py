@@ -740,7 +740,6 @@ class ConfigPlotFrameDialog(QDialog, ui_plot_config_dialog):
                     signal_settings,
                     visualization_settings)
 
-
         except Exception as e:
             self.exception_handler(e)
 
