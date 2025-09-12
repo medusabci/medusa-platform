@@ -225,7 +225,7 @@ class EEGChannelSelectionPlot(SerializableComponent):
     def set_channel_selection_dict(self):
         """Initialize the state dict"""
         self.channels_selected = dict()
-        self.channels_selected['Labels'] = np.asarray(self.l_cha,dtype='<U32')
+        self.channels_selected['Labels'] = np.asarray(self.l_cha, dtype='<U32')
         self.channels_selected['Selected'] = np.zeros(len(self.l_cha), dtype=bool)
         self.channels_selected['Plot line'] = np.full(len(self.l_cha), None)
 

@@ -167,14 +167,17 @@ class RealTimePlot(ABC):
         raise NotImplemented
 
 
+
 class TimePlotMultichannel(RealTimePlot):
 
     def __init__(self, uid, plot_state, medusa_interface, theme_colors):
         super().__init__(uid, plot_state, medusa_interface, theme_colors)
+
         # Channels idx
         self.cha_idx = None
         self.n_cha = None
         self.l_cha = None
+
         # Graph variables
         self.win_t = None
         self.win_s = None
@@ -189,30 +192,43 @@ class TimePlotMultichannel(RealTimePlot):
         self.curve_color = self.theme_colors['THEME_SIGNAL_CURVE']
         self.grid_color = self.theme_colors['THEME_SIGNAL_GRID']
         self.marker_color = self.theme_colors['THEME_SIGNAL_MARKER']
+        self.background_color = self.theme_colors['THEME_BG_DARK']
+        self.text_color = self.theme_colors['THEME_TEXT_LIGHT']
         self.curve_width = 1
         self.grid_width = 1
         self.marker_width = 2
 
-        # Create figure & widget
-        fig = Figure(figsize=(5, 5), dpi=100)
-        fig.add_subplot(111)
-        fig.tight_layout()
-        fig.patch.set_facecolor(self.theme_colors['THEME_BG_DARK'])
-        self.widget = FigureCanvasQTAgg(fig)
-        self.widget.figure.set_size_inches(0, 0)
-        self.widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        self.ax = self.widget.figure.axes[0]
-        self.ax.set_facecolor(self.theme_colors['THEME_BG_DARK'])
-        self.ax.tick_params(axis='both', colors=self.theme_colors['THEME_TEXT_LIGHT'])
+        # Create figure and axes
+        self.fig = Figure(figsize=(1, 1), dpi=90)
+        self.fig.add_subplot(111)
+        self.ax = self.fig.axes[0]
+
+        # Fill the whole widget (remove subplot margins)
+        self.fig.set_layout_engine('constrained', rect=[0, 0, 1, 1])
+
+        # Backgrounds
+        self.fig.patch.set_facecolor(self.background_color )
+        self.ax.set_facecolor(self.background_color )
+
+        # Ticks and spines
         for s in self.ax.spines.values():
-            s.set_color(self.theme_colors['THEME_TEXT_LIGHT'])
+            s.set_color(self.text_color)
+        self.ax.tick_params(
+            left=True, labelleft=True,
+            bottom=True, labelbottom=True,
+            right=False, labelright=False,
+            top=False, labeltop=False,
+        )
+
+        # Create widget
+        self.widget = FigureCanvasQTAgg(self.fig)
+        self.widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
         # Custom menu
         self.plot_menu = None
         self.widget.setContextMenuPolicy(Qt.CustomContextMenu)
         self.widget.customContextMenuRequested.connect(self.show_context_menu)
         self.widget.wheelEvent = self.mouse_wheel_event
-
 
     def show_context_menu(self, pos: QPoint):
         """
@@ -260,11 +276,7 @@ class TimePlotMultichannel(RealTimePlot):
 
         visualization_settings = SettingsTree()
         visualization_settings.add_item("mode", default_value="clinical", info="Determine how events are visualized. Clinical, update in sweeping manner. Geek, signal appears continuously.", value_options=["clinical", "geek"])
-        if stream_info is not None:
-            visualization_settings.add_item("l_cha", default_value=stream_info.l_cha,
-                                            info="List with labels of channels to be displayed")
-        else:
-            visualization_settings.add_item("l_cha", default_value=[], info="List with labels of channels to be displayed")
+        visualization_settings.add_item("l_cha", default_value=[], info="List with labels of channels to be displayed")
 
         x_ax = visualization_settings.add_item("x_axis")
         x_ax.add_item("seconds_displayed", default_value=10.0, info="The time range (s) displayed", value_range=[0, None])
@@ -289,7 +301,8 @@ class TimePlotMultichannel(RealTimePlot):
 
     @staticmethod
     def update_lsl_stream_related_settings(signal_settings,
-                                           visualization_settings, stream_info):
+                                           visualization_settings,
+                                           stream_info):
         signal_settings.get_item("re_referencing", "channel"). \
             edit_item(default_value=stream_info.l_cha[0],
                       value_options=stream_info.l_cha)
@@ -417,27 +430,38 @@ class TimePlotMultichannel(RealTimePlot):
                 # Range
                 n_win = self.time_in_graph.max() // self.win_t
                 x_range = (0, self.win_t) if n_win==0 else (x[0], x[-1])
-                # Time ticks
+                x_range_real = (0, self.win_t) if n_win == 0 else \
+                    (self.time_in_graph[0], self.time_in_graph[-1])
+                # Initialize time ticks
                 x_ticks_pos = []
                 x_ticks_val = []
-                if self.visualization_settings['x_axis']['display_grid']:
-                    step = self.visualization_settings[
-                        'x_axis']['line_separation']
-                    x_ticks_pos = np.arange(x[0], x[-1], step=step).tolist()
-                    x_ticks_val = ['' for v in x_ticks_pos]
+                # Add invisible ticks to avoid movement of the axis
+                x_ticks_pos += x_range
+                x_ticks_val += ['\u00A0\u00A0\u00A0' for v in x_range_real]
                 # Pointer
                 x_ticks_pos.append(x[self.pointer])
                 x_ticks_val.append('%.1f' % self.time_in_graph[self.pointer])
+                # Visualization grid
+                if self.visualization_settings['x_axis']['display_grid']:
+                    step = self.visualization_settings[
+                        'x_axis']['line_separation']
+                    grid_ticks_pos = np.arange(x[1], x[-2], step=step).tolist()
+                    grid_tick_labels =['' for v in grid_ticks_pos]
+                    x_ticks_pos += grid_ticks_pos
+                    x_ticks_val += grid_tick_labels
+                # Set ticks
                 self.ax.set_xticks(x_ticks_pos)
-                self.ax.set_xticklabels(x_ticks_val,
-                                        color=self.theme_colors['THEME_TEXT_LIGHT'])
+                self.ax.set_xticklabels(
+                    x_ticks_val, color=self.theme_colors['THEME_TEXT_LIGHT'])
             else:
                 raise ValueError
             # Set range
             self.ax.set_xlim(x_range[0], x_range[1])
         else:
-            self.ax.set_xticks([])
-            self.ax.set_xlim(0, 1)
+            self.ax.set_xticks([0, self.win_t])
+            self.ax.set_xticklabels(['%.1f' % v for v in [0, self.win_t]],
+                                    color=self.theme_colors['THEME_TEXT_LIGHT'])
+            self.ax.set_xlim(0, self.win_t)
 
     def append_data(self, chunk_times, chunk_signal):
         if self.visualization_settings['mode'] == 'geek':
@@ -606,19 +630,32 @@ class TimePlotSingleChannel(RealTimePlot):
         self.grid_width = 1
         self.marker_width = 2
 
-        # Create figure & widget
-        fig = Figure()
-        fig.add_subplot(111)
-        fig.tight_layout()
-        fig.patch.set_facecolor(self.theme_colors['THEME_BG_DARK'])
-        self.widget = FigureCanvasQTAgg(fig)
-        self.widget.figure.set_size_inches(0, 0)
-        self.widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        self.ax = self.widget.figure.axes[0]
+        # Create figure and axes
+        self.fig = Figure(figsize=(1, 1), dpi=90)
+        self.fig.add_subplot(111)
+        self.ax = self.fig.axes[0]
+        self.fig.patch.set_facecolor(self.theme_colors['THEME_BG_DARK'])
+
+        # Fill the whole widget (remove subplot margins)
+        self.fig.set_layout_engine('constrained', rect=[0, 0, 1, 1])
+
+        # Backgrounds
+        self.fig.patch.set_facecolor(self.theme_colors['THEME_BG_DARK'])
         self.ax.set_facecolor(self.theme_colors['THEME_BG_DARK'])
-        self.ax.tick_params(axis='both', colors=self.theme_colors['THEME_TEXT_LIGHT'])
+
+        # Ticks and spines
         for s in self.ax.spines.values():
             s.set_color(self.theme_colors['THEME_TEXT_LIGHT'])
+        self.ax.tick_params(
+            left=True, labelleft=True,
+            bottom=True, labelbottom=True,
+            right=False, labelright=False,
+            top=False, labeltop=False,
+        )
+
+        # Create widget
+        self.widget = FigureCanvasQTAgg(self.fig)
+        self.widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
         # Custom menu
         self.plot_menu = None
@@ -864,28 +901,38 @@ class TimePlotSingleChannel(RealTimePlot):
                 # Range
                 n_win = self.time_in_graph.max() // self.win_t
                 x_range = (0, self.win_t) if n_win == 0 else (x[0], x[-1])
-                # Time ticks
+                x_range_real = (0, self.win_t) if n_win == 0 else \
+                    (self.time_in_graph[0], self.time_in_graph[-1])
+                # Initialize time ticks
                 x_ticks_pos = []
                 x_ticks_val = []
-                if self.visualization_settings['x_axis']['display_grid']:
-                    step = self.visualization_settings[
-                        'x_axis']['line_separation']
-                    x_ticks_pos = np.arange(x[0], x[-1], step=step).tolist()
-                    x_ticks_val = ['' for v in x_ticks_pos]
+                # Add invisible ticks to avoid movement of the axis
+                x_ticks_pos += x_range
+                x_ticks_val += ['\u00A0\u00A0\u00A0' for v in x_range_real]
                 # Pointer
                 x_ticks_pos.append(x[self.pointer])
                 x_ticks_val.append('%.1f' % self.time_in_graph[self.pointer])
+                # Visualization grid
+                if self.visualization_settings['x_axis']['display_grid']:
+                    step = self.visualization_settings[
+                        'x_axis']['line_separation']
+                    grid_ticks_pos = np.arange(x[1], x[-2], step=step).tolist()
+                    grid_tick_labels = ['' for v in grid_ticks_pos]
+                    x_ticks_pos += grid_ticks_pos
+                    x_ticks_val += grid_tick_labels
+                # Set ticks
                 self.ax.set_xticks(x_ticks_pos)
-                self.ax.set_xticklabels(x_ticks_val,
-                                        color=self.theme_colors[
-                                            'THEME_TEXT_LIGHT'])
+                self.ax.set_xticklabels(
+                    x_ticks_val, color=self.theme_colors['THEME_TEXT_LIGHT'])
             else:
                 raise ValueError
             # Set range
             self.ax.set_xlim(x_range[0], x_range[1])
         else:
-            self.ax.set_xticks([])
-            self.ax.set_xlim(0, 1)
+            self.ax.set_xticks([0, self.win_t])
+            self.ax.set_xticklabels(['%.1f' % v for v in [0, self.win_t]],
+                                    color=self.theme_colors['THEME_TEXT_LIGHT'])
+            self.ax.set_xlim(0, self.win_t)
 
     def append_data(self, chunk_times, chunk_signal):
         if self.visualization_settings['mode'] == 'geek':

@@ -17,9 +17,40 @@ from gui.qt_widgets.dialogs import MedusaDialog, warning_dialog
 
 
 class GeneralChannelSelection(MedusaDialog):
-    """This class allows you to control the GUI of the general channel
-       selection widget."""
-    def __init__(self, cha_field, lsl_cha_info):
+    """
+    Base class constructor for channel selection GUI control.
+
+    This class provides the base functionality to build graphical interfaces
+    that allow selecting and configuring channels.
+
+    Parameters
+    ----------
+    ch_label_field : str
+        Field that identifies the channel name in lsl_cha_info.
+    lsl_cha_info : iterable of dict
+        List of dictionaries with the LSL channel information.
+        Each dictionary must contain at least the fields cha_label_field 
+        'medusa_label' and 'selected'.
+
+    Attributes
+    ----------
+    changes_made : bool
+        Indicates if changes have been made to the configuration.
+    ch_label_field : str
+        Field that identifies the channel name.
+    lsl_cha_info : list
+        LSL channel information.
+    lsl_cha_keys : list
+        Available keys in channel information.
+    ch_labels : list 
+        List of channel labels.
+    table_keys : list
+        Keys used in channel table.
+    ch_checkboxs : list
+        List of checkboxes for channel selection.
+    """
+
+    def __init__(self, ch_label_field, lsl_cha_info):
 
         super().__init__('MEDUSA Channel Selection',
                          theme_colors=None,
@@ -28,7 +59,7 @@ class GeneralChannelSelection(MedusaDialog):
 
         # Initialize variables
         self.changes_made = False
-        self.cha_field = cha_field
+        self.ch_label_field = ch_label_field
         self.lsl_cha_info = lsl_cha_info
         self.lsl_cha_keys = lsl_cha_info[0].keys()
         self.ch_labels = [channel['medusa_label'] for channel in
@@ -124,8 +155,8 @@ class LSLGeneralChannelSelection(GeneralChannelSelection):
     """This class allows you to control the GUI of the general channel
        selection widget."""
     close_signal = Signal(object)
-    def __init__(self, cha_field,lsl_cha_info):
-        super().__init__(cha_field=cha_field,
+    def __init__(self, ch_label_field, lsl_cha_info):
+        super().__init__(ch_label_field=ch_label_field,
                          lsl_cha_info=lsl_cha_info)
 
         # Init table
@@ -219,7 +250,7 @@ class LSLGeneralChannelSelection(GeneralChannelSelection):
                 if i_k > 1:
                     value = row_data.get(key, "")
                     item = QLineEdit(str(value))
-                    if key == self.cha_field:
+                    if key == self.ch_label_field:
                         item.setEnabled(False)
                     self.channels_table.setCellWidget(i_r, i_k, item)
 
@@ -288,7 +319,8 @@ class LSLGeneralChannelSelection(GeneralChannelSelection):
 
             # Check if json loaded corresponds to the channel set in use
             for i_ch, channel in enumerate(loaded_channel_dict):
-                if channel[self.cha_field] not in self.lsl_cha_info[i_ch][self.cha_field]:
+                if (channel[self.ch_label_field] not in
+                        self.lsl_cha_info[i_ch][self.ch_label_field]):
                     msg_error = "The config file loaded does not correspond" \
                                 " to the channel set in use."
                     self.show_warning(msg_error)
@@ -304,20 +336,22 @@ class LSLEEGChannelSelection(GeneralChannelSelection):
 
     close_signal = Signal(object)
 
-    def __init__(self,cha_field,lsl_cha_info):
-
+    def __init__(self, ch_label_field, lsl_cha_info):
+        print(ch_label_field)
         # Call super
-        super().__init__(cha_field=cha_field,
+        super().__init__(ch_label_field=ch_label_field,
                          lsl_cha_info=lsl_cha_info)
 
         # Initialize interactive selection
         self.channel_set = meeg.EEGChannelSet()
         self.channel_set.set_standard_montage(
             self.ch_labels, allow_unlocated_channels=True)
-        self.update_ch_set(self.lsl_cha_info)
+        self.update_ch_set_coordinates(self.lsl_cha_info)
+        channels_selected = self.get_ch_info_for_interactive_selection()
+
         self.interactive_selection = EEGChannelSelectionPlot(
             channel_set=self.channel_set,
-            channels_selected=self.update_ch_info())
+            channels_selected=channels_selected)
 
         # Topographic plot and unlocated channels
         canvas_head = self.interactive_selection.fig_head.canvas
@@ -464,20 +498,53 @@ class LSLEEGChannelSelection(GeneralChannelSelection):
             for i_ch, checkbox in enumerate(self.ch_checkboxs):
                 state = self.interactive_selection.channels_selected['Selected'][
                     i_ch]
+                state = bool(state)
                 checkbox.setChecked(state)
 
-    def update_ch_info(self):
+    def get_ch_info_for_interactive_selection(self):
+        """
+        Gets channel information for interactive selection.
+
+        Prepares a dictionary with the necessary information for EEG channel
+        visualization and interactive selection. The dictionary includes channel
+        labels, selection state and plot line placeholders.
+
+        Returns
+        -------
+        dict
+            Dictionary with the following structure:
+            - 'Labels': list of str
+                Channel labels obtained from channel_set (always uppercase
+                for EEG channels)
+            - 'Selected': list of bool
+                Selection state of each channel
+            - 'Plot line': ndarray
+                Array initialized with None to store plot lines
+        """
         channels_selected = {}
-        channels_selected['Labels'] = np.asarray([channel["medusa_label"] for channel in
-                                       self.lsl_cha_info], dtype='<U32')
+        # Labels are now obtained from channel_set.l_cha instead of lsl_cha_info
+        # because they may have been converted to uppercase during channel_set
+        # initialization.
+        # channels_selected['Labels'] = [channel["medusa_label"]
+        #                                  for channel in self.lsl_cha_info]
+        channels_selected['Labels'] = self.channel_set.l_cha
         channels_selected['Selected'] = [channel["selected"]
                                          for channel in self.lsl_cha_info]
         channels_selected['Plot line'] = np.full(len(self.ch_labels), None)
         return channels_selected
 
-    def update_ch_set(self, cha_info):
+    def update_ch_set_coordinates(self, cha_info):
+        """
+        This function updates the channel set with the information from cha_info
+
+        Parameters
+        ----------
+        cha_info
+            List of dictionaries with the channel information.
+        """
         for i, ch in enumerate(self.channel_set.channels):
-            if cha_info[i]['x_pos'] != None:
+            if (cha_info[i]['x_pos'] is not None and
+                    cha_info[i]['y_pos'] is not None):
                 ch['x'] = cha_info[i]['x_pos']
                 ch['y'] = cha_info[i]['y_pos']
 
@@ -548,7 +615,7 @@ class LSLEEGChannelSelection(GeneralChannelSelection):
                 if i_k > 4:
                     value = row_data.get(key, "")
                     item = QLineEdit(str(value))
-                    if key == self.cha_field:
+                    if key == self.ch_label_field:
                         item.setEnabled(False)
                     self.channels_table.setCellWidget(i_r, i_k, item)
 
@@ -646,7 +713,7 @@ class LSLEEGChannelSelection(GeneralChannelSelection):
                 return
             # Check if json loaded corresponds to the channel set in use
             for channel in loaded_channel_dict:
-                if channel[self.cha_field] not in self.interactive_selection.channel_set.l_cha:
+                if channel[self.ch_label_field] not in self.interactive_selection.channel_set.l_cha:
                     msg_error = "The config file loaded does not correspond" \
                                 " to the EEG channel set in use."
                     self.show_warning(msg_error)
@@ -661,7 +728,7 @@ class LSLEEGChannelSelection(GeneralChannelSelection):
             self.channel_set = meeg.EEGChannelSet()
             self.channel_set.set_standard_montage(self.ch_labels,
                                                   allow_unlocated_channels=True)
-            self.update_ch_set(loaded_channel_dict)
+            self.update_ch_set_coordinates(loaded_channel_dict)
             self.interactive_selection = EEGChannelSelectionPlot(
                 channel_set=self.channel_set,
                 channels_selected=channels_selected)
