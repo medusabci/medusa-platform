@@ -292,7 +292,7 @@ class TimePlotMultichannel(RealTimePlot):
         auto_scale.add_item("n_std_tolerance", default_value=1.25, info="Autoscale limit: if the signal exceeds this value, the scale is re-adjusted", value_range=[0, None])
         auto_scale.add_item("n_std_separation", default_value=5.0, info="Separation between channels (in std)", value_range=[0, None])
         y_label = y_ax.add_item("label")
-        y_label.add_item("text", default_value="Signal", info="Label for y-axis")
+        y_label.add_item("text", default_value="", info="Label for y-axis")
         y_label.add_item("units", default_value="auto", info="Units for y-axis")
         visualization_settings.add_item("title", default_value="auto", info="Title for the plot")
         visualization_settings.add_item("colors", default_value="auto",
@@ -768,8 +768,7 @@ class TimePlotSingleChannel(RealTimePlot):
                             info="Separation between channels (in std)",
                             value_range=[0, None])
         y_label = y_ax.add_item("label")
-        y_label.add_item("text", default_value="Signal",
-                         info="Label for y-axis")
+        y_label.add_item("text", default_value="", info="Label for y-axis")
         y_label.add_item("units", default_value="auto", info="Units for y-axis")
         visualization_settings.add_item("title", default_value="auto",
                                         info="Title for the plot")

@@ -348,7 +348,6 @@ class LSLEEGChannelSelection(GeneralChannelSelection):
             self.ch_labels, allow_unlocated_channels=True)
         self.update_ch_set_coordinates(self.lsl_cha_info)
         channels_selected = self.get_ch_info_for_interactive_selection()
-
         self.interactive_selection = EEGChannelSelectionPlot(
             channel_set=self.channel_set,
             channels_selected=channels_selected)
@@ -369,9 +368,9 @@ class LSLEEGChannelSelection(GeneralChannelSelection):
         # Connect channels in plot with channels in table
         self.finished = False
         self.working_threads = list()
-        Th1 = threading.Thread(target=self.watch_ch_clicked)
-        Th1.start()
-        self.working_threads.append(Th1)
+        th1 = threading.Thread(target=self.watch_ch_clicked)
+        th1.start()
+        self.working_threads.append(th1)
         self.init_table()
 
         # Prevent resizing too small
