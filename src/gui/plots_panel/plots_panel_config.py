@@ -710,7 +710,8 @@ class ConfigPlotFrameDialog(QDialog, ui_plot_config_dialog):
             plot_class = self.selected_plot_info['class']
             stream = self.working_lsl_streams[self.comboBox_lsl_streams.currentIndex()]
             plot_class_signal_settings, plot_class_visualization_settings = \
-                plot_class.get_default_settings(stream)
+                plot_class.get_default_settings()
+            plot_class.update_lsl_stream_related_settings(plot_class_signal_settings, plot_class_visualization_settings, stream)
             curr_signal_settings = (
                 plot_class_signal_settings.update_tree_from_widget(
                     self.signal_options_tree))
@@ -737,7 +738,8 @@ class ConfigPlotFrameDialog(QDialog, ui_plot_config_dialog):
                 # Get default settings of the new plot
                 stream = self.working_lsl_streams[self.comboBox_lsl_streams.currentIndex()]
                 signal_settings, visualization_settings = \
-                    plot_class.get_default_settings(stream)
+                    plot_class.get_default_settings()
+                plot_class.update_lsl_stream_related_settings(signal_settings, visualization_settings, stream)
                 self.set_settings_in_tree_view(
                     signal_settings,
                     visualization_settings)
