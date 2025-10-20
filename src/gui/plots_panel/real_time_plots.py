@@ -55,8 +55,6 @@ class RealTimePlot(ABC):
 
     def set_settings(self, signal_settings, plot_settings):
         """Set settings dicts"""
-        signal_settings = SettingsTree(signal_settings)
-        plot_settings = SettingsTree(plot_settings)
         self.check_settings(signal_settings, plot_settings)
         self.signal_settings = signal_settings
         self.visualization_settings = plot_settings

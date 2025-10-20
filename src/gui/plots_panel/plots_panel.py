@@ -10,6 +10,7 @@ from PySide6.QtCore import *
 from PySide6.QtGui import *
 # MEDUSA MODULES
 import utils
+from medusa.settings_schema import *
 from gui.plots_panel import plots_panel_config, real_time_plots
 import constants, exceptions
 from gui.qt_widgets import dialogs
@@ -196,8 +197,8 @@ class PlotsPanelWidget(QWidget):
                             theme_colors=self.theme_colors)
                         # Set settings
                         tab_plots_handlers[plot_uid].set_settings(
-                            plot_settings['signal_settings'],
-                            plot_settings['visualization_settings'])
+                            SettingsTree(plot_settings['signal_settings']),
+                            SettingsTree(plot_settings['visualization_settings']))
                         # Get the lsl stream from the working lsl streams
                         dict_data = plot_settings['lsl_stream_info']
                         if self.lsl_config['weak_search']:
