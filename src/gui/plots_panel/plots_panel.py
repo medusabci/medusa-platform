@@ -346,13 +346,11 @@ class PlotsPanelWidget(QWidget):
                 # The change of state will notify the action directly
                 # if the plots are undocked
                 self.plot_state.value = constants.PLOT_STATE_OFF
-                # time.sleep(0.5)
-                self.reset_plots()
+                # self.reset_plots()
                 # Update gui
                 icon_dock = "open_in_new.svg" if self.undocked else "close.svg"
                 plot_undock_icon = gu.get_icon(icon_dock, self.theme_colors)
-                self.toolButton_plot_undock.setIcon(
-                    plot_undock_icon)
+                self.toolButton_plot_undock.setIcon(plot_undock_icon)
                 self.toolButton_plot_undock.setDisabled(False)
                 self.toolButton_plot_config.setIcon(
                     gu.get_icon("settings.svg", self.theme_colors))
@@ -360,13 +358,14 @@ class PlotsPanelWidget(QWidget):
                 self.toolButton_plot_start.setIcon(
                     gu.get_icon("visibility.svg", self.theme_colors))
 
-    @exceptions.error_handler(scope='plots')
-    def reset_plots(self):
-        # Reset the plots
-        for tab_plots_handlers in self.plots_handlers:
-            for uid, plot_handler in tab_plots_handlers.items():
-                if plot_handler.ready:
-                    plot_handler.destroy_plot()
+    # @exceptions.error_handler(scope='plots')
+    # def reset_plots(self):
+    #     # Reset the plots
+    #     for tab_plots_handlers in self.plots_handlers:
+    #         for uid, plot_handler in tab_plots_handlers.items():
+    #             if plot_handler.ready:
+    #                 # plot_handler.destroy_plot()
+    #                 pass
 
 
 class PlotsPanelWindow(QMainWindow):
