@@ -239,7 +239,7 @@ class PlotsPanelWidget(QWidget):
                         tab_plots_handlers[plot_uid].set_lsl_worker(
                             lsl_stream)
                         # Init plot
-                        tab_plots_handlers[plot_uid].init_plot()
+                        tab_plots_handlers[plot_uid].init_plot_common()
                         tab_plots_handlers[plot_uid].set_ready()
                     except exceptions.LSLStreamNotFound as e:
                         msg = 'Plot %i. The LSL stream associated with this plot ' \

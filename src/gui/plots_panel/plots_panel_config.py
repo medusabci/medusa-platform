@@ -655,9 +655,12 @@ class ConfigPlotFrameDialog(QDialog, ui_plot_config_dialog):
             self.set_plot_types(selected_plot_info)
             if selected_plot_info is not None:
                 if selected_lsl_stream is None:
-                    stream = self.working_lsl_streams[self.comboBox_lsl_streams.currentIndex()]
-                    signal_settings, visualization_settings = self.selected_plot_info['class'].\
-                        update_lsl_stream_related_settings(signal_settings, visualization_settings, stream)
+                    stream = self.working_lsl_streams[
+                        self.comboBox_lsl_streams.currentIndex()]
+                    signal_settings, visualization_settings = (
+                        self.selected_plot_info['class'].\
+                        update_lsl_stream_related_settings_common(
+                            signal_settings, visualization_settings, stream))
                 self.set_settings_in_tree_view(signal_settings,
                                                visualization_settings)
         except Exception as e:
@@ -711,7 +714,8 @@ class ConfigPlotFrameDialog(QDialog, ui_plot_config_dialog):
             stream = self.working_lsl_streams[self.comboBox_lsl_streams.currentIndex()]
             plot_class_signal_settings, plot_class_visualization_settings = \
                 plot_class.get_default_settings()
-            plot_class.update_lsl_stream_related_settings(plot_class_signal_settings, plot_class_visualization_settings, stream)
+            plot_class.update_lsl_stream_related_settings_common(
+                plot_class_signal_settings, plot_class_visualization_settings, stream)
             curr_signal_settings = (
                 plot_class_signal_settings.update_tree_from_widget(
                     self.signal_options_tree))
@@ -719,9 +723,8 @@ class ConfigPlotFrameDialog(QDialog, ui_plot_config_dialog):
                 plot_class_visualization_settings.update_tree_from_widget(
                     self.visualization_options_tree))
             updated_signal_settings, updated_visualization_settings = \
-                plot_class.update_lsl_stream_related_settings(curr_signal_settings,
-                                                              curr_visualization_settings,
-                                                              stream)
+                plot_class.update_lsl_stream_related_settings_common(
+                    curr_signal_settings, curr_visualization_settings, stream)
             self.set_settings_in_tree_view(updated_signal_settings,
                                            updated_visualization_settings)
 
@@ -734,15 +737,16 @@ class ConfigPlotFrameDialog(QDialog, ui_plot_config_dialog):
             plot_type = self.selected_plot_info['uid']
             plot_class = self.selected_plot_info['class']
             # Check signal and get signal and plot options
-            if plot_class.check_signal(self.selected_lsl_stream_info):
-                # Get default settings of the new plot
-                stream = self.working_lsl_streams[self.comboBox_lsl_streams.currentIndex()]
-                signal_settings, visualization_settings = \
-                    plot_class.get_default_settings()
-                plot_class.update_lsl_stream_related_settings(signal_settings, visualization_settings, stream)
-                self.set_settings_in_tree_view(
-                    signal_settings,
-                    visualization_settings)
+            plot_class.check_signal(self.selected_lsl_stream_info)
+            # Get default settings of the new plot
+            stream = self.working_lsl_streams[self.comboBox_lsl_streams.currentIndex()]
+            signal_settings, visualization_settings = \
+                plot_class.get_default_settings()
+            plot_class.update_lsl_stream_related_settings_common(
+                signal_settings, visualization_settings, stream)
+            self.set_settings_in_tree_view(
+                signal_settings,
+                visualization_settings)
 
         except Exception as e:
             self.exception_handler(e)
@@ -757,12 +761,16 @@ class ConfigPlotFrameDialog(QDialog, ui_plot_config_dialog):
 
             # Replace existing widgets with newly created trees
             if self.signal_options_tree:
-                self.formLayout.replaceWidget(self.signal_options_tree, signal_options_tree.tree_widget)
+                self.formLayout.replaceWidget(
+                    self.signal_options_tree,
+                    signal_options_tree.tree_widget)
                 self.signal_options_tree.setParent(None)
                 self.signal_options_tree.deleteLater()
 
             if self.visualization_options_tree:
-                self.formLayout.replaceWidget(self.visualization_options_tree, visualization_options_tree.tree_widget)
+                self.formLayout.replaceWidget(
+                    self.visualization_options_tree,
+                    visualization_options_tree.tree_widget)
                 self.visualization_options_tree.setParent(None)
                 self.visualization_options_tree.deleteLater()
 
@@ -791,7 +799,7 @@ class ConfigPlotFrameDialog(QDialog, ui_plot_config_dialog):
             stream = self.working_lsl_streams[
                 self.comboBox_lsl_streams.currentIndex()]
             signal_settings, visualization_settings = (
-                plot_class.update_lsl_stream_related_settings(
+                plot_class.update_lsl_stream_related_settings_common(
                     signal_settings, visualization_settings, stream))
             self.signal_settings = (
                 signal_settings.update_tree_from_widget(
@@ -1269,7 +1277,10 @@ class PlotsPanelConfigDialog(dialogs.MedusaDialog):
         self.config = None
         # Initialize widget with current config
         self.set_config(config)
-        # Show
+        # Make dialog application-modal and run it modally
+        self.setModal(True)
+        self.setWindowModality(Qt.ApplicationModal)
+        # Show modally (blocks until closed)
         self.show()
 
     def exception_handler(self, ex):
