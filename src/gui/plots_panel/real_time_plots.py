@@ -2230,13 +2230,13 @@ class HeadBasedPlot(RealTimePlot):
         self.show_clabel = None
         self.head_handles = None
         self.plot_handles = None
-        self.power_in_graph = None
 
 class TopographyPlot(HeadBasedPlot):
 
     def __init__(self, uid, plot_state, medusa_interface, theme_colors):
         super().__init__(uid, plot_state, medusa_interface, theme_colors)
         self.topo_plot = None
+        self.power_in_graph = None
         self.c_lim = None
 
     def show_context_menu(self, pos: QPoint):
@@ -2538,57 +2538,23 @@ class ConnectivityPlot(HeadBasedPlot):
         super().__init__(uid, plot_state, medusa_interface, theme_colors)
         # Graph variables
         self.conn_plot = None
-        self.c_lim = None
+        self.conn_in_graph = None
+        self.percentile_th = None
 
     def show_context_menu(self, pos: QPoint):
-        """
-        Called automatically on right-click within the canvas.
-        pos is in widget coordinates, so we map it to global coords.
-        """
-        menu = AutoscaleMenu(self)
-        global_pos = self.widget.mapToGlobal(pos)
-        menu.exec_(global_pos)
+        pass
 
     def mouse_wheel_event(self, event):
-        """
-        Interactive zoom of the spectrogram amplitude range (color limits).
-        Behavior:
-          - Wheel up   → zoom in   (reduce span)
-          - Wheel down → zoom out  (increase span)
-          - Ctrl  + wheel  → fine zoom
-          - Shift + wheel  → coarse zoom
-
-        Additional features:
-          - Automatically disables autoscaling when the user zooms manually.
-          - Synchronizes the updated CLIM with visualization_settings['z_axis']['range'].
-        """
-        # Checks
-        if self.visualization_settings.get_item_value(
-                'z_axis', 'autoscale', 'apply'):
-            return
-        # Get current lims
-        vmin, vmax = self.topo_plot.plot_handles['color-mesh'].get_clim()
-        if not (np.isfinite(vmin) and np.isfinite(vmax)):
-            return
-        # Current center + span
-        center = 0.5 * (vmin + vmax)
-        span = max(vmax - vmin, 1e-12)
-        # Determine zoom factor
-        base = 1.1
-        # Determine new span
-        zoom_in = event.angleDelta().y() > 0
-        new_span = span / base if zoom_in else span * base
-        # Reconstruct new clim around center
-        new_vmin = center - 0.5 * new_span
-        new_vmax = center + 0.5 * new_span
-        # Ensure valid ordering and non-zero span
-        if new_vmax <= new_vmin:
-            eps = max(1e-12, abs(vmax - vmin) * 1e-6)
-            new_vmax = new_vmin + eps
-        # Apply to image
-        self.conn_plot.plot_handles['color-mesh'].set_clim(new_vmin, new_vmax)
-        self.c_lim = (new_vmin, new_vmax)
-        self.conn_plot.clim = self.c_lim
+        # Calculate new percentile threshold
+        if event.angleDelta().y() > 0:
+            self.percentile_th = self.percentile_th / 1.25
+        else:
+            if 1.25 * self.percentile_th < 100:
+                self.percentile_th = self.percentile_th * 1.25
+            else:
+                self.percentile_th = 100
+        # Update plot
+        self.conn_plot.percentile_th = self.percentile_th
 
     @staticmethod
     def get_default_settings():
@@ -2607,11 +2573,6 @@ class ConnectivityPlot(HeadBasedPlot):
             info="Connectivity metric"
         )
         connectivity.add_item(
-            "threshold", value=50.0,
-            value_range=[0, None],
-            info="Threshold for connectivity"
-        )
-        connectivity.add_item(
             "band_range", value=[8, 13],
             info="Frequency band"
         )
@@ -2623,15 +2584,12 @@ class ConnectivityPlot(HeadBasedPlot):
         conn_vis = visualization_settings.add_item("connectivity")
         conn_vis.add_item(
             "percentile_th", value=85.0,
-            info="Value to establish a representation threshold"
+            info="Connections above percentile_th are represented in the plot."
         )
 
         # Z-axis
         visualization_settings.add_zaxis_settings(cmap="inferno",
-                                                  range=[0.0, 1.0])
-        visualization_settings.add_autoscale_settings_to_axis("z_axis")
-        visualization_settings.get_item(
-            "z_axis", "autoscale", "apply").edit_item(value=True)
+                                                  range=None)
         return signal_settings, visualization_settings
 
     @staticmethod
@@ -2682,14 +2640,8 @@ class ConnectivityPlot(HeadBasedPlot):
         else:
             channel_radius_size = self.visualization_settings.get_item_value(
                 'head_plot', 'channel_radius_size', 'value')
-        auto_scale = self.visualization_settings.get_item_value(
-            'z_axis', 'autoscale', 'apply')
-        if auto_scale:
-            self.c_lim = None
-        else:
-            self.c_lim = self.visualization_settings.get_item_value(
-                'z_axis', 'range')
-
+        self.percentile_th = self.visualization_settings.get_item_value(
+            'connectivity', 'percentile_th')
         self.conn_plot = head_plots.ConnectivityPlot(
             axes=self.ax,
             channel_set=self.channel_set,
@@ -2699,85 +2651,20 @@ class ConnectivityPlot(HeadBasedPlot):
             plot_channel_labels=self.visualization_settings.get_item_value('head_plot', 'plot_channel_labels'),
             plot_channel_points=self.visualization_settings.get_item_value('head_plot', 'plot_channel_points'),
             channel_radius_size=channel_radius_size,
-            percentile_th=self.visualization_settings.get_item_value('connectivity', 'percentile_th'),
+            percentile_th=self.percentile_th,
             cmap=self.visualization_settings.get_item_value('z_axis', 'cmap'),
-            clim=self.c_lim,
+            clim=None,
             label_color=self.visualization_settings.get_item_value('head_plot','label_color')
         )
 
     def get_cache_elements(self):
         current_elements = {
-            'c_lim': self.c_lim,
             'canvas_size': self.widget.get_width_height()
         }
         return current_elements
 
     def draw_y_axis_ticks(self):
         pass
-
-    def autoscale(self):
-        """
-        Automatically adjust spectrogram color limits (clim) based on the
-        statistics of the current frame.
-
-        Settings used (visualization_settings -> z_axis):
-            - range: [vmin, vmax]        # manual/default clim
-            - autoscale.apply: bool      # enable/disable autoscale
-            - autoscale.n_std_tolerance: float
-            - autoscale.n_std_separation: float
-        """
-
-        # --- Get autoscale settings ---
-        auto_scale = self.visualization_settings.get_item('z_axis', 'autoscale')
-        # Checks
-        if auto_scale.get_item_value('apply'):
-            return
-        # Statistics of the current spectrogram frame
-        arr = np.asarray(self.power_in_graph)
-        if arr.size == 0 or not np.any(np.isfinite(arr)):
-            return  # nothing to do
-        mean_val = np.nanmean(arr)
-        std_val = np.nanstd(arr)
-        # Safety fallback
-        if std_val <= 0 or not np.isfinite(std_val):
-            std_val = 1e-12
-        # Current limits (might be NaN on first runs)
-        old_vmin, old_vmax = self.topo_plot.plot_handles[
-            'color-mesh'].get_clim()
-        if not np.isfinite(old_vmin) or not np.isfinite(old_vmax):
-            # Initialize from configured range
-            old_vmin, old_vmax = self.visualization_settings.get_item_value(
-                'z_axis', 'range')
-        old_span = max(old_vmax - old_vmin, 1e-12)
-        # Autoscale params
-        std_tol = auto_scale.get_item_value('n_std_tolerance')
-        std_factor = auto_scale.get_item_value('n_std_separation')
-        # Expected span based on current spec
-        new_span = std_factor * std_val
-        # decide if reescale needed
-        do_rescale = (
-                new_span > old_span * std_tol or  # too large for current scale
-                new_span < old_span / std_tol  # too small for current scale
-        )
-        if not do_rescale:
-            return
-        # New limits
-        new_vmin = mean_val - 0.5 * new_span
-        new_vmax = mean_val + 0.5 * new_span
-        # Optional padding
-        pad = 0.05 * new_span
-        new_vmin -= pad
-        new_vmax += pad
-        # Safety for log-power spectrograms
-        if self.signal_settings.get_item_value('psd', 'log_power'):
-            new_vmin = max(new_vmin, -300)  # avoid insane log values
-            new_vmax = min(new_vmax, 300)
-        new_range = [float(new_vmin), float(new_vmax)]
-        # Apply to image
-        self.conn_plot.plot_handles['color-mesh'].set_clim(
-            new_range[0], new_range[1])
-        self.c_lim = new_range
-        self.conn_plot.clim = self.c_lim
 
     def update_plot_data(self, chunk_times, chunk_signal):
         # DATA OPERATIONS ==================================================
@@ -2791,14 +2678,7 @@ class ConnectivityPlot(HeadBasedPlot):
             adj_mat = phase_connectivity.phase_connectivity(
                 self.data_buffer,
                 conn_metric).squeeze()
-        # Apply threshold
-        conn_threshol = self.signal_settings.get_item_value(
-            'connectivity', 'threshold')
-        if conn_threshol is not None:
-            th_idx = np.abs(adj_mat) > np.percentile(
-                np.abs(adj_mat),
-                conn_threshol)
-            adj_mat = adj_mat * th_idx
+        self.conn_in_graph = adj_mat
         self.conn_plot.update(adj_mat=adj_mat)
 
     def update_plot_draw_animated_elements(self):
