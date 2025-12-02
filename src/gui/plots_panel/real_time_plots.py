@@ -13,8 +13,6 @@ from matplotlib.figure import Figure
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
 from matplotlib.cm import get_cmap
 from matplotlib import transforms as mtransforms
-from sklearn.externals.array_api_extra import apply_where
-from statsmodels.stats.rates import nonequivalence_poisson_2indep
 
 # MEDUSA-PLATFORM MODULES
 from acquisition import lsl_utils
