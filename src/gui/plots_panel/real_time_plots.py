@@ -243,7 +243,7 @@ class BaseVisualizationSettings(SettingsTree):
         x_axis_label = x_ax.add_item("label")
         x_axis_label.add_item(
             "text",
-            value="Time",
+            value="Time (s)",
             info="Label for x-axis"
         )
         x_axis_label.add_item(
@@ -468,6 +468,11 @@ class RealTimePlot(ABC):
         self.clear_plot()
         self.init_plot_common()
 
+    def draw(self):
+        w, h = self.widget.get_width_height()
+        if w > 0 and h > 0:
+            self.widget.draw()
+
     @classmethod
     def update_lsl_stream_related_settings_common(cls, signal_settings,
                                                   visualization_settings,
@@ -488,7 +493,8 @@ class RealTimePlot(ABC):
         self.fig = Figure(figsize=(1, 1), dpi=90)
         self.ax = self.fig.add_subplot(111)
         self.fig.set_layout_engine('constrained', rect=[0, 0, 1, 1])
-        # fig.subplots_adjust(left=0.005, right=0.995, bottom=0.005, top=0.995)
+        # self.fig.subplots_adjust(left=0.075, right=0.975,
+        #                          bottom=0.075, top=0.925)
         self.fig.patch.set_facecolor(self.background_color_dark)
         self.ax.set_facecolor(self.background_color_mid)
         # Init widget
@@ -546,7 +552,7 @@ class RealTimePlot(ABC):
             raise ValueError('The variable buffer_time must be initialized in'
                              ' function init_plot')
         # Refresh the plot
-        self.widget.draw()
+        self.draw()
         # Blitting setup
         self._bg_cache = self.widget.copy_from_bbox(self.fig.bbox)
         self._cached_elements = self.get_cache_elements()
@@ -621,7 +627,7 @@ class RealTimePlot(ABC):
         self.update_plot_data(chunk_times, chunk_signal)
         # Restore static elements from cache if possible
         if self.check_if_redraw_needed():
-            self.widget.draw()
+            self.draw()
             self._bg_cache = self.widget.copy_from_bbox(self.fig.bbox)
         else:
             # Restore static background
@@ -631,9 +637,7 @@ class RealTimePlot(ABC):
 
     def clear_plot(self):
         self.ax.clear()
-        width, height = self.widget.get_width_height()
-        if width > 0 and height > 0:
-            self.widget.draw()
+        self.draw()
 
     @abstractmethod
     def get_cache_elements(self):
@@ -1304,7 +1308,7 @@ class PSDPlotMultichannel(FreqBasedPlot):
         visualization_settings = BaseVisualizationSettings()
         # X-axis
         x_ax = visualization_settings.get_item("x_axis")
-        x_ax.get_item("label").edit_item("text", "Frequency (Hz)")
+        x_ax.get_item("label", "text").edit_item(value="Frequency (Hz)")
         x_ax.add_item(
             "range",
             value=[0.1, 30.0],
@@ -1313,6 +1317,7 @@ class PSDPlotMultichannel(FreqBasedPlot):
         visualization_settings.add_grid_settings_to_axis("x_axis")
         # Y-axis
         y_ax = visualization_settings.get_item("y_axis")
+        y_ax.get_item("label", "text").edit_item(value="PSD")
         y_ax.add_item(
             "cha_separation",
             value=1.0,
@@ -1461,7 +1466,7 @@ class PSDPlotSingleChannel(FreqBasedPlot):
         )
         # X-axis
         x_ax = visualization_settings.get_item("x_axis")
-        x_ax.get_item("label").edit_item("text", "Frequency (Hz)")
+        x_ax.get_item("label", "text").edit_item(value="Frequency (Hz)")
         x_ax.add_item(
             "range",
             value=[0.1, 30.0],
@@ -1471,7 +1476,7 @@ class PSDPlotSingleChannel(FreqBasedPlot):
         visualization_settings.add_grid_settings_to_axis("x_axis")
         # Y-axis
         y_ax = visualization_settings.get_item("y_axis")
-        y_ax.get_item("label").edit_item("text", "PSD")
+        y_ax.get_item("label", "text").edit_item(value="PSD")
         y_ax.add_item(
             "range",
             value=[0.0, 1.0],
@@ -1584,7 +1589,7 @@ class SpectrogramBasedPlot(TimeBasedPlot):
         self.ax.set_yticks(y_ticks_pos)
         self.ax.set_yticklabels(y_ticks_val)
 
-    def compute_spectrogram(self, cha_idx=None):
+    def compute_spectrogram(self, cha_idx=None, log_power=False):
         # Spectrogram computation time window
         win_t_spec = self.signal_settings.get_item_value(
             'spectrogram', 'time_window')
@@ -1613,7 +1618,7 @@ class SpectrogramBasedPlot(TimeBasedPlot):
                 'spectrogram', 'scale_to')
         )
         # Optionally convert to log scale
-        if self.signal_settings.get_item_value('spectrogram', 'log_power'):
+        if log_power:
             spec = 10 * np.log10(np.maximum(spec, 1e-12))
         # Get t_in_graph
         t_start = self.times_buffer[0]
@@ -1717,6 +1722,7 @@ class SpectrogramPlot(SpectrogramBasedPlot):
         visualization_settings.add_grid_settings_to_axis("x_axis")
         # Y-axis
         y_ax = visualization_settings.get_item("y_axis")
+        y_ax.get_item("label", "text").edit_item(value="Frequency (Hz)")
         y_ax.add_item(
             "range",
             value=[0, 30],
@@ -1895,7 +1901,9 @@ class SpectrogramPlot(SpectrogramBasedPlot):
         """
         # Compute spectrogram
         spec, t, f = self.compute_spectrogram(
-            cha_idx=self.curr_cha)
+            cha_idx=self.curr_cha,
+            log_power=self.signal_settings.get_item_value(
+                'spectrogram', 'log_power'))
         # Update the image
         mode = self.visualization_settings.get_item_value('mode')
         if mode == 'geek':
@@ -2009,6 +2017,7 @@ class PowerDistributionPlot(SpectrogramBasedPlot):
         visualization_settings.add_grid_settings_to_axis("x_axis")
         # Y-axis
         y_ax = visualization_settings.get_item("y_axis")
+        y_ax.get_item("label", "text").edit_item(value="Power (%)")
         y_ax.add_item(
             "range",
             value=[0, 100],
@@ -2132,7 +2141,8 @@ class PowerDistributionPlot(SpectrogramBasedPlot):
         """
         # Compute spectrogram
         spec, t, f = self.compute_spectrogram(
-            cha_idx=self.curr_cha)
+            cha_idx=self.curr_cha,
+            log_power=False)
         spec_norm = spec / spec.sum(axis=0)
         # Update data
         mode = self.visualization_settings.get_item_value('mode')
@@ -2145,6 +2155,7 @@ class PowerDistributionPlot(SpectrogramBasedPlot):
                                               self.times_buffer)
             self.x_in_graph = np.mod(self.t_in_graph, self.buffer_time)
             self.y_in_graph = f
+            spec_norm = self.roll_array(t, spec_norm, time_axis=1)
             self.update_marker()
         # Redefine the t_in_graph vector to match t dimensions
         interp_func = interpolate.interp1d(
@@ -2511,7 +2522,7 @@ class TopographyPlot(HeadBasedPlot):
         self.topo_plot.update(values=power_values)
 
     def update_plot_draw_animated_elements(self):
-        self.widget.draw()
+        self.draw()
 
 
 class ConnectivityPlot(HeadBasedPlot):
@@ -2664,7 +2675,7 @@ class ConnectivityPlot(HeadBasedPlot):
         self.conn_plot.update(adj_mat=adj_mat)
 
     def update_plot_draw_animated_elements(self):
-        self.widget.draw()
+        self.draw()
 
 class RealTimePlotWorker(QThread):
 
@@ -2882,7 +2893,7 @@ class AutoscaleMenu(QMenu):
     def on_autoscale(self):
         self.plot_handler.autoscale()
         self.plot_handler.draw_y_axis_ticks()
-        self.plot_handler.widget.draw()
+        self.plot_handler.draw()
 
 class SelectChannelMenu(AutoscaleMenu):
     """
