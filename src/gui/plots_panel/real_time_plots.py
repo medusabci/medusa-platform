@@ -205,19 +205,6 @@ class BaseSignalSettings(SettingsTree):
             info="Sigma of the Gaussian smoothing kernel (in pixels).",
         )
         spectrogram.add_item(
-            "apply_detrend",
-            value=True,
-            info="Apply linear detrending before the STFT.",
-        )
-        spectrogram.add_item(
-            "apply_normalization",
-            value=True,
-            info=(
-                "Normalize the signal to unit standard deviation before the STFT to "
-                "reduce scale variability."
-            ),
-        )
-        spectrogram.add_item(
             "log_power",
             value=True,
             info="Display power on a logarithmic scale (log-power).",
@@ -1622,10 +1609,6 @@ class SpectrogramBasedPlot(TimeBasedPlot):
                 'spectrogram', 'smooth'),
             smooth_sigma=self.signal_settings.get_item_value(
                 'spectrogram', 'smooth_sigma'),
-            apply_detrend=self.signal_settings.get_item_value(
-                'spectrogram', 'apply_detrend'),
-            apply_normalization=self.signal_settings.get_item_value(
-                'spectrogram', 'apply_normalization'),
             scale_to=self.signal_settings.get_item_value(
                 'spectrogram', 'scale_to')
         )
@@ -1993,7 +1976,8 @@ class PowerDistributionPlot(SpectrogramBasedPlot):
         # Signal settings
         signal_settings = BaseSignalSettings()
         signal_settings.add_spectrogram_settings()
-
+        spect_settings = signal_settings.get_item('spectrogram')
+        spect_settings.remove_item('log_power')
         power_dist = signal_settings.add_item("power_distribution")
         power_dist.add_item(
             'band_labels',
@@ -2176,7 +2160,7 @@ class PowerDistributionPlot(SpectrogramBasedPlot):
         for i_b in range(len(band_labels)):
             idx_min = np.argmin(np.abs(f - band_freqs[i_b][0]))
             idx_max = np.argmin(np.abs(f - band_freqs[i_b][1]))
-            relative_power = spec_norm[idx_min:idx_max, :].sum(axis=0) * 100
+            relative_power = spec_norm[idx_min:idx_max,:].sum(axis=0) * 100
             # Calculate patch coordinates
             patch_base = np.column_stack([x, cumulative_power])
             cumulative_power += relative_power
