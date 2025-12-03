@@ -2133,7 +2133,11 @@ class PowerDistributionPlot(SpectrogramBasedPlot):
         return current_elements
 
     def autoscale(self):
-        pass
+        if self.cum_power_in_graph is None:
+            return
+        max_cum_power = np.max(self.cum_power_in_graph)
+        self.y_range[1] = max_cum_power
+        self.draw_y_axis_ticks()
 
     def update_plot_data(self, chunk_times, chunk_signal):
         """
@@ -2165,7 +2169,7 @@ class PowerDistributionPlot(SpectrogramBasedPlot):
         t_in_graph_resampled = interp_func(np.linspace(0, 1, len(t)))
         x = np.mod(t_in_graph_resampled, self.buffer_time)
         # Calculate power distribution
-        cumulative_power = np.zeros(spec.shape[1])
+        self.cum_power_in_graph = np.zeros(spec.shape[1])
         band_labels = self.frequency_bands.get_item_value('band_labels')
         band_freqs = self.frequency_bands.get_item_value('band_freqs')
         for i_b in range(len(band_labels)):
@@ -2173,9 +2177,9 @@ class PowerDistributionPlot(SpectrogramBasedPlot):
             idx_max = np.argmin(np.abs(f - band_freqs[i_b][1]))
             relative_power = spec_norm[idx_min:idx_max,:].sum(axis=0) * 100
             # Calculate patch coordinates
-            patch_base = np.column_stack([x, cumulative_power])
-            cumulative_power += relative_power
-            patch_top = np.column_stack([x, cumulative_power])
+            patch_base = np.column_stack([x, self.cum_power_in_graph])
+            self.cum_power_in_graph += relative_power
+            patch_top = np.column_stack([x, self.cum_power_in_graph])
             # Set the patch
             self.patches[i_b].set_xy(
                 np.concatenate([patch_base, patch_top[::-1]], axis=0))
