@@ -79,6 +79,7 @@ MEDUSA_LSL_TYPES = {
     'MEG': 'MEG',
     'EMG': 'EMG',
     'ECG': 'ECG',
+    'NIRS': 'NIRS',
     'Other': 'CustomBiosignalData'
 }
 

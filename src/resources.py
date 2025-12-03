@@ -815,9 +815,8 @@ class SaveFileDialog(dialogs.MedusaDialog):
         self.streams_table.horizontalHeader().setSectionResizeMode(
             0, QHeaderView.ResizeToContents)
         self.streams_table.setHorizontalHeaderLabels(
-            ["Save", "Medusa UID", "Attribute name"])
+            ["Save", "Medusa UID", "Stream type"])
         rec_stream_tab.addWidget(self.streams_table)
-
         # Create tab widget
         rec_stream_tab_widget = QWidget()
         rec_stream_tab_widget.setLayout(rec_stream_tab)

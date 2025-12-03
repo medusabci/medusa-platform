@@ -523,6 +523,7 @@ class EditStreamDialog(QtWidgets.QDialog, ui_stream_config_dialog):
         # Mostrar el diálogo
         if dialog.exec() == QtWidgets.QDialog.Accepted:
             self.spinBox_lsl_fs.setValue(spin_box.value())
+
     def update_channel_fields(self):
         """Updates the values of the combobox to select the channel label
         """
@@ -557,7 +558,7 @@ class EditStreamDialog(QtWidgets.QDialog, ui_stream_config_dialog):
         if self.comboBox_medusa_type.currentData() == 'EEG':
             channel_selection = LSLEEGChannelSelection(
                 self.comboBox_channel_label_field.currentText(),
-            lsl_cha_info=self.cha_info)
+                lsl_cha_info=self.cha_info)
             channel_selection.close_signal.connect(self.config_finished)
             channel_selection.exec_()
 
@@ -638,23 +639,32 @@ class EditStreamDialog(QtWidgets.QDialog, ui_stream_config_dialog):
                                                          'cha_checkbox')
                     cha_checkbox.setChecked(False)
     def update_cha_info_dict(self):
-        ch_label = self.comboBox_channel_label_field.currentText()
+        ch_label_field = self.comboBox_channel_label_field.currentText()
         if self.cha_info != None:
             for i, ch in enumerate(self.cha_info):
                 if self.comboBox_medusa_type.currentData() == 'EEG':
-                    order = [ch_label, 'medusa_label', 'x_pos', 'y_pos','selected']
-                    eeg_1005_montage =  meeg_montages.get_standard_montage('10-05', '2D', 'cartesian')
+                    # Field order for table
+                    order = [ch_label_field, 'medusa_label',
+                             'x_pos', 'y_pos','selected']
+                    eeg_1005_montage =  meeg_montages.get_standard_montage(
+                        '10-05', '2D', 'cartesian')
+                    # By convention, EEG channel labels are uppercase in MEDUSA
+                    ch_label = ch['label'].upper()
+                    # Get coordinates◘
                     if 'x_pos' not in ch.keys():
-                        if ch['label'] in eeg_1005_montage.keys():
-                            ch['x_pos'] = eeg_1005_montage[ch['label']]['x']
-                            ch['y_pos'] = eeg_1005_montage[ch['label']]['y']
+                        if ch_label in eeg_1005_montage.keys():
+                            ch['x_pos'] = eeg_1005_montage[ch_label]['x']
+                            ch['y_pos'] = eeg_1005_montage[ch_label]['y']
                         else:
                             ch['x_pos'] = None
                             ch['y_pos'] = None
+                    # Set selected by default
                     if 'selected' not in ch.keys():
                         ch['selected'] = True
                 else:
-                    order = [ch_label, 'medusa_label', 'selected']
+                    # Field order for table
+                    order = [ch_label_field, 'medusa_label', 'selected']
+
                     if 'x_pos' in ch.keys():
                         del ch['x_pos']
                     if 'y_pos' in ch.keys():

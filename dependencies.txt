@@ -1,7 +1,5 @@
 Pillow
 pylsl
-PySide6
-pyqtgraph
 jinja2
 requests
 cryptography

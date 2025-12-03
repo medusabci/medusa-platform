@@ -11,6 +11,7 @@ from PySide6.QtGui import *
 # MEDUSA COMPONENTS
 from medusa import components
 from medusa.analysis.time_plot.time_plot import curr_dir
+from medusa.settings_schema import *
 from pandas.io.pytables import Table
 
 from acquisition import lsl_utils
@@ -20,7 +21,6 @@ import exceptions, constants
 from gui.qt_widgets import dialogs
 from gui import gui_utils as gu
 from gui.plots_panel import real_time_plots
-from gui import gui_jsonviewer
 
 # Load the .ui files
 ui_plot_config_dialog = loadUiType("gui/ui_files/plot_config_dialog.ui")[0]
@@ -506,6 +506,8 @@ class PlotsTabConfig(components.SerializableComponent):
                 for key, value in plot_settings.items():
                     if key == 'lsl_stream_info':
                         value = value.to_serializable_obj()
+                    if isinstance(value, SettingsTree):
+                        value = value.to_serializable_obj()
                     data['plots_settings'][str(plot_key)][key] = value
             return data
         except Exception as e:
@@ -529,9 +531,9 @@ class PlotsTabConfig(components.SerializableComponent):
                 plot_info = real_time_plots.get_plot_info(
                     config.plots_settings[uid]['plot_uid'])
                 signal_settings = \
-                    config.plots_settings[uid]['signal_settings']
+                    SettingsTree(config.plots_settings[uid]['signal_settings'])
                 visualization_settings = \
-                    config.plots_settings[uid]['visualization_settings']
+                    SettingsTree(config.plots_settings[uid]['visualization_settings'])
                 lsl_stream_info = config.plots_settings[uid]['lsl_stream_info']
                 try:
                     # Update lsl_stream (necessary for weak LSL search)
@@ -569,11 +571,9 @@ class PlotsTabConfig(components.SerializableComponent):
                         lsl_stream)
                 except exceptions.LSLStreamNotFound as e:
                     new_lsl_stream_info = None
-                    plot_info = None
                     item['configured'] = False
                 except exceptions.UnspecificLSLStreamInfo as e:
                     new_lsl_stream_info = None
-                    plot_info = None
                     item['configured'] = False
                 plot_idx = config.create_plot_frame(
                     item['uid'],
@@ -654,6 +654,13 @@ class ConfigPlotFrameDialog(QDialog, ui_plot_config_dialog):
             self.set_lsl_streams(selected_lsl_stream)
             self.set_plot_types(selected_plot_info)
             if selected_plot_info is not None:
+                if selected_lsl_stream is None:
+                    stream = self.working_lsl_streams[
+                        self.comboBox_lsl_streams.currentIndex()]
+                    signal_settings, visualization_settings = (
+                        self.selected_plot_info['class'].\
+                        update_lsl_stream_related_settings_common(
+                            signal_settings, visualization_settings, stream))
                 self.set_settings_in_tree_view(signal_settings,
                                                visualization_settings)
         except Exception as e:
@@ -701,14 +708,25 @@ class ConfigPlotFrameDialog(QDialog, ui_plot_config_dialog):
     def on_combobox_lsl_stream_changed(self):
         lsl_stream_index = self.comboBox_lsl_streams.currentIndex()
         self.selected_lsl_stream_info = self.working_lsl_streams[lsl_stream_index]
-        # Get default settings of the new plot
+        # Update lsl stream related settings
         if self.selected_plot_info is not None:
             plot_class = self.selected_plot_info['class']
             stream = self.working_lsl_streams[self.comboBox_lsl_streams.currentIndex()]
-            signal_settings, visualization_settings = \
-                plot_class.get_default_settings(stream)
-            self.set_settings_in_tree_view(signal_settings,
-                                           visualization_settings)
+            plot_class_signal_settings, plot_class_visualization_settings = \
+                plot_class.get_default_settings()
+            plot_class.update_lsl_stream_related_settings_common(
+                plot_class_signal_settings, plot_class_visualization_settings, stream)
+            curr_signal_settings = (
+                plot_class_signal_settings.update_tree_from_widget(
+                    self.signal_options_tree))
+            curr_visualization_settings = (
+                plot_class_visualization_settings.update_tree_from_widget(
+                    self.visualization_options_tree))
+            updated_signal_settings, updated_visualization_settings = \
+                plot_class.update_lsl_stream_related_settings_common(
+                    curr_signal_settings, curr_visualization_settings, stream)
+            self.set_settings_in_tree_view(updated_signal_settings,
+                                           updated_visualization_settings)
 
     def on_combobox_plot_type_changed(self):
         try:
@@ -719,15 +737,16 @@ class ConfigPlotFrameDialog(QDialog, ui_plot_config_dialog):
             plot_type = self.selected_plot_info['uid']
             plot_class = self.selected_plot_info['class']
             # Check signal and get signal and plot options
-            if plot_class.check_signal(self.selected_lsl_stream_info):
-                # Get default settings of the new plot
-                stream = self.working_lsl_streams[self.comboBox_lsl_streams.currentIndex()]
-                signal_settings, visualization_settings = \
-                    plot_class.get_default_settings(stream)
-                self.set_settings_in_tree_view(
-                    signal_settings,
-                    visualization_settings)
-
+            plot_class.check_signal(self.selected_lsl_stream_info)
+            # Get default settings of the new plot
+            stream = self.working_lsl_streams[self.comboBox_lsl_streams.currentIndex()]
+            signal_settings, visualization_settings = \
+                plot_class.get_default_settings()
+            plot_class.update_lsl_stream_related_settings_common(
+                signal_settings, visualization_settings, stream)
+            self.set_settings_in_tree_view(
+                signal_settings,
+                visualization_settings)
 
         except Exception as e:
             self.exception_handler(e)
@@ -735,19 +754,23 @@ class ConfigPlotFrameDialog(QDialog, ui_plot_config_dialog):
     def set_settings_in_tree_view(self, signal_settings, visualization_settings):
         try:
             # Create tree widgets to display signal and visualization settings
-            signal_options_tree = gui_jsonviewer.TreeView(signal_settings)
+            signal_options_tree = SettingsTreeWidget(signal_settings)
             signal_options_tree.tree_widget.header().setStyleSheet("color: black;")
-            visualization_options_tree = gui_jsonviewer.TreeView(visualization_settings)
+            visualization_options_tree = SettingsTreeWidget(visualization_settings)
             visualization_options_tree.tree_widget.header().setStyleSheet("color: black;")
 
             # Replace existing widgets with newly created trees
             if self.signal_options_tree:
-                self.formLayout.replaceWidget(self.signal_options_tree, signal_options_tree.tree_widget)
+                self.formLayout.replaceWidget(
+                    self.signal_options_tree,
+                    signal_options_tree.tree_widget)
                 self.signal_options_tree.setParent(None)
                 self.signal_options_tree.deleteLater()
 
             if self.visualization_options_tree:
-                self.formLayout.replaceWidget(self.visualization_options_tree, visualization_options_tree.tree_widget)
+                self.formLayout.replaceWidget(
+                    self.visualization_options_tree,
+                    visualization_options_tree.tree_widget)
                 self.visualization_options_tree.setParent(None)
                 self.visualization_options_tree.deleteLater()
 
@@ -769,63 +792,24 @@ class ConfigPlotFrameDialog(QDialog, ui_plot_config_dialog):
         try:
             # Update plot instance settings
             plot_class = self.selected_plot_info['class']
-            stream = self.working_lsl_streams[self.comboBox_lsl_streams.currentIndex()]
-            signal_settings, visualization_settings = plot_class.get_default_settings(stream)
-            self.signal_settings = self.update_dict_from_tree(self.signal_options_tree, signal_settings)
-            self.visualization_settings = self.update_dict_from_tree(self.visualization_options_tree, visualization_settings)
+            # Get default settings
+            signal_settings, visualization_settings = (
+                plot_class.get_default_settings())
+            # Update settings with stream data
+            stream = self.working_lsl_streams[
+                self.comboBox_lsl_streams.currentIndex()]
+            signal_settings, visualization_settings = (
+                plot_class.update_lsl_stream_related_settings_common(
+                    signal_settings, visualization_settings, stream))
+            self.signal_settings = (
+                signal_settings.update_tree_from_widget(
+                    self.signal_options_tree))
+            self.visualization_settings = (
+                visualization_settings.update_tree_from_widget(
+                    self.visualization_options_tree))
             super().accept()
         except Exception as e:
             self.exception_handler(e)
-
-    def update_dict_from_tree(self, tree_widget, tree_dict):
-        """
-        Updates the TreeDict dictionary with values from the QTreeWidget.
-        """
-        def traverse_tree_item(item, tree_dict, i=None):
-            # Retrieve the widget associated with the "Value" column for the current item
-            widget = tree_widget.itemWidget(item, 1)
-
-            # Extract the value based on the widget type
-            if isinstance(widget, QComboBox):
-                value = widget.currentText()
-            elif isinstance(widget, QCheckBox):
-                value = widget.isChecked()
-            elif isinstance(widget, (QSpinBox, QDoubleSpinBox)):
-                value = widget.value()
-            elif isinstance(widget, QLineEdit):
-                value = widget.text()
-            elif widget is None:
-                value = None
-
-            # Access the corresponding dictionary node
-            node = tree_dict[i] if i is not None else tree_dict
-
-            # Update the default value if available
-            if value is not None:
-                node["default_value"] = value
-            elif value is None and "default_value" in node:
-                # Handle list-style default values (nested editable lists)
-                if isinstance(node["default_value"], list):
-                    list_items = []
-                    for j in range(item.childCount()):
-                        child_item = item.child(j)
-                        child_widget = tree_widget.itemWidget(child_item, 1)
-                        if isinstance(child_widget, QLineEdit):
-                            list_items.append(child_widget.text())
-                        elif isinstance(child_widget, (QDoubleSpinBox)):
-                            list_items.append(child_widget.value())
-                    node["default_value"] = list_items
-
-            # Recurse into child items if any
-            if (value is None and "default_value" not in node) or (value is not None):
-                if item.childCount() > 0:
-                    for j in range(item.childCount()):
-                        traverse_tree_item(item.child(j), node["items"][j])
-
-        # Traverse each top-level item in the tree
-        for i in range(tree_widget.topLevelItemCount()):
-            traverse_tree_item(tree_widget.topLevelItem(i), tree_dict, i)
-        return tree_dict
 
     def reject(self):
         try:
@@ -1293,7 +1277,10 @@ class PlotsPanelConfigDialog(dialogs.MedusaDialog):
         self.config = None
         # Initialize widget with current config
         self.set_config(config)
-        # Show
+        # Make dialog application-modal and run it modally
+        self.setModal(True)
+        self.setWindowModality(Qt.ApplicationModal)
+        # Show modally (blocks until closed)
         self.show()
 
     def exception_handler(self, ex):
