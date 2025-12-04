@@ -607,7 +607,7 @@ class RealTimePlot(ABC):
         rel_times = chunk_times - self.init_time
         # Append data to buffers
         self.times_buffer = np.hstack((self.times_buffer, rel_times))
-        self.data_buffer = np.vstack((self.data_buffer, chunk_signal))
+        self.data_buffer = np.vstack((self.data_buffer, chunk_signal[:, self.cha_idx]))
         # Remove old data from buffers
         min_t = self.times_buffer[-1] - self.buffer_time
         idx_to_keep = self.times_buffer >= min_t
