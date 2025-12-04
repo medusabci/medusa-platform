@@ -624,7 +624,7 @@ class RealTimePlot(ABC):
         if not self.widget.isVisible():
             return
         # Update plot data
-        self.update_plot_data(chunk_times, chunk_signal)
+        self.update_plot_data()
         # Restore static elements from cache if possible
         if self.check_if_redraw_needed():
             self.draw()
@@ -684,7 +684,7 @@ class RealTimePlot(ABC):
         raise NotImplemented
 
     @abstractmethod
-    def update_plot_data(self, chunk_times, chunk_signal):
+    def update_plot_data(self):
         """Update the plot with the last chunk of signal received in the
         worker. Since this function is called recursively when a new chunk
         of signal is received, it must handle errors with the following block:
@@ -999,7 +999,7 @@ class TimePlotMultichannel(TimeBasedPlot):
             self.cha_separation = std_factor * y_std
             self.draw_y_axis_ticks()
 
-    def update_plot_data(self, chunk_times, chunk_signal):
+    def update_plot_data(self):
         """This function updates the data in the graph. Notice that channel 0 is
         drawn up in the chart, whereas the last channel is in the bottom.
         """
@@ -1202,7 +1202,7 @@ class TimePlotSingleChannel(TimeBasedPlot):
         self.ax.set_ylim(new_min, new_max)
         self.draw_y_axis_ticks()
 
-    def update_plot_data(self, chunk_times, chunk_signal):
+    def update_plot_data(self):
         # Set data
         mode = self.visualization_settings.get_item_value('mode')
         if mode == 'geek':
@@ -1402,7 +1402,7 @@ class PSDPlotMultichannel(FreqBasedPlot):
             self.cha_separation = std_factor * y_std
             self.draw_y_axis_ticks()
 
-    def update_plot_data(self, chunk_times, chunk_signal):
+    def update_plot_data(self):
         """
         This function updates the data in the graph. Notice that channel 0 is
         drawn up in the chart, whereas the last channel is in the bottom.
@@ -1555,7 +1555,7 @@ class PSDPlotSingleChannel(FreqBasedPlot):
             self.y_range[1] = std_factor * y_std
             self.draw_y_axis_ticks()
 
-    def update_plot_data(self, chunk_times, chunk_signal):
+    def update_plot_data(self):
         """
         This function updates the data in the graph. Notice that channel 0 is
         drew up in the chart, whereas the last channel is in the bottom.
@@ -1895,7 +1895,7 @@ class SpectrogramPlot(SpectrogramBasedPlot):
         self.im.set_clim(new_range[0], new_range[1])
         self.c_lim = new_range
 
-    def update_plot_data(self, chunk_times, chunk_signal):
+    def update_plot_data(self):
         """
         Append the new data, then recalc and update the spectrogram.
         """
@@ -2139,7 +2139,7 @@ class PowerDistributionPlot(SpectrogramBasedPlot):
         self.y_range[1] = max_cum_power
         self.draw_y_axis_ticks()
 
-    def update_plot_data(self, chunk_times, chunk_signal):
+    def update_plot_data(self):
         """
         Append the new data, then recalc and update the spectrogram.
         """
@@ -2347,9 +2347,6 @@ class TopographyPlot(HeadBasedPlot):
     @staticmethod
     def update_lsl_stream_related_settings(signal_settings,
                                            visualization_settings, stream_info):
-        signal_settings.get_item("re_referencing", "channel"). \
-            edit_item(value=stream_info.l_cha[0],
-                      value_options=stream_info.l_cha)
         return signal_settings, visualization_settings
 
     @staticmethod
@@ -2519,7 +2516,7 @@ class TopographyPlot(HeadBasedPlot):
         self.power_in_graph = power_values
         return power_values
 
-    def update_plot_data(self, chunk_times, chunk_signal):
+    def update_plot_data(self):
         # Compute PSD
         power_values = self.compute_power()
         # Update topographic plot
@@ -2592,9 +2589,6 @@ class ConnectivityPlot(HeadBasedPlot):
     @staticmethod
     def update_lsl_stream_related_settings(signal_settings,
                                            visualization_settings, stream_info):
-        signal_settings.get_item("re_referencing", "channel"). \
-            edit_item(value=stream_info.l_cha[0],
-                      value_options=stream_info.l_cha)
         return signal_settings, visualization_settings
 
     @staticmethod
@@ -2663,7 +2657,7 @@ class ConnectivityPlot(HeadBasedPlot):
     def draw_y_axis_ticks(self):
         pass
 
-    def update_plot_data(self, chunk_times, chunk_signal):
+    def update_plot_data(self):
         # DATA OPERATIONS ==================================================
         # Compute connectivity
         conn_metric = self.signal_settings.get_item_value(
