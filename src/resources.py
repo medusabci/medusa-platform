@@ -705,7 +705,7 @@ class SaveFileDialog(dialogs.MedusaDialog):
     """
 
     def __init__(self, rec_info, rec_streams_info, app_ext,
-                 allowed_formats, theme_colors=None):
+                 allowed_formats=('bson', 'json'), theme_colors=None):
         super().__init__(window_title='Save recording',
                          width=480, heigh=270,
                          theme_colors=theme_colors)
