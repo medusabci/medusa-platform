@@ -1388,8 +1388,8 @@ class PSDPlotMultichannel(FreqBasedPlot):
         self.cha_separation = \
             self.visualization_settings.get_item_value(
                 'y_axis', 'cha_separation')
-        self.window_time = self.visualization_settings.get_item_value(
-            'x_axis', 'seconds_displayed')
+        self.window_time = self.signal_settings.get_item_value(
+            'psd', 'time_window')
         self.buffer_time = self.window_time
 
         # INIT FIGURE ==========================================================
@@ -1548,8 +1548,8 @@ class PSDPlotSingleChannel(FreqBasedPlot):
             'init_channel_label')
         self.curr_cha = self.worker.receiver.get_channel_indexes_from_labels(
             init_cha_label)
-        self.window_time = self.visualization_settings.get_item_value(
-            'x_axis', 'seconds_displayed')
+        self.window_time = self.signal_settings.get_item_value(
+            'psd', 'time_window')
         self.buffer_time = self.window_time
 
         # INIT FIGURE ==========================================================
@@ -2258,7 +2258,7 @@ class SpectrogramPlot(SpectrogramBasedPlot):
         mode = self.visualization_settings.get_item_value('mode')
         # Draw animated elements
         self.ax.draw_artist(self.im)
-        if self.show_sef :
+        if self.show_sef:
             self.ax.draw_artist(self.curves[0])
         if mode == 'clinical':
             self.ax.draw_artist(self.marker_line)
