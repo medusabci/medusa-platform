@@ -200,7 +200,7 @@ class BaseSignalSettings(SettingsTree):
             "sigma",
             value=1,
             value_range=[0, None],
-            info="Sigma parameter of the gaussian filter.",
+            info="Sigma parameter of the gaussian filter",
         )
 
         time_smooth = spectrogram.add_item(
@@ -216,22 +216,34 @@ class BaseSignalSettings(SettingsTree):
             "alpha",
             value=0.01,
             value_range=[0, None],
-            info="Alpha parameter for EMA computation.",
+            info="Alpha parameter for EMA computation",
         )
 
         spectral_edge_freq = spectrogram.add_item(
             "spectral_edge_freq",
-            info="Spectral edge frequency.",
+            info="Spectral edge frequency",
         )
         spectral_edge_freq.add_item(
             "show",
             value=True,
-            info="Display as a line a percentile of power.",
+            info="Display as a line a percentile of power",
         )
         spectral_edge_freq.add_item(
             "percentile",
             value=95.0,
-            info="Percentile value (%).",
+            info="Percentile value (%)",
+        )
+        spectral_edge_freq.add_item(
+            "apply_range",
+            value=False,
+            info="Set to True to calculate the spectral edge frequency within "
+                 "a specific frequency range",
+        )
+        spectral_edge_freq.add_item(
+            "range",
+            value=[1, 40],
+            info="Frequency range (Hz) to apply when calculating the spectral "
+                 "edge",
         )
 
 class BaseVisualizationSettings(SettingsTree):
@@ -1629,6 +1641,7 @@ class SpectrogramBasedPlot(TimeBasedPlot):
         self.ema_smth_alpha = None
         self.show_sef = None
         self.sef_pct = None
+        self.sef_target_band = None
         self.sef_buffer = None
 
     def draw_y_axis_ticks(self):
@@ -1691,8 +1704,7 @@ class SpectrogramBasedPlot(TimeBasedPlot):
         psd_band = np.maximum(psd[:, idx, :], 0.0)  # ensure non-negative power
         # Total and cumulative power in band
         total_power = np.sum(psd_band, axis=1)  # [n_epochs, n_channels]
-        cum_power = np.cumsum(psd_band,
-                              axis=1)  # [n_epochs, n_bins_in_band, n_channels]
+        cum_power = np.cumsum(psd_band, axis=1)  # [n_epochs, n_bins_in_band, n_channels]
         # Target cumulative power
         frac = percentile / 100.0
         target = frac * total_power  # [n_epochs, n_channels]
@@ -1700,8 +1712,7 @@ class SpectrogramBasedPlot(TimeBasedPlot):
         valid = total_power > eps
         # First index where cumulative >= target
         ge = cum_power >= target[:, np.newaxis, :]  # broadcast target
-        sef_idx = np.argmax(ge,
-                            axis=1)  # [n_epochs, n_channels] (0 if all False)
+        sef_idx = np.argmax(ge,axis=1)  # [n_epochs, n_channels] (0 if all False)
         # If all False because total_power ~ 0, mark invalid
         sef = freqs_in_band[sef_idx]
         sef = np.where(valid, sef, np.nan)
@@ -1755,7 +1766,7 @@ class SpectrogramBasedPlot(TimeBasedPlot):
             sef = self.spectral_edge_frequency(psd_sef[:, -1, :],
                                                fs=self.fs,
                                                percentile=self.sef_pct,
-                                               target_band=None)
+                                               target_band=self.sef_target_band)
             if self.sef_buffer is None:
                 self.sef_buffer = np.concatenate(
                     (np.zeros_like(sef), sef), axis=0)
@@ -2039,6 +2050,13 @@ class SpectrogramPlot(SpectrogramBasedPlot):
             "spectrogram", "spectral_edge_freq", "show")
         self.sef_pct = self.signal_settings.get_item_value(
             "spectrogram", "spectral_edge_freq", "percentile")
+        sef_apply_range = self.signal_settings.get_item_value(
+            "spectrogram", "spectral_edge_freq", "apply_range")
+        if sef_apply_range:
+            self.sef_target_band = self.signal_settings.get_item_value(
+                "spectrogram", "spectral_edge_freq", "range")
+        else:
+            self.sef_target_band = None
 
         self.apply_autoscale = self.visualization_settings.get_item_value(
             'z_axis', 'autoscale', 'apply')
@@ -2420,6 +2438,13 @@ class PowerDistributionPlot(SpectrogramBasedPlot):
             "spectrogram", "spectral_edge_freq", "show")
         self.spectral_edge_pct = self.signal_settings.get_item_value(
             "spectrogram", "spectral_edge_freq", "percentile")
+        sef_apply_range = self.signal_settings.get_item_value(
+            "spectrogram", "spectral_edge_freq", "apply_range")
+        if sef_apply_range:
+            self.sef_target_band = self.signal_settings.get_item_value(
+                "spectrogram", "spectral_edge_freq", "range")
+        else:
+            self.sef_target_band = None
 
         self.apply_autoscale = self.visualization_settings.get_item_value(
             'z_axis', 'autoscale', 'apply')
