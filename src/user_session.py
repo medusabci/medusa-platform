@@ -66,6 +66,13 @@ class UserSession:
         else:
             raise Exception("\n\n" + resp.text)
 
+    def get_auth_cookies(self):
+        """Serializable session cookies, safe to pass to a child process
+        (e.g. an app running in its own process) so it can make
+        authenticated requests without sharing this UserSession object.
+        """
+        return requests.utils.dict_from_cookiejar(self.session.cookies)
+
     def get_license_key(self, license_id):
         # Parse URL
         url = self.url_server + '/get-license-key/'

@@ -336,8 +336,15 @@ class AppsPanelWidget(QWidget, ui_plots_panel_widget):
             ser_lsl_streams = [lsl_str.to_serializable_obj() for
                                lsl_str in self.working_lsl_streams]
             # Get app manager
+            # Copy app_info (instead of mutating the shared apps_dict entry,
+            # which is reused elsewhere, e.g. about_app) and attach the
+            # current user's session cookies so the app can make
+            # authenticated requests instead of anonymous ones.
+            curr_session = self.apps_manager.accounts_manager.current_session
+            app_info = dict(self.apps_manager.apps_dict[current_app_key])
+            app_info['auth_cookies'] = curr_session.get_auth_cookies()
             self.app_process = app_process_mdl.App(
-                app_info=self.apps_manager.apps_dict[current_app_key],
+                app_info=app_info,
                 app_settings=self.app_settings,
                 medusa_interface=self.medusa_interface,
                 app_state=self.app_state,
