@@ -1096,8 +1096,14 @@ class PlotsTabConfigWidget(QWidget):
             rect = self.grid.geometry()
             grid_width = rect.width()
             grid_height = rect.height()
-            row = floor(pos[1] / grid_height * self.tab_config.n_rows)
-            col = floor(pos[0] / grid_width * self.tab_config.n_cols)
+            x = pos[0] - rect.x()
+            y = pos[1] - rect.y()
+            x = max(0, min(x, grid_width - 1)) if grid_width > 0 else 0
+            y = max(0, min(y, grid_height - 1)) if grid_height > 0 else 0
+            row = floor(y / grid_height * self.tab_config.n_rows) if grid_height > 0 else 0
+            col = floor(x / grid_width * self.tab_config.n_cols) if grid_width > 0 else 0
+            row = min(row, self.tab_config.n_rows - 1)
+            col = min(col, self.tab_config.n_cols - 1)
             grid_coord = [row, col]
             return grid_coord
         except Exception as e:
