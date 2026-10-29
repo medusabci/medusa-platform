@@ -104,7 +104,10 @@ class LoginDialog(QtWidgets.QDialog, ui_main_dialog):
             self.success = True
             self.close()
         except exceptions.AuthenticationError as e:
-            self.label_error_msg.setText('Incorrect email or password')
+            # The server message is set only for unconfirmed accounts
+            # (str(e) would be 'None' when no message is given)
+            msg = e.args[0] if e.args and e.args[0] else None
+            self.label_error_msg.setText(msg or 'Incorrect email or password')
             self.success = False
         except requests.exceptions.ConnectionError as e:
             self.label_error_msg.setText('Host unreachable')

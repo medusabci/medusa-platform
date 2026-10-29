@@ -3,6 +3,10 @@ import json, pickle
 import os, re
 import exceptions
 
+# Message returned by medusabci.com /api/login/ when the password is correct
+# but the account email has not been confirmed yet
+ACCOUNT_NOT_CONFIRMED_MSG = 'Account not confirmed. Check your email.'
+
 
 class UserSession:
 
@@ -62,6 +66,15 @@ class UserSession:
         if resp.status_code == 200:
             self.user_info = json.loads(resp.content)
         elif resp.status_code == 401:
+            # Forward the server message only for unconfirmed accounts, so
+            # the user knows they have to confirm their email. Any other 401
+            # keeps the generic message
+            try:
+                msg = json.loads(resp.content).get('msg')
+            except (ValueError, AttributeError):
+                msg = None
+            if msg == ACCOUNT_NOT_CONFIRMED_MSG:
+                raise exceptions.AuthenticationError(msg)
             raise exceptions.AuthenticationError()
         else:
             raise Exception("\n\n" + resp.text)
